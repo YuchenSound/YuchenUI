@@ -1,0 +1,46 @@
+# Auto detect text files
+* text=auto
+
+# Source code - always LF
+*.cpp text eol=lf
+*.h text eol=lf
+*.hpp text eol=lf
+*.c text eol=lf
+*.m text eol=lf
+*.mm text eol=lf
+
+# CMake
+*.cmake text eol=lf
+CMakeLists.txt text eol=lf
+
+# Shaders
+*.metal text eol=lf
+*.hlsl text eol=lf
+
+# Scripts
+*.sh text eol=lf
+*.py text eol=lf
+*.bat text eol=crlf
+
+# Docs
+*.md text eol=lf
+*.txt text eol=lf
+LICENSE text eol=lf
+
+# Binary files
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ttf binary
+*.otf binary
+*.ttc binary
+*.a binary
+*.lib binary
+*.dll binary
+*.dylib binary
+*.so binary
+*.exe binary
+*.cso binary
+*.metallib binary
+*.air binary

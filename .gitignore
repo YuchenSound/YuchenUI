@@ -1,0 +1,43 @@
+# Build directories
+build/
+build_*/
+cmake-build-*/
+out/
+
+# IDE files
+.vscode/
+.idea/
+.vs/
+*.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+DerivedData/
+*.suo
+*.user
+*.swp
+*.swo
+.DS_Store
+
+# Compiled files
+*.o
+*.obj
+*.exe
+*.dll
+*.dylib
+*.so
+*.a
+*.lib
+
+# Generated files
+generated/
+*.metallib
+*.air
+*.cso
+*.spv
+
+# Python
+__pycache__/
+*.pyc
+
+# OS files
+Thumbs.db
+Desktop.ini

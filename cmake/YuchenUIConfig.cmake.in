@@ -1,0 +1,54 @@
+@PACKAGE_INIT@
+
+set(YuchenUI_VERSION @PROJECT_VERSION@)
+
+set_and_check(YuchenUI_INCLUDE_DIR "@PACKAGE_CMAKE_INSTALL_INCLUDEDIR@")
+set_and_check(YuchenUI_LIB_DIR "@PACKAGE_CMAKE_INSTALL_LIBDIR@")
+set_and_check(YuchenUI_SHARE_DIR "@PACKAGE_CMAKE_INSTALL_DATADIR@/${PROJECT_NAME}")
+
+# 检查平台并加载对应的依赖
+if(APPLE)
+    foreach(framework_name Cocoa Metal MetalKit QuartzCore)
+        find_library(${framework_name}_FRAMEWORK ${framework_name})
+        if(NOT ${framework_name}_FRAMEWORK)
+            set(YuchenUI_FOUND FALSE)
+            set(YuchenUI_NOT_FOUND_MESSAGE "Required framework ${framework_name} not found")
+            return()
+        endif()
+    endforeach()
+elseif(WIN32)
+    # Windows平台DirectX库在Platform.cmake中已配置
+    # 这里不需要额外检查
+else()
+    set(YuchenUI_FOUND FALSE)
+    set(YuchenUI_NOT_FOUND_MESSAGE "YuchenUI only supports macOS and Windows")
+    return()
+endif()
+
+if(NOT TARGET YuchenUI::YuchenUI)
+    include("${CMAKE_CURRENT_LIST_DIR}/YuchenUITargets.cmake")
+endif()
+
+set(YuchenUI_LIBRARIES YuchenUI::YuchenUI)
+set(YuchenUI_INCLUDE_DIRS ${YuchenUI_INCLUDE_DIR})
+
+# 平台特定的着色器处理
+if(APPLE)
+    set(YuchenUI_SHADER_DIR ${YuchenUI_SHARE_DIR})
+    
+    function(yuchen_copy_shaders target_name)
+        add_custom_command(TARGET ${target_name} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${YuchenUI_SHADER_DIR}/Basic.metallib"
+            "$<TARGET_FILE_DIR:${target_name}>/Basic.metallib"
+            COMMENT "Copying YuchenUI shaders"
+        )
+    endfunction()
+elseif(WIN32)
+    # Windows着色器编译到二进制或作为资源嵌入
+    function(yuchen_copy_shaders target_name)
+        # Windows不需要外部复制着色器
+    endfunction()
+endif()
+
+check_required_components(YuchenUI)
