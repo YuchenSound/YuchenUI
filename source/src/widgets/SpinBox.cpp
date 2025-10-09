@@ -38,9 +38,9 @@ SpinBox::SpinBox(const Rect& bounds)
     , m_paddingRight(5.0f)
     , m_paddingBottom(5.0f)
     , m_hasBackground(true)
-    , m_canReceiveFocusConfig(true)
 {
     Validation::AssertRect(bounds);
+    setFocusPolicy(FocusPolicy::StrongFocus);
 }
 
 SpinBox::~SpinBox() {
@@ -243,16 +243,6 @@ void SpinBox::update(float deltaTime) {
         m_cursorBlinkTimer = 0.0f;
         m_showCursor = !m_showCursor;
     }
-}
-
-void SpinBox::onFocusGained() {
-    if (!m_isEditing) {
-        enterEditMode();
-    }
-}
-
-void SpinBox::onFocusLost() {
-    exitEditMode();
 }
 
 Rect SpinBox::getInputMethodCursorRect() const {
@@ -508,12 +498,19 @@ void SpinBox::setHasBackground(bool hasBackground) {
     m_hasBackground = hasBackground;
 }
 
-void SpinBox::setCanReceiveFocusConfig(bool canFocus) {
-    m_canReceiveFocusConfig = canFocus;
+void SpinBox::setFocusable(bool focusable) {
+    setFocusPolicy(focusable ? FocusPolicy::StrongFocus : FocusPolicy::NoFocus);
 }
 
-bool SpinBox::canReceiveFocus() const {
-    return m_canReceiveFocusConfig && m_isEnabled && m_isVisible;
+void SpinBox::focusInEvent(FocusReason reason) {
+    if (!m_isEditing) {
+        enterEditMode();
+    }
 }
+
+void SpinBox::focusOutEvent(FocusReason reason) {
+    exitEditMode();
+}
+
 
 }

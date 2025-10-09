@@ -22,6 +22,7 @@ ComboBox::ComboBox(const Rect& bounds)
     , m_menuNeedsRebuild(true)
 {
     Validation::AssertRect(bounds);
+    setFocusPolicy(FocusPolicy::StrongFocus);
 }
 
 ComboBox::~ComboBox() {

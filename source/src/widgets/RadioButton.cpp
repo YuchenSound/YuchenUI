@@ -21,6 +21,7 @@ RadioButton::RadioButton(const Rect& bounds)
     , m_checkedCallback(nullptr)
 {
     Validation::AssertRect(bounds);
+    setFocusPolicy(FocusPolicy::StrongFocus);
 }
 
 RadioButton::~RadioButton() {
@@ -85,7 +86,7 @@ bool RadioButton::handleMouseClick(const Vec2& position, bool pressed, const Vec
     if (pressed) {
         if (absRect.contains(position)) {
             m_isPressed = true;
-            requestFocus();
+            requestFocus(FocusReason::MouseFocusReason);
             return true;
         }
     } else {
@@ -321,7 +322,7 @@ void RadioButtonGroup::selectNext(RadioButton* current) {
         RadioButton* nextButton = m_buttons[nextIndex];
         if (nextButton && nextButton->isEnabled() && nextButton->isVisible()) {
             setCheckedButton(nextButton);
-            nextButton->requestFocus();
+            nextButton->requestFocus(FocusReason::OtherFocusReason);
             return;
         }
         nextIndex = (nextIndex + 1) % m_buttons.size();
@@ -343,7 +344,7 @@ void RadioButtonGroup::selectPrevious(RadioButton* current) {
         RadioButton* prevButton = m_buttons[prevIndex];
         if (prevButton && prevButton->isEnabled() && prevButton->isVisible()) {
             setCheckedButton(prevButton);
-            prevButton->requestFocus();
+            prevButton->requestFocus(FocusReason::OtherFocusReason);
             return;
         }
         prevIndex = (prevIndex == 0) ? m_buttons.size() - 1 : prevIndex - 1;

@@ -45,11 +45,16 @@ public:
     RadioButtonGroup* getGroup() const { return m_group; }
     
     bool isValid() const;
-    bool canReceiveFocus() const override { return m_isEnabled && m_isVisible; }
 
 protected:
-    CornerRadius getFocusIndicatorCornerRadius() const override { return CornerRadius(7.0f); }
-
+    bool shouldHandleDirectionKey(FocusDirection direction) const override {
+        if (!m_group) return false;
+        
+        return direction == FocusDirection::Up ||
+               direction == FocusDirection::Down ||
+               direction == FocusDirection::Left ||
+               direction == FocusDirection::Right;
+    }
 private:
     void internalSetChecked(bool checked);
     

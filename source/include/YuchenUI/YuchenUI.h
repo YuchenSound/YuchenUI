@@ -21,7 +21,6 @@
 #include "YuchenUI/widgets/CheckBox.h"
 #include "YuchenUI/widgets/RadioButton.h"
 
-
 #include "YuchenUI/windows/IWindowContent.h"
 #include "YuchenUI/utils/Clipboard.h"
 

@@ -23,6 +23,7 @@ Button::Button(const Rect& bounds)
     , m_hasCustomTextColor(false)
 {
     Validation::AssertRect(bounds);
+    setFocusPolicy(FocusPolicy::StrongFocus);
 }
 
 Button::~Button() {

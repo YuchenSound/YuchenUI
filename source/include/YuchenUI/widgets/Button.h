@@ -55,8 +55,6 @@ public:
     
     bool isValid() const;
     
-    bool canReceiveFocus() const override { return m_isEnabled && m_isVisible; }
-
 protected:
     CornerRadius getFocusIndicatorCornerRadius() const override { return CornerRadius(2.0f); }
     

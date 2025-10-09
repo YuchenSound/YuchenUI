@@ -46,9 +46,6 @@ public:
     void setHasBackground(bool hasBackground);
     bool hasBackground() const { return m_hasBackground; }
     
-    void setCanReceiveFocusConfig(bool canFocus);
-    bool canReceiveFocus() const override;
-    
     void addDrawCommands(RenderList& commandList, const Vec2& offset = Vec2()) const override;
     bool handleMouseMove(const Vec2& position, const Vec2& offset = Vec2()) override;
     bool handleMouseClick(const Vec2& position, bool pressed, const Vec2& offset = Vec2()) override;
@@ -57,16 +54,16 @@ public:
     bool handleTextInput(uint32_t codepoint) override;
     void update(float deltaTime) override;
     
-    void onFocusGained() override;
-    void onFocusLost() override;
+    void setFocusable(bool focusable);
+
     
     Rect getInputMethodCursorRect() const override;
     
     bool isValid() const;
 
 protected:
-    CornerRadius getFocusIndicatorCornerRadius() const override { return CornerRadius(2.0f); }
-
+    void focusInEvent(FocusReason reason) override;
+    void focusOutEvent(FocusReason reason) override;
 private:
     void enterEditMode();
     void exitEditMode();
@@ -115,7 +112,6 @@ private:
     float m_paddingBottom;
     
     bool m_hasBackground;
-    bool m_canReceiveFocusConfig;
     
     static constexpr float CURSOR_BLINK_INTERVAL = 0.53f;
     static constexpr float DRAG_SENSITIVITY = 0.1f;

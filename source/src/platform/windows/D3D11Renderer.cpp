@@ -1,3 +1,31 @@
+/*******************************************************************************************
+**
+** YuchenUI - Modern C++ GUI Framework
+**
+** Copyright (C) 2025 Yuchen Wei
+** Contact: https://github.com/YuchenSound/YuchenUI
+**
+** This file is part of the YuchenUI Rendering module (Windows/Direct3D 11).
+**
+** $YUCHEN_BEGIN_LICENSE:MIT$
+** Licensed under the MIT License
+** $YUCHEN_END_LICENSE$
+**
+********************************************************************************************/
+
+//==========================================================================================
+/** @file D3D11Renderer.cpp
+    
+    Implementation notes:
+    - Render commands are batched by type and clip state for performance
+    - Text rendering uses a pre-allocated dynamic vertex buffer
+    - Rectangles use shader-based rounded corners and borders
+    - Images support nine-slice scaling for UI components
+    - Circles are rendered as textured quads with SDF in pixel shader
+    - Scissor rectangles are used for clipping
+    - All shaders must be compiled to .cso files and placed in shaders/ directory
+*/
+
 #include "D3D11Renderer.h"
 #include "YuchenUI/core/Validation.h"
 #include "YuchenUI/core/Config.h"
@@ -13,6 +41,7 @@
 #pragma comment(lib, "dxgi.lib")
 #pragma comment(lib, "d3dcompiler.lib")
 
+// Undefine Windows macros that conflict with our methods
 #ifdef DrawText
 #undef DrawText
 #endif
@@ -25,20 +54,28 @@ namespace {
 
 using namespace YuchenUI;
 
+/** Vertex structure for image rendering (position + texture coordinates). */
 struct ImageVertex {
     Vec2 position;
     Vec2 texCoord;
 };
 
+/** Clip state for render command batching. */
 struct ClipState {
     YuchenUI::Rect clipRect;
     bool hasClip;
 };
 
+/** Computes a hash for clip state to group render commands.
+    
+    @param state  Clip state to hash
+    @returns Hash value (0 if no clipping)
+*/
 uint64_t computeClipHash(const ClipState& state)
 {
     if (!state.hasClip) return 0;
     
+    // Simple hash combining all rectangle components
     uint64_t hash = 0;
     hash ^= std::hash<float>()(state.clipRect.x);
     hash ^= std::hash<float>()(state.clipRect.y) << 1;
@@ -51,7 +88,8 @@ uint64_t computeClipHash(const ClipState& state)
 
 namespace YuchenUI {
 
-// MARK: - Constructor and Destructor
+//==========================================================================================
+// Construction and Destruction
 
 D3D11Renderer::D3D11Renderer()
     : m_usingSharedDevice(false)
@@ -98,7 +136,8 @@ D3D11Renderer::~D3D11Renderer()
     releaseResources();
 }
 
-// MARK: - Public Interface
+//==========================================================================================
+// Public Interface
 
 bool D3D11Renderer::initialize(int width, int height, float dpiScale)
 {
@@ -108,6 +147,7 @@ bool D3D11Renderer::initialize(int width, int height, float dpiScale)
     m_height = height;
     m_dpiScale = dpiScale;
 
+    // Create device if not using shared device
     if (!m_usingSharedDevice)
     {
         if (!createDevice())
@@ -116,39 +156,46 @@ bool D3D11Renderer::initialize(int width, int height, float dpiScale)
         }
     }
 
+    // Load compiled shaders
     if (!loadShaders())
     {
         return false;
     }
 
+    // Create input layouts for each pipeline
     if (!createInputLayouts())
     {
         return false;
     }
 
+    // Create blend states for alpha blending
     if (!createBlendStates())
     {
         return false;
     }
 
+    // Create sampler states for texture filtering
     if (!createSamplerStates())
     {
         return false;
     }
 
+    // Create rasterizer states with scissor test
     if (!createRasterizerStates())
     {
         return false;
     }
 
+    // Create constant buffers for shader uniforms
     if (!createConstantBuffers())
     {
         return false;
     }
 
+    // Create dynamic vertex buffer for text rendering
     D3D11_BUFFER_DESC vbDesc = {};
     vbDesc.ByteWidth = static_cast<UINT>(m_maxTextVertices * sizeof(TextVertex));
-    vbDesc.Usage = D3D11_USAGE_DYNAMIC;
+    vbDesc.Usage = D3D11_USAGE_DYNAMIC;  // CPU writes, GPU reads
     vbDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
     vbDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
 
@@ -157,6 +204,7 @@ bool D3D11Renderer::initialize(int width, int height, float dpiScale)
         return false;
     }
 
+    // Create index buffer for text quads (6 indices per quad: 0,1,2, 1,3,2)
     std::vector<uint16_t> indices((m_maxTextVertices / 4) * 6);
     for (size_t i = 0; i < m_maxTextVertices / 4; ++i)
     {
@@ -172,7 +220,7 @@ bool D3D11Renderer::initialize(int width, int height, float dpiScale)
 
     D3D11_BUFFER_DESC ibDesc = {};
     ibDesc.ByteWidth = static_cast<UINT>(indices.size() * sizeof(uint16_t));
-    ibDesc.Usage = D3D11_USAGE_IMMUTABLE;
+    ibDesc.Usage = D3D11_USAGE_IMMUTABLE;  // Never modified after creation
     ibDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
 
     D3D11_SUBRESOURCE_DATA ibData = {};
@@ -185,12 +233,14 @@ bool D3D11Renderer::initialize(int width, int height, float dpiScale)
 
     m_isInitialized = true;
 
+    // Initialize text renderer
     m_textRenderer = std::make_unique<TextRenderer>(this);
     if (!m_textRenderer->initialize(m_dpiScale))
     {
         return false;
     }
 
+    // Initialize texture cache
     m_textureCache = std::make_unique<TextureCache>(this);
     if (!m_textureCache->initialize())
     {
@@ -207,7 +257,7 @@ void D3D11Renderer::setSharedDevice(void* sharedDevice)
     YUCHEN_ASSERT_MSG(!m_isInitialized, "Cannot set shared device after initialization");
     
     m_device = static_cast<ID3D11Device*>(sharedDevice);
-    m_device->AddRef();
+    m_device->AddRef();  // Take ownership
     m_device->GetImmediateContext(&m_context);
     m_usingSharedDevice = true;
 }
@@ -219,6 +269,7 @@ void D3D11Renderer::setSurface(void* surface)
     
     m_hwnd = static_cast<HWND>(surface);
     
+    // Release existing swap chain and render target
     if (m_swapChain)
     {
         if (m_rtv)
@@ -230,6 +281,7 @@ void D3D11Renderer::setSurface(void* surface)
         m_swapChain = nullptr;
     }
     
+    // Create new swap chain and render target
     if (!createSwapChain(m_hwnd)) return;
     if (!createRenderTarget()) return;
 }
@@ -244,12 +296,14 @@ void D3D11Renderer::resize(int width, int height)
     
     if (m_swapChain)
     {
+        // Release render target before resizing
         if (m_rtv)
         {
             m_rtv->Release();
             m_rtv = nullptr;
         }
         
+        // Resize swap chain buffers
         m_swapChain->ResizeBuffers(0, width, height, DXGI_FORMAT_UNKNOWN, 0);
         createRenderTarget();
     }
@@ -269,26 +323,32 @@ void D3D11Renderer::beginFrame()
 {
     if (!m_rtv) return;
     
+    // Set render target
     m_context->OMSetRenderTargets(1, &m_rtv, nullptr);
     
+    // Set viewport
     D3D11_VIEWPORT viewport = {};
     viewport.Width = static_cast<FLOAT>(m_width);
     viewport.Height = static_cast<FLOAT>(m_height);
     viewport.MaxDepth = 1.0f;
     m_context->RSSetViewports(1, &viewport);
     
+    // Clear render target
     float clearColor[4] = { m_clearColor.x, m_clearColor.y, m_clearColor.z, m_clearColor.w };
     m_context->ClearRenderTargetView(m_rtv, clearColor);
     
+    // Set initial pipeline state
     applyFullScreenScissor();
     m_context->RSSetState(m_rasterizerState);
     m_context->OMSetBlendState(m_blendState, nullptr, 0xFFFFFFFF);
     
+    // Update viewport uniforms
     ViewportUniforms uniforms = getViewportUniforms();
     updateConstantBuffer(uniforms);
     
     m_currentPipeline = ActivePipeline::None;
     
+    // Begin text rendering frame
     if (m_textRenderer) m_textRenderer->beginFrame();
 }
 
@@ -296,6 +356,7 @@ void D3D11Renderer::endFrame()
 {
     if (m_swapChain)
     {
+        // Present with vsync
         m_swapChain->Present(1, 0);
     }
 }
@@ -306,14 +367,17 @@ void* D3D11Renderer::getCurrentAtlasTexture() const
     return m_textRenderer->getCurrentAtlasTexture();
 }
 
-// MARK: - Texture Management
+//==========================================================================================
+// Texture Management
 
 void* D3D11Renderer::createTexture2D(uint32_t width, uint32_t height, TextureFormat format)
 {
     YUCHEN_ASSERT_MSG(m_isInitialized, "Renderer not initialized");
     
+    // Map to DXGI format
     DXGI_FORMAT dxgiFormat = (format == TextureFormat::R8_Unorm) ? DXGI_FORMAT_R8_UNORM : DXGI_FORMAT_R8G8B8A8_UNORM;
     
+    // Create texture
     D3D11_TEXTURE2D_DESC texDesc = {};
     texDesc.Width = width;
     texDesc.Height = height;
@@ -327,6 +391,7 @@ void* D3D11Renderer::createTexture2D(uint32_t width, uint32_t height, TextureFor
     ID3D11Texture2D* texture = nullptr;
     if (FAILED(m_device->CreateTexture2D(&texDesc, nullptr, &texture))) return nullptr;
     
+    // Create shader resource view
     D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
     srvDesc.Format = dxgiFormat;
     srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
@@ -339,7 +404,7 @@ void* D3D11Renderer::createTexture2D(uint32_t width, uint32_t height, TextureFor
         return nullptr;
     }
     
-    texture->Release();
+    texture->Release();  // SRV holds reference
     return srv;
 }
 
@@ -350,9 +415,11 @@ void D3D11Renderer::updateTexture2D(void* texture, uint32_t x, uint32_t y, uint3
     
     ID3D11ShaderResourceView* srv = static_cast<ID3D11ShaderResourceView*>(texture);
     
+    // Get underlying resource
     ID3D11Resource* resource = nullptr;
     srv->GetResource(&resource);
     
+    // Define update region
     D3D11_BOX box = {};
     box.left = x;
     box.top = y;
@@ -361,6 +428,7 @@ void D3D11Renderer::updateTexture2D(void* texture, uint32_t x, uint32_t y, uint3
     box.front = 0;
     box.back = 1;
     
+    // Update subresource
     m_context->UpdateSubresource(resource, 0, &box, data, static_cast<UINT>(bytesPerRow), 0);
     
     resource->Release();
@@ -374,7 +442,8 @@ void D3D11Renderer::destroyTexture(void* texture)
     srv->Release();
 }
 
-// MARK: - Device and Resource Creation
+//==========================================================================================
+// Device and Resource Creation
 
 bool D3D11Renderer::createDevice()
 {
@@ -402,6 +471,7 @@ bool D3D11Renderer::createDevice()
         &m_context
     );
 
+    // Retry without debug layer if it failed
     if (FAILED(hr) && (flags & D3D11_CREATE_DEVICE_DEBUG))
     {
         flags &= ~D3D11_CREATE_DEVICE_DEBUG;
@@ -425,6 +495,7 @@ bool D3D11Renderer::createDevice()
 
 bool D3D11Renderer::createSwapChain(HWND hwnd)
 {
+    // Get DXGI factory from device
     IDXGIDevice* dxgiDevice = nullptr;
     m_device->QueryInterface(__uuidof(IDXGIDevice), (void**)&dxgiDevice);
     
@@ -434,15 +505,17 @@ bool D3D11Renderer::createSwapChain(HWND hwnd)
     IDXGIFactory2* dxgiFactory = nullptr;
     dxgiAdapter->GetParent(__uuidof(IDXGIFactory2), (void**)&dxgiFactory);
     
+    // Configure swap chain
     DXGI_SWAP_CHAIN_DESC1 swapChainDesc = {};
     swapChainDesc.Width = m_width;
     swapChainDesc.Height = m_height;
     swapChainDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
     swapChainDesc.SampleDesc.Count = 1;
     swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
-    swapChainDesc.BufferCount = 2;
+    swapChainDesc.BufferCount = 2;  // Double buffering
     swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
     
+    // Create swap chain
     HRESULT hr = dxgiFactory->CreateSwapChainForHwnd(
         m_device,
         hwnd,
@@ -452,6 +525,7 @@ bool D3D11Renderer::createSwapChain(HWND hwnd)
         &m_swapChain
     );
     
+    // Cleanup
     dxgiFactory->Release();
     dxgiAdapter->Release();
     dxgiDevice->Release();
@@ -461,9 +535,11 @@ bool D3D11Renderer::createSwapChain(HWND hwnd)
 
 bool D3D11Renderer::createRenderTarget()
 {
+    // Get back buffer from swap chain
     ID3D11Texture2D* backBuffer = nullptr;
     m_swapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (void**)&backBuffer);
     
+    // Create render target view
     HRESULT hr = m_device->CreateRenderTargetView(backBuffer, nullptr, &m_rtv);
     backBuffer->Release();
     
@@ -475,8 +551,10 @@ bool D3D11Renderer::loadShaderFromFile(const wchar_t* path, ID3DBlob** outBlob)
     std::wstring fullPath = path;
     std::ifstream file(fullPath, std::ios::binary);
 
+    // Try current directory first
     if (!file.is_open())
     {
+        // Try executable directory
         wchar_t exePath[MAX_PATH];
         GetModuleFileNameW(NULL, exePath, MAX_PATH);
         std::wstring exeDir = exePath;
@@ -495,6 +573,7 @@ bool D3D11Renderer::loadShaderFromFile(const wchar_t* path, ID3DBlob** outBlob)
         }
     }
 
+    // Read file into blob
     file.seekg(0, std::ios::end);
     size_t size = file.tellg();
     file.seekg(0, std::ios::beg);
@@ -515,6 +594,7 @@ bool D3D11Renderer::loadShaders()
 {
     ID3DBlob* blob = nullptr;
     
+    // Load rectangle shaders
     if (!loadShaderFromFile(L"shaders/BasicVS.cso", &blob)) return false;
     if (FAILED(m_device->CreateVertexShader(blob->GetBufferPointer(), blob->GetBufferSize(), nullptr, &m_rectVS))) { blob->Release(); return false; }
     blob->Release();
@@ -523,6 +603,7 @@ bool D3D11Renderer::loadShaders()
     if (FAILED(m_device->CreatePixelShader(blob->GetBufferPointer(), blob->GetBufferSize(), nullptr, &m_rectPS))) { blob->Release(); return false; }
     blob->Release();
     
+    // Load text shaders
     if (!loadShaderFromFile(L"shaders/TextVS.cso", &blob)) return false;
     if (FAILED(m_device->CreateVertexShader(blob->GetBufferPointer(), blob->GetBufferSize(), nullptr, &m_textVS))) { blob->Release(); return false; }
     blob->Release();
@@ -531,6 +612,7 @@ bool D3D11Renderer::loadShaders()
     if (FAILED(m_device->CreatePixelShader(blob->GetBufferPointer(), blob->GetBufferSize(), nullptr, &m_textPS))) { blob->Release(); return false; }
     blob->Release();
     
+    // Load image shaders
     if (!loadShaderFromFile(L"shaders/ImageVS.cso", &blob)) return false;
     if (FAILED(m_device->CreateVertexShader(blob->GetBufferPointer(), blob->GetBufferSize(), nullptr, &m_imageVS))) { blob->Release(); return false; }
     blob->Release();
@@ -539,6 +621,7 @@ bool D3D11Renderer::loadShaders()
     if (FAILED(m_device->CreatePixelShader(blob->GetBufferPointer(), blob->GetBufferSize(), nullptr, &m_imagePS))) { blob->Release(); return false; }
     blob->Release();
     
+    // Load shape shaders
     if (!loadShaderFromFile(L"shaders/ShapeVS.cso", &blob)) return false;
     if (FAILED(m_device->CreateVertexShader(blob->GetBufferPointer(), blob->GetBufferSize(), nullptr, &m_shapeVS))) { blob->Release(); return false; }
     blob->Release();
@@ -547,6 +630,7 @@ bool D3D11Renderer::loadShaders()
     if (FAILED(m_device->CreatePixelShader(blob->GetBufferPointer(), blob->GetBufferSize(), nullptr, &m_shapePS))) { blob->Release(); return false; }
     blob->Release();
     
+    // Load circle shaders
     if (!loadShaderFromFile(L"shaders/CircleVS.cso", &blob)) return false;
     if (FAILED(m_device->CreateVertexShader(blob->GetBufferPointer(), blob->GetBufferSize(), nullptr, &m_circleVS))) { blob->Release(); return false; }
     blob->Release();
@@ -560,13 +644,14 @@ bool D3D11Renderer::loadShaders()
 
 bool D3D11Renderer::createInputLayouts()
 {
+    // Rectangle input layout
     D3D11_INPUT_ELEMENT_DESC rectLayout[] = {
-        { "POSITION", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-        { "POSITION", 1, DXGI_FORMAT_R32G32_FLOAT, 0, 8, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-        { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 16, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-        { "TEXCOORD", 1, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 24, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-        { "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 40, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-        { "TEXCOORD", 2, DXGI_FORMAT_R32_FLOAT, 0, 56, D3D11_INPUT_PER_VERTEX_DATA, 0 }
+        { "POSITION", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },      // position
+        { "POSITION", 1, DXGI_FORMAT_R32G32_FLOAT, 0, 8, D3D11_INPUT_PER_VERTEX_DATA, 0 },      // rectPos
+        { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 16, D3D11_INPUT_PER_VERTEX_DATA, 0 },     // rectSize
+        { "TEXCOORD", 1, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 24, D3D11_INPUT_PER_VERTEX_DATA, 0 }, // cornerRadius
+        { "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 40, D3D11_INPUT_PER_VERTEX_DATA, 0 },  // color
+        { "TEXCOORD", 2, DXGI_FORMAT_R32_FLOAT, 0, 56, D3D11_INPUT_PER_VERTEX_DATA, 0 }         // borderWidth
     };
     
     ID3DBlob* vsBlob = nullptr;
@@ -575,6 +660,7 @@ bool D3D11Renderer::createInputLayouts()
     vsBlob->Release();
     if (FAILED(hr)) return false;
     
+    // Text input layout
     D3D11_INPUT_ELEMENT_DESC textLayout[] = {
         { "POSITION", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
         { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 8, D3D11_INPUT_PER_VERTEX_DATA, 0 },
@@ -586,6 +672,7 @@ bool D3D11Renderer::createInputLayouts()
     vsBlob->Release();
     if (FAILED(hr)) return false;
     
+    // Image input layout
     D3D11_INPUT_ELEMENT_DESC imageLayout[] = {
         { "POSITION", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
         { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 8, D3D11_INPUT_PER_VERTEX_DATA, 0 }
@@ -596,6 +683,7 @@ bool D3D11Renderer::createInputLayouts()
     vsBlob->Release();
     if (FAILED(hr)) return false;
     
+    // Shape input layout
     D3D11_INPUT_ELEMENT_DESC shapeLayout[] = {
         { "POSITION", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
         { "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 8, D3D11_INPUT_PER_VERTEX_DATA, 0 }
@@ -606,6 +694,7 @@ bool D3D11Renderer::createInputLayouts()
     vsBlob->Release();
     if (FAILED(hr)) return false;
     
+    // Circle input layout
     D3D11_INPUT_ELEMENT_DESC circleLayout[] = {
         { "POSITION", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
         { "POSITION", 1, DXGI_FORMAT_R32G32_FLOAT, 0, 8, D3D11_INPUT_PER_VERTEX_DATA, 0 },
@@ -624,6 +713,7 @@ bool D3D11Renderer::createInputLayouts()
 
 bool D3D11Renderer::createBlendStates()
 {
+    // Standard alpha blending
     D3D11_BLEND_DESC blendDesc = {};
     blendDesc.RenderTarget[0].BlendEnable = TRUE;
     blendDesc.RenderTarget[0].SrcBlend = D3D11_BLEND_SRC_ALPHA;
@@ -639,6 +729,7 @@ bool D3D11Renderer::createBlendStates()
 
 bool D3D11Renderer::createSamplerStates()
 {
+    // Linear filtering with clamp addressing
     D3D11_SAMPLER_DESC samplerDesc = {};
     samplerDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
     samplerDesc.AddressU = D3D11_TEXTURE_ADDRESS_CLAMP;
@@ -650,6 +741,7 @@ bool D3D11Renderer::createSamplerStates()
 
 bool D3D11Renderer::createRasterizerStates()
 {
+    // Solid fill with scissor test enabled
     D3D11_RASTERIZER_DESC rasterizerDesc = {};
     rasterizerDesc.FillMode = D3D11_FILL_SOLID;
     rasterizerDesc.CullMode = D3D11_CULL_NONE;
@@ -660,6 +752,7 @@ bool D3D11Renderer::createRasterizerStates()
 
 bool D3D11Renderer::createConstantBuffers()
 {
+    // Constant buffer for viewport uniforms
     D3D11_BUFFER_DESC cbDesc = {};
     cbDesc.ByteWidth = sizeof(ViewportUniforms);
     cbDesc.Usage = D3D11_USAGE_DYNAMIC;
@@ -671,6 +764,7 @@ bool D3D11Renderer::createConstantBuffers()
 
 void D3D11Renderer::releaseResources()
 {
+    // Release text renderer and texture cache first
     if (m_textRenderer)
     {
         m_textRenderer->destroy();
@@ -683,42 +777,54 @@ void D3D11Renderer::releaseResources()
         m_textureCache.reset();
     }
     
+    // Release buffers
     if (m_textIndexBuffer) { m_textIndexBuffer->Release(); m_textIndexBuffer = nullptr; }
     if (m_textVertexBuffer) { m_textVertexBuffer->Release(); m_textVertexBuffer = nullptr; }
     if (m_constantBuffer) { m_constantBuffer->Release(); m_constantBuffer = nullptr; }
+    
+    // Release states
     if (m_rasterizerState) { m_rasterizerState->Release(); m_rasterizerState = nullptr; }
     if (m_samplerState) { m_samplerState->Release(); m_samplerState = nullptr; }
     if (m_blendState) { m_blendState->Release(); m_blendState = nullptr; }
     
+    // Release circle pipeline
     if (m_circleInputLayout) { m_circleInputLayout->Release(); m_circleInputLayout = nullptr; }
     if (m_circlePS) { m_circlePS->Release(); m_circlePS = nullptr; }
     if (m_circleVS) { m_circleVS->Release(); m_circleVS = nullptr; }
     
+    // Release shape pipeline
     if (m_shapeInputLayout) { m_shapeInputLayout->Release(); m_shapeInputLayout = nullptr; }
     if (m_shapePS) { m_shapePS->Release(); m_shapePS = nullptr; }
     if (m_shapeVS) { m_shapeVS->Release(); m_shapeVS = nullptr; }
     
+    // Release image pipeline
     if (m_imageInputLayout) { m_imageInputLayout->Release(); m_imageInputLayout = nullptr; }
     if (m_imagePS) { m_imagePS->Release(); m_imagePS = nullptr; }
     if (m_imageVS) { m_imageVS->Release(); m_imageVS = nullptr; }
     
+    // Release text pipeline
     if (m_textInputLayout) { m_textInputLayout->Release(); m_textInputLayout = nullptr; }
     if (m_textPS) { m_textPS->Release(); m_textPS = nullptr; }
     if (m_textVS) { m_textVS->Release(); m_textVS = nullptr; }
     
+    // Release rectangle pipeline
     if (m_rectInputLayout) { m_rectInputLayout->Release(); m_rectInputLayout = nullptr; }
     if (m_rectPS) { m_rectPS->Release(); m_rectPS = nullptr; }
     if (m_rectVS) { m_rectVS->Release(); m_rectVS = nullptr; }
     
+    // Release swap chain and render target
     if (m_rtv) { m_rtv->Release(); m_rtv = nullptr; }
     if (m_swapChain) { m_swapChain->Release(); m_swapChain = nullptr; }
+    
+    // Release context and device (if not using shared)
     if (m_context) { m_context->Release(); m_context = nullptr; }
     if (m_device && !m_usingSharedDevice) { m_device->Release(); m_device = nullptr; }
     
     m_isInitialized = false;
 }
 
-// MARK: - Pipeline Management
+//==========================================================================================
+// Pipeline Management
 
 void D3D11Renderer::setPipeline(ActivePipeline pipeline)
 {
@@ -758,7 +864,8 @@ void D3D11Renderer::setPipeline(ActivePipeline pipeline)
     m_currentPipeline = pipeline;
 }
 
-// MARK: - Scissor Rectangle Management
+//==========================================================================================
+// Scissor Rectangle Management
 
 D3D11_RECT D3D11Renderer::computeScissorRect(const Rect& clipRect) const
 {
@@ -768,6 +875,7 @@ D3D11_RECT D3D11Renderer::computeScissorRect(const Rect& clipRect) const
     scissor.right = static_cast<LONG>(clipRect.x + clipRect.width);
     scissor.bottom = static_cast<LONG>(clipRect.y + clipRect.height);
     
+    // Clamp to viewport bounds
     scissor.left = std::max(scissor.left, 0L);
     scissor.top = std::max(scissor.top, 0L);
     scissor.right = std::min(scissor.right, static_cast<LONG>(m_width));
@@ -792,13 +900,17 @@ void D3D11Renderer::applyFullScreenScissor()
     m_context->RSSetScissorRects(1, &scissor);
 }
 
-// MARK: - Render Command Execution
+//==========================================================================================
+// Render Command Execution
+// (This section continues from the previous D3D11Renderer.cpp artifact)
 
 void D3D11Renderer::executeRenderCommands(const RenderList& commandList)
 {
     const auto& commands = commandList.getCommands();
     if (commands.empty()) return;
     
+    // Pre-calculate clip states for all commands
+    // This allows us to batch commands with the same clip state together
     std::vector<ClipState> clipStates(commands.size());
     std::vector<Rect> clipStack;
     
@@ -810,10 +922,12 @@ void D3D11Renderer::executeRenderCommands(const RenderList& commandList)
         {
             Rect newClip = cmd.rect;
             
+            // Intersect with parent clip if one exists
             if (!clipStack.empty())
             {
                 const Rect& parentClip = clipStack.back();
                 
+                // Calculate intersection
                 float x1 = std::max(parentClip.x, newClip.x);
                 float y1 = std::max(parentClip.y, newClip.y);
                 float x2 = std::min(parentClip.x + parentClip.width, newClip.x + newClip.width);
@@ -825,6 +939,7 @@ void D3D11Renderer::executeRenderCommands(const RenderList& commandList)
                 }
                 else
                 {
+                    // Empty intersection - nothing will be visible
                     newClip = Rect(0, 0, 0, 0);
                 }
             }
@@ -840,6 +955,7 @@ void D3D11Renderer::executeRenderCommands(const RenderList& commandList)
                 clipStack.pop_back();
             }
             
+            // Restore parent clip state
             if (!clipStack.empty())
             {
                 clipStates[i].clipRect = clipStack.back();
@@ -852,6 +968,7 @@ void D3D11Renderer::executeRenderCommands(const RenderList& commandList)
         }
         else
         {
+            // Inherit current clip state
             if (!clipStack.empty())
             {
                 clipStates[i].clipRect = clipStack.back();
@@ -864,19 +981,22 @@ void D3D11Renderer::executeRenderCommands(const RenderList& commandList)
         }
     }
     
+    // Group rectangles by clip state for batching
     std::map<uint64_t, std::vector<RenderCommand>> rectGroups;
     std::map<uint64_t, Rect> rectGroupClips;
     std::map<uint64_t, bool> rectGroupHasClip;
     
+    // Group images by texture and clip state
     struct ImageBatch {
-        std::vector<size_t> indices;
+        std::vector<size_t> indices;  // Indices into commands array
         void* texture;
         Rect clipRect;
         bool hasClip;
-        size_t firstIndex;
+        size_t firstIndex;  // For preserving draw order
     };
     std::vector<ImageBatch> imageBatches;
     
+    // Collect all text vertices for batching
     std::vector<TextVertex> allTextVertices;
     std::vector<size_t> textBatchStarts;
     std::vector<size_t> textBatchCounts;
@@ -884,6 +1004,7 @@ void D3D11Renderer::executeRenderCommands(const RenderList& commandList)
     std::vector<bool> textBatchHasClips;
     allTextVertices.reserve(1024);
     
+    // First pass: batch renderable commands
     for (size_t i = 0; i < commands.size(); ++i)
     {
         const auto& cmd = commands[i];
@@ -897,6 +1018,7 @@ void D3D11Renderer::executeRenderCommands(const RenderList& commandList)
             case RenderCommandType::FillRect:
             case RenderCommandType::DrawRect:
             {
+                // Group rectangles by clip hash
                 uint64_t clipHash = computeClipHash(clipStates[i]);
                 rectGroups[clipHash].push_back(cmd);
                 rectGroupClips[clipHash] = clipStates[i].clipRect;
@@ -906,11 +1028,13 @@ void D3D11Renderer::executeRenderCommands(const RenderList& commandList)
                 
             case RenderCommandType::DrawImage:
             {
+                // Get texture from cache
                 uint32_t texWidth = 0, texHeight = 0;
                 float designScale = 1.0f;
                 void* texture = m_textureCache->getTexture(cmd.text.c_str(), texWidth, texHeight, &designScale);
                 if (texture)
                 {
+                    // Try to find existing batch with same texture and clip
                     uint64_t clipHash = computeClipHash(clipStates[i]);
                     uint64_t textureHash = reinterpret_cast<uint64_t>(texture);
                     uint64_t key = (textureHash << 32) | clipHash;
@@ -928,6 +1052,7 @@ void D3D11Renderer::executeRenderCommands(const RenderList& commandList)
                         }
                     }
                     
+                    // Create new batch if not found
                     if (!foundBatch)
                     {
                         ImageBatch newBatch;
@@ -944,6 +1069,7 @@ void D3D11Renderer::executeRenderCommands(const RenderList& commandList)
                 
             case RenderCommandType::DrawText:
             {
+                // Shape text and generate vertices
                 ShapedText shapedText;
                 m_textRenderer->shapeText(cmd.text.c_str(), cmd.westernFont, cmd.chineseFont, cmd.fontSize, shapedText);
                 if (!shapedText.isEmpty())
@@ -953,6 +1079,7 @@ void D3D11Renderer::executeRenderCommands(const RenderList& commandList)
                     
                     if (!vertices.empty())
                     {
+                        // Try to merge with previous batch if clip state matches
                         bool canMerge = false;
                         if (!textBatchStarts.empty())
                         {
@@ -972,10 +1099,12 @@ void D3D11Renderer::executeRenderCommands(const RenderList& commandList)
                         
                         if (canMerge)
                         {
+                            // Merge into existing batch
                             textBatchCounts.back() += vertices.size();
                         }
                         else
                         {
+                            // Create new batch
                             textBatchStarts.push_back(allTextVertices.size());
                             textBatchCounts.push_back(vertices.size());
                             textBatchClips.push_back(clipStates[i].clipRect);
@@ -992,6 +1121,7 @@ void D3D11Renderer::executeRenderCommands(const RenderList& commandList)
         }
     }
     
+    // Render batched rectangles
     if (!rectGroups.empty())
     {
         setPipeline(ActivePipeline::Rect);
@@ -1001,6 +1131,7 @@ void D3D11Renderer::executeRenderCommands(const RenderList& commandList)
         }
     }
     
+    // Render batched images (sort by first index to preserve draw order)
     if (!imageBatches.empty())
     {
         std::sort(imageBatches.begin(), imageBatches.end(),
@@ -1015,11 +1146,13 @@ void D3D11Renderer::executeRenderCommands(const RenderList& commandList)
         }
     }
     
+    // Render batched text
     if (!textBatchStarts.empty())
     {
         renderTextBatches(allTextVertices, textBatchStarts, textBatchCounts, textBatchClips, textBatchHasClips);
     }
     
+    // Second pass: render non-batchable commands in order
     Rect currentClip;
     bool hasClip = false;
     
@@ -1027,6 +1160,7 @@ void D3D11Renderer::executeRenderCommands(const RenderList& commandList)
     {
         const auto& cmd = commands[i];
         
+        // Update scissor rect if clip state changed
         if (cmd.type == RenderCommandType::PushClip)
         {
             currentClip = clipStates[i].clipRect;
@@ -1052,6 +1186,7 @@ void D3D11Renderer::executeRenderCommands(const RenderList& commandList)
             continue;
         }
         
+        // Update scissor if clip changed
         if (clipStates[i].hasClip && (!hasClip ||
             currentClip.x != clipStates[i].clipRect.x ||
             currentClip.y != clipStates[i].clipRect.y ||
@@ -1068,6 +1203,7 @@ void D3D11Renderer::executeRenderCommands(const RenderList& commandList)
             applyFullScreenScissor();
         }
         
+        // Render non-batchable primitives
         switch (cmd.type)
         {
             case RenderCommandType::DrawLine:
@@ -1095,19 +1231,23 @@ void D3D11Renderer::executeRenderCommands(const RenderList& commandList)
         }
     }
     
+    // Reset scissor to full screen
     applyFullScreenScissor();
 }
 
-// MARK: - Rectangle Rendering
+//==========================================================================================
+// Rectangle Rendering
 
 void D3D11Renderer::renderRectangle(const Rect& rect, const Vec4& color, const CornerRadius& cornerRadius, float borderWidth)
 {
     YUCHEN_ASSERT_MSG(m_isInitialized, "Not initialized");
     
+    // Convert to normalized device coordinates (NDC)
     float left, right, top, bottom;
     convertToNDC(rect.x, rect.y, left, top);
     convertToNDC(rect.x + rect.width, rect.y + rect.height, right, bottom);
     
+    // Create 6 vertices for 2 triangles (quad)
     RectVertex vertices[6];
     vertices[0] = RectVertex(Vec2(left, top), rect, cornerRadius, color, borderWidth);
     vertices[1] = RectVertex(Vec2(left, bottom), rect, cornerRadius, color, borderWidth);
@@ -1116,6 +1256,7 @@ void D3D11Renderer::renderRectangle(const Rect& rect, const Vec4& color, const C
     vertices[4] = RectVertex(Vec2(right, bottom), rect, cornerRadius, color, borderWidth);
     vertices[5] = RectVertex(Vec2(right, top), rect, cornerRadius, color, borderWidth);
     
+    // Create immutable vertex buffer
     D3D11_BUFFER_DESC vbDesc = {};
     vbDesc.ByteWidth = sizeof(vertices);
     vbDesc.Usage = D3D11_USAGE_IMMUTABLE;
@@ -1127,6 +1268,7 @@ void D3D11Renderer::renderRectangle(const Rect& rect, const Vec4& color, const C
     ID3D11Buffer* vertexBuffer = nullptr;
     m_device->CreateBuffer(&vbDesc, &vbData, &vertexBuffer);
     
+    // Bind and draw
     UINT stride = sizeof(RectVertex);
     UINT offset = 0;
     m_context->IASetVertexBuffers(0, 1, &vertexBuffer, &stride, &offset);
@@ -1141,6 +1283,7 @@ void D3D11Renderer::renderRectBatch(const std::vector<RenderCommand>& commands, 
 {
     if (commands.empty()) return;
     
+    // Apply clip state
     if (hasClip)
     {
         applyScissorRect(clipRect);
@@ -1150,25 +1293,30 @@ void D3D11Renderer::renderRectBatch(const std::vector<RenderCommand>& commands, 
         applyFullScreenScissor();
     }
     
+    // Render each rectangle
     for (const auto& cmd : commands)
     {
         renderRectangle(cmd.rect, cmd.color, cmd.cornerRadius, cmd.borderWidth);
     }
 }
 
-// MARK: - Image Rendering
+//==========================================================================================
+// Image Rendering
 
 void D3D11Renderer::generateImageVertices(const Rect& destRect, const Rect& sourceRect, uint32_t texWidth, uint32_t texHeight, std::vector<float>& outVertices)
 {
+    // Convert destination to NDC
     float left, right, top, bottom;
     convertToNDC(destRect.x, destRect.y, left, top);
     convertToNDC(destRect.x + destRect.width, destRect.y + destRect.height, right, bottom);
     
+    // Calculate texture coordinates (normalized 0-1)
     float u0 = sourceRect.x / texWidth;
     float v0 = sourceRect.y / texHeight;
     float u1 = (sourceRect.x + sourceRect.width) / texWidth;
     float v1 = (sourceRect.y + sourceRect.height) / texHeight;
     
+    // Generate vertices for quad (2 triangles = 6 vertices)
     float vertices[] =
     {
         left,  top,    u0, v0,
@@ -1184,22 +1332,30 @@ void D3D11Renderer::generateImageVertices(const Rect& destRect, const Rect& sour
 
 void D3D11Renderer::computeNineSliceRects(const Rect& destRect, const Rect& sourceRect, const NineSliceMargins& margins, float designScale, Rect outSlices[9])
 {
+    // Source margins in texture pixels
     float srcLeft = margins.left;
     float srcTop = margins.top;
     float srcRight = margins.right;
     float srcBottom = margins.bottom;
         
+    // Destination margins scaled by DPI
     float destLeft = srcLeft / designScale;
     float destTop = srcTop / designScale;
     float destRight = srcRight / designScale;
     float destBottom = srcBottom / designScale;
     
+    // Calculate center region size
     float destCenterWidth = destRect.width - destLeft - destRight;
     float destCenterHeight = destRect.height - destTop - destBottom;
     
+    // Clamp to prevent negative sizes
     if (destCenterWidth < 0.0f) destCenterWidth = 0.0f;
     if (destCenterHeight < 0.0f) destCenterHeight = 0.0f;
     
+    // Compute 9 destination rectangles:
+    // 0=top-left, 1=top-center, 2=top-right
+    // 3=mid-left, 4=center,     5=mid-right
+    // 6=bot-left, 7=bot-center, 8=bot-right
     outSlices[0] = Rect(destRect.x, destRect.y, destLeft, destTop);
     outSlices[1] = Rect(destRect.x + destLeft, destRect.y, destCenterWidth, destTop);
     outSlices[2] = Rect(destRect.x + destLeft + destCenterWidth, destRect.y, destRight, destTop);
@@ -1213,9 +1369,11 @@ void D3D11Renderer::computeNineSliceRects(const Rect& destRect, const Rect& sour
 
 void D3D11Renderer::generateNineSliceVertices(void* texture, const Rect& destRect, const Rect& sourceRect, const NineSliceMargins& margins, float designScale, uint32_t texWidth, uint32_t texHeight, std::vector<float>& outVertices)
 {
+    // Compute destination rectangles for 9 slices
     Rect destSlices[9];
     computeNineSliceRects(destRect, sourceRect, margins, designScale, destSlices);
     
+    // Compute source rectangles for 9 slices
     Rect srcSlices[9];
     srcSlices[0] = Rect(sourceRect.x, sourceRect.y, margins.left, margins.top);
     srcSlices[1] = Rect(sourceRect.x + margins.left, sourceRect.y, sourceRect.width - margins.left - margins.right, margins.top);
@@ -1227,6 +1385,7 @@ void D3D11Renderer::generateNineSliceVertices(void* texture, const Rect& destRec
     srcSlices[7] = Rect(sourceRect.x + margins.left, sourceRect.y + sourceRect.height - margins.bottom, sourceRect.width - margins.left - margins.right, margins.bottom);
     srcSlices[8] = Rect(sourceRect.x + sourceRect.width - margins.right, sourceRect.y + sourceRect.height - margins.bottom, margins.right, margins.bottom);
     
+    // Generate vertices for each visible slice
     for (int i = 0; i < 9; ++i)
     {
         if (destSlices[i].width > 0.0f && destSlices[i].height > 0.0f && srcSlices[i].width > 0.0f && srcSlices[i].height > 0.0f)
@@ -1238,6 +1397,7 @@ void D3D11Renderer::renderImageBatch(const std::vector<size_t>& commandIndices, 
 {
     if (commandIndices.empty()) return;
     
+    // Apply clip state
     if (hasClip)
     {
         applyScissorRect(clipRect);
@@ -1247,6 +1407,7 @@ void D3D11Renderer::renderImageBatch(const std::vector<size_t>& commandIndices, 
         applyFullScreenScissor();
     }
     
+    // Generate all vertices for this batch
     std::vector<float> vertexData;
     vertexData.reserve(commandIndices.size() * 24);
     
@@ -1254,18 +1415,22 @@ void D3D11Renderer::renderImageBatch(const std::vector<size_t>& commandIndices, 
     {
         const auto& cmd = commands[idx];
         
+        // Get texture dimensions
         uint32_t texWidth = 0, texHeight = 0;
         float designScale = 1.0f;
         m_textureCache->getTexture(cmd.text.c_str(), texWidth, texHeight, &designScale);
         
+        // Use full texture as source if not specified
         Rect sourceRect = cmd.sourceRect;
         if (sourceRect.width == 0.0f || sourceRect.height == 0.0f)
             sourceRect = Rect(0, 0, texWidth, texHeight);
         
         Rect destRect = cmd.rect;
         
+        // Handle different scale modes
         if (cmd.scaleMode == ScaleMode::Original)
         {
+            // Show image at original size (scaled by DPI)
             float logicalWidth = sourceRect.width / designScale;
             float logicalHeight = sourceRect.height / designScale;
             float centerX = destRect.x + destRect.width * 0.5f;
@@ -1274,6 +1439,7 @@ void D3D11Renderer::renderImageBatch(const std::vector<size_t>& commandIndices, 
         }
         else if (cmd.scaleMode == ScaleMode::Fill)
         {
+            // Scale to fill destination while preserving aspect ratio
             float destAspect = destRect.width / destRect.height;
             float srcAspect = sourceRect.width / sourceRect.height;
             if (srcAspect > destAspect)
@@ -1288,6 +1454,7 @@ void D3D11Renderer::renderImageBatch(const std::vector<size_t>& commandIndices, 
             }
         }
         
+        // Generate vertices (nine-slice or regular)
         if (cmd.scaleMode == ScaleMode::NineSlice)
         {
             generateNineSliceVertices(texture, destRect, sourceRect, cmd.nineSliceMargins, designScale, texWidth, texHeight, vertexData);
@@ -1302,6 +1469,7 @@ void D3D11Renderer::renderImageBatch(const std::vector<size_t>& commandIndices, 
     
     size_t vertexCount = vertexData.size() / 4;
     
+    // Create vertex buffer
     D3D11_BUFFER_DESC vbDesc = {};
     vbDesc.ByteWidth = static_cast<UINT>(vertexData.size() * sizeof(float));
     vbDesc.Usage = D3D11_USAGE_IMMUTABLE;
@@ -1313,11 +1481,13 @@ void D3D11Renderer::renderImageBatch(const std::vector<size_t>& commandIndices, 
     ID3D11Buffer* vertexBuffer = nullptr;
     m_device->CreateBuffer(&vbDesc, &vbData, &vertexBuffer);
     
+    // Bind texture and sampler
     ID3D11ShaderResourceView* srv = static_cast<ID3D11ShaderResourceView*>(texture);
     m_context->PSSetShaderResources(0, 1, &srv);
     m_context->PSSetSamplers(0, 1, &m_samplerState);
     
-    UINT stride = 16;
+    // Bind and draw
+    UINT stride = 16;  // 4 floats per vertex (pos.xy, tex.xy)
     UINT offset = 0;
     m_context->IASetVertexBuffers(0, 1, &vertexBuffer, &stride, &offset);
     m_context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
@@ -1327,7 +1497,8 @@ void D3D11Renderer::renderImageBatch(const std::vector<size_t>& commandIndices, 
     vertexBuffer->Release();
 }
 
-// MARK: - Text Rendering
+//==========================================================================================
+// Text Rendering
 
 void D3D11Renderer::renderTextBatches(const std::vector<TextVertex>& allVertices, const std::vector<size_t>& batchStarts, const std::vector<size_t>& batchCounts, const std::vector<Rect>& batchClips, const std::vector<bool>& batchHasClips)
 {
@@ -1335,26 +1506,32 @@ void D3D11Renderer::renderTextBatches(const std::vector<TextVertex>& allVertices
     
     setPipeline(ActivePipeline::Text);
     
+    // Get font atlas texture
     void* atlasTexture = getCurrentAtlasTexture();
     if (!atlasTexture) return;
     
+    // Bind texture and sampler
     ID3D11ShaderResourceView* srv = static_cast<ID3D11ShaderResourceView*>(atlasTexture);
     m_context->PSSetShaderResources(0, 1, &srv);
     m_context->PSSetSamplers(0, 1, &m_samplerState);
     
+    // Upload all vertices to dynamic buffer
     D3D11_MAPPED_SUBRESOURCE mapped;
     m_context->Map(m_textVertexBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped);
     memcpy(mapped.pData, allVertices.data(), allVertices.size() * sizeof(TextVertex));
     m_context->Unmap(m_textVertexBuffer, 0);
     
+    // Bind buffers
     UINT stride = sizeof(TextVertex);
     UINT offset = 0;
     m_context->IASetVertexBuffers(0, 1, &m_textVertexBuffer, &stride, &offset);
     m_context->IASetIndexBuffer(m_textIndexBuffer, DXGI_FORMAT_R16_UINT, 0);
     m_context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     
+    // Draw each batch
     for (size_t i = 0; i < batchStarts.size(); ++i)
     {
+        // Apply clip state for this batch
         if (batchHasClips[i])
         {
             applyScissorRect(batchClips[i]);
@@ -1364,6 +1541,7 @@ void D3D11Renderer::renderTextBatches(const std::vector<TextVertex>& allVertices
             applyFullScreenScissor();
         }
         
+        // Calculate index count (6 indices per quad = 4 vertices)
         UINT indexCount = static_cast<UINT>((batchCounts[i] / 4) * 6);
         UINT startIndexLocation = static_cast<UINT>((batchStarts[i] / 4) * 6);
         
@@ -1371,12 +1549,14 @@ void D3D11Renderer::renderTextBatches(const std::vector<TextVertex>& allVertices
     }
 }
 
-// MARK: - Shape Rendering
+//==========================================================================================
+// Shape Rendering
 
 void D3D11Renderer::renderLine(const Vec2& start, const Vec2& end, const Vec4& color, float width)
 {
     setPipeline(ActivePipeline::Shape);
     
+    // Calculate line direction and perpendicular
     Vec2 direction(end.x - start.x, end.y - start.y);
     float length = std::sqrt(direction.x * direction.x + direction.y * direction.y);
     
@@ -1385,9 +1565,11 @@ void D3D11Renderer::renderLine(const Vec2& start, const Vec2& end, const Vec4& c
     direction.x /= length;
     direction.y /= length;
     
+    // Perpendicular vector (rotated 90 degrees)
     Vec2 perpendicular(-direction.y, direction.x);
     float halfWidth = width * 0.5f;
     
+    // Generate quad vertices for line
     Vec2 p1(start.x + perpendicular.x * halfWidth, start.y + perpendicular.y * halfWidth);
     Vec2 p2(start.x - perpendicular.x * halfWidth, start.y - perpendicular.y * halfWidth);
     Vec2 p3(end.x - perpendicular.x * halfWidth, end.y - perpendicular.y * halfWidth);
@@ -1401,6 +1583,7 @@ void D3D11Renderer::renderLine(const Vec2& start, const Vec2& end, const Vec4& c
     vertices[4] = ShapeVertex{p3, color};
     vertices[5] = ShapeVertex{p4, color};
     
+    // Create and bind buffer
     D3D11_BUFFER_DESC vbDesc = {};
     vbDesc.ByteWidth = sizeof(vertices);
     vbDesc.Usage = D3D11_USAGE_IMMUTABLE;
@@ -1428,6 +1611,7 @@ void D3D11Renderer::renderTriangle(const Vec2& p1, const Vec2& p2, const Vec2& p
     
     if (filled)
     {
+        // Filled triangle
         ShapeVertex vertices[3];
         vertices[0] = ShapeVertex{p1, color};
         vertices[1] = ShapeVertex{p2, color};
@@ -1455,6 +1639,7 @@ void D3D11Renderer::renderTriangle(const Vec2& p1, const Vec2& p2, const Vec2& p
     }
     else
     {
+        // Outline triangle - draw three lines
         renderLine(p1, p2, color, borderWidth);
         renderLine(p2, p3, color, borderWidth);
         renderLine(p3, p1, color, borderWidth);
@@ -1465,6 +1650,7 @@ void D3D11Renderer::renderCircle(const Vec2& center, float radius, const Vec4& c
 {
     setPipeline(ActivePipeline::Circle);
     
+    // Create quad that encloses circle (with small padding for anti-aliasing)
     float left = center.x - radius - 2.0f;
     float right = center.x + radius + 2.0f;
     float top = center.y - radius - 2.0f;
@@ -1472,6 +1658,7 @@ void D3D11Renderer::renderCircle(const Vec2& center, float radius, const Vec4& c
     
     float bw = filled ? 0.0f : borderWidth;
     
+    // Generate vertices with circle parameters
     CircleVertex vertices[6];
     vertices[0] = CircleVertex{Vec2(left, top), center, radius, bw, color};
     vertices[1] = CircleVertex{Vec2(left, bottom), center, radius, bw, color};
@@ -1501,10 +1688,12 @@ void D3D11Renderer::renderCircle(const Vec2& center, float radius, const Vec4& c
     vertexBuffer->Release();
 }
 
-// MARK: - Utility Functions
+//==========================================================================================
+// Utility Functions
 
 void D3D11Renderer::convertToNDC(float x, float y, float& ndcX, float& ndcY) const
 {
+    // Convert from screen space (0,0=top-left) to NDC (-1,-1=bottom-left, 1,1=top-right)
     ndcX = (x / static_cast<float>(m_width)) * 2.0f - 1.0f;
     ndcY = 1.0f - (y / static_cast<float>(m_height)) * 2.0f;
 }
@@ -1519,12 +1708,14 @@ ViewportUniforms D3D11Renderer::getViewportUniforms() const
 
 void D3D11Renderer::updateConstantBuffer(const ViewportUniforms& uniforms)
 {
+    // Map buffer and upload data
     D3D11_MAPPED_SUBRESOURCE mapped;
     m_context->Map(m_constantBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped);
     memcpy(mapped.pData, &uniforms, sizeof(ViewportUniforms));
     m_context->Unmap(m_constantBuffer, 0);
     
+    // Bind to vertex shader
     m_context->VSSetConstantBuffers(0, 1, &m_constantBuffer);
 }
 
-}
+}  // namespace YuchenUI

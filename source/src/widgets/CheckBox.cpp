@@ -20,6 +20,7 @@ CheckBox::CheckBox(const Rect& bounds)
     , m_stateChangedCallback(nullptr)
 {
     Validation::AssertRect(bounds);
+    setFocusPolicy(FocusPolicy::StrongFocus);
 }
 
 CheckBox::~CheckBox() {

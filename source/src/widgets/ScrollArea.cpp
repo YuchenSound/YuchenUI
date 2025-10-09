@@ -58,6 +58,42 @@ void ScrollArea::setScrollY(float y) {
     clampScroll();
 }
 
+bool ScrollArea::scrollRectIntoView(const Rect& rect) {
+    Rect contentArea = getContentArea();
+    Vec2 scrollOffset = getScrollOffset();
+    
+    float scrollX = scrollOffset.x;
+    float scrollY = scrollOffset.y;
+    bool needsScroll = false;
+    
+    if (rect.y < scrollY) {
+        scrollY = rect.y;
+        needsScroll = true;
+    } else if (rect.y + rect.height > scrollY + contentArea.height) {
+        scrollY = rect.y + rect.height - contentArea.height;
+        needsScroll = true;
+    }
+    
+    if (rect.x < scrollX) {
+        scrollX = rect.x;
+        needsScroll = true;
+    } else if (rect.x + rect.width > scrollX + contentArea.width) {
+        scrollX = rect.x + rect.width - contentArea.width;
+        needsScroll = true;
+    }
+    
+    if (needsScroll) {
+        setScrollOffset(Vec2(scrollX, scrollY));
+        return true;
+    }
+    
+    return false;
+}
+
+Rect ScrollArea::getVisibleContentArea() const {
+    return getContentArea();
+}
+
 Rect ScrollArea::getContentArea() const {
     float width = m_bounds.width;
     float height = m_bounds.height;
@@ -149,7 +185,6 @@ Rect ScrollArea::getHorizontalThumbRect(const Vec2& absPos) const {
         SCROLLBAR_WIDTH
     );
 }
-
 
 Rect ScrollArea::getVerticalButtonUpRect(const Vec2& absPos) const {
     Rect contentArea = getContentArea();

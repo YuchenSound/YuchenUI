@@ -80,14 +80,12 @@ public:
     bool hasSelection() const;
         
     bool isValid() const;
-    bool canReceiveFocus() const override { return m_isEnabled && m_isVisible; }
-    void onFocusGained() override;
-    void onFocusLost() override;
     
     Rect getInputMethodCursorRect() const override;
 
 protected:
-    CornerRadius getFocusIndicatorCornerRadius() const override;
+    void focusInEvent(FocusReason reason) override;
+    void focusOutEvent(FocusReason reason) override;
 
 private:
     static std::u32string utf8ToUtf32(const std::string& utf8);

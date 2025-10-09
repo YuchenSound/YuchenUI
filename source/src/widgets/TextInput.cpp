@@ -43,6 +43,7 @@ TextInput::TextInput(const Rect& bounds)
     , m_inputType(TextInputType::Text)
 {
     Validation::AssertRect(bounds);
+    setFocusPolicy(FocusPolicy::StrongFocus);
 }
 
 TextInput::~TextInput() {
@@ -807,13 +808,11 @@ void TextInput::adjustScrollToCursor() {
 }
 
 void TextInput::focus() {
-    requestFocus();
+    requestFocus(FocusReason::OtherFocusReason);
 }
 
 void TextInput::blur() {
-    if (m_ownerContent) {
-        m_ownerContent->setFocusedComponent(nullptr);
-    }
+    clearFocus();
 }
 
 bool TextInput::handleMouseClick(const Vec2& position, bool pressed, const Vec2& offset) {
@@ -884,30 +883,6 @@ Rect TextInput::getInputMethodCursorRect() const {
     return result;
 }
 
-CornerRadius TextInput::getFocusIndicatorCornerRadius() const {
-    return CornerRadius(2.0f);
-}
-void TextInput::onFocusGained() {
-    m_hasFocus = true;
-    m_showCursor = true;
-    m_cursorBlinkTimer = 0.0f;
-
-    if (m_ownerContent) {
-        m_ownerContent->requestTextInput(true);
-        m_ownerContent->setIMEEnabled(!shouldDisableIME());
-    }
-}
-
-void TextInput::onFocusLost() {
-    m_hasFocus = false;
-    m_isDragging = false;
-    clearSelection();
-
-    if (m_ownerContent) {
-        m_ownerContent->requestTextInput(false);
-    }
-}
-
 bool TextInput::validateText(const std::string& text) const {
     if (m_validator) {
         return m_validator(text);
@@ -918,6 +893,30 @@ bool TextInput::validateText(const std::string& text) const {
 void TextInput::notifyTextChanged() {
     if (m_changeCallback) {
         m_changeCallback(m_text);
+    }
+}
+
+
+void TextInput::focusInEvent(FocusReason reason) {
+    m_hasFocus = true;
+    m_cursorBlinkTimer = 0.0f;
+    m_showCursor = true;
+    
+    if (m_ownerContent) {
+        bool shouldDisableIME = this->shouldDisableIME();
+        m_ownerContent->requestTextInput(!shouldDisableIME);
+        m_ownerContent->setIMEEnabled(!shouldDisableIME);
+    }
+}
+
+void TextInput::focusOutEvent(FocusReason reason) {
+    m_hasFocus = false;
+    m_showCursor = false;
+    clearSelection();
+    
+    if (m_ownerContent) {
+        m_ownerContent->requestTextInput(false);
+        m_ownerContent->setIMEEnabled(false);
     }
 }
 

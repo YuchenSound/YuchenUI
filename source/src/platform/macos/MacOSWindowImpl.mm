@@ -1,3 +1,33 @@
+/*******************************************************************************************
+**
+** YuchenUI - Modern C++ GUI Framework
+**
+** Copyright (C) 2025 Yuchen Wei
+** Contact: https://github.com/YuchenSound/YuchenUI
+**
+** This file is part of the YuchenUI Platform module.
+**
+** $YUCHEN_BEGIN_LICENSE:MIT$
+** Licensed under the MIT License
+** $YUCHEN_END_LICENSE$
+**
+********************************************************************************************/
+
+//==========================================================================================
+/** @file MacOSWindowImpl.mm
+    
+    macOS-specific window implementation using Cocoa NSWindow and Metal rendering.
+    
+    Implementation notes:
+    - Uses NSWindow for window management and NSView for content
+    - Metal layer (CAMetalLayer) attached to view for GPU rendering
+    - Display link (CVDisplayLink) drives frame rendering at display refresh rate
+    - Modal dialogs use NSApp runModalForWindow: which blocks until closed
+    - IME (Input Method Editor) support through NSTextInputClient protocol
+    - Coordinate system converted from Cocoa (bottom-left) to YuchenUI (top-left)
+    - Three window types supported: Main, Dialog, and ToolWindow (NSPanel)
+*/
+
 #import <Cocoa/Cocoa.h>
 #import <Metal/Metal.h>
 #import <CoreVideo/CoreVideo.h>
@@ -11,28 +41,85 @@
 
 namespace YuchenUI { class MacOSWindowImpl; }
 
+//==========================================================================================
+/**
+    NSWindowDelegate implementation for window lifecycle events.
+    
+    Forwards window events (close, resize) to the MacOSWindowImpl.
+*/
 @interface UniversalWindowDelegate : NSObject <NSWindowDelegate>
+
+/** Pointer to the C++ window implementation. */
 @property (nonatomic, assign) YuchenUI::MacOSWindowImpl* windowImpl;
+
+/** The type of window (Main, Dialog, or ToolWindow). */
 @property (nonatomic, assign) YuchenUI::WindowType windowType;
+
 @end
 
+//==========================================================================================
+/**
+    Custom NSView with Metal rendering and text input support.
+    
+    This view:
+    - Manages a CAMetalLayer for GPU rendering
+    - Implements NSTextInputClient for IME support
+    - Uses CVDisplayLink for synchronized frame updates
+    - Forwards mouse and keyboard events to MacOSWindowImpl
+    - Provides separate rendering path for modal dialogs using NSTimer
+*/
 @interface UniversalMetalView : NSView <CALayerDelegate, NSTextInputClient>
 {
-    CAMetalLayer* metalLayer;
-    id<MTLDevice> metalDevice;
-    CVDisplayLinkRef displayLink;
-    std::atomic<bool> isRendering;
+    CAMetalLayer* metalLayer;           ///< Metal rendering layer
+    id<MTLDevice> metalDevice;          ///< Metal device
+    CVDisplayLinkRef displayLink;       ///< Display synchronization
+    std::atomic<bool> isRendering;      ///< Prevents render reentrancy
 }
+
+/** Pointer to the C++ window implementation. */
 @property (nonatomic, assign) YuchenUI::MacOSWindowImpl* windowImpl;
+
+/** The window type. */
 @property (nonatomic, assign) YuchenUI::WindowType windowType;
+
+/** Timer for modal dialog frame updates. */
 @property (nonatomic, strong) NSTimer* modalRefreshTimer;
+
+/** Current IME composition text. */
 @property (nonatomic, strong) NSMutableAttributedString* markedText;
+
+/** Text input context for IME. */
 @property (nonatomic, strong) NSTextInputContext* textInputContext;
+
+/** Whether IME is enabled. */
 @property (nonatomic, assign) BOOL imeEnabled;
+
+/** Triggers a render callback on the main thread. */
 - (void)performRenderCallback;
+
+/** Enables or disables IME input.
+    
+    @param enabled  YES to enable, NO to disable
+*/
 - (void)setImeEnabled:(BOOL)enabled;
+
 @end
 
+//==========================================================================================
+/**
+    CVDisplayLink callback function.
+    
+    Called at display refresh rate (typically 60Hz). Schedules a render
+    on the main thread to avoid threading issues with Metal.
+    
+    @param displayLink       The display link
+    @param now              Current time
+    @param outputTime       Next output time
+    @param flagsIn          Input flags
+    @param flagsOut         Output flags
+    @param displayLinkContext  User context (UniversalMetalView*)
+    @returns kCVReturnSuccess
+*/
 static CVReturn DisplayLinkCallback(CVDisplayLinkRef displayLink,
                                    const CVTimeStamp* now,
                                    const CVTimeStamp* outputTime,
@@ -48,51 +135,160 @@ static CVReturn DisplayLinkCallback(CVDisplayLinkRef displayLink,
 namespace YuchenUI
 {
 
+//==========================================================================================
+/**
+    macOS implementation of WindowImpl using Cocoa and Metal.
+    
+    MacOSWindowImpl manages the native NSWindow and its Metal-backed content view.
+    It handles event forwarding, rendering coordination, and IME input.
+    
+    @see WindowImpl, BaseWindow
+*/
 class MacOSWindowImpl : public WindowImpl
 {
 public:
+    /** Creates a MacOSWindowImpl instance. */
     MacOSWindowImpl();
+    
+    /** Destructor. Cleans up window resources. */
     virtual ~MacOSWindowImpl();
     
+    //======================================================================================
+    // WindowImpl Interface Implementation
+    
+    /** Creates the native window and view.
+        
+        @param config  Window configuration parameters
+        @returns True if creation succeeded, false otherwise
+    */
     bool create(const WindowConfig& config) override;
+    
+    /** Destroys the native window and releases resources. */
     void destroy() override;
+    
+    /** Shows the window. */
     void show() override;
+    
+    /** Hides the window. */
     void hide() override;
+    
+    /** Displays the window as a modal dialog (blocks until closed). */
     void showModal() override;
+    
+    /** Closes a modal dialog and exits the modal loop. */
     void closeModal() override;
+    
+    /** Returns the current window content size.
+        
+        @returns Size in logical pixels (not physical pixels)
+    */
     Vec2 getSize() const override;
+    
+    /** Returns the window's position on screen. */
     Vec2 getPosition() const override;
+    
+    /** Returns true if the window is currently visible. */
     bool isVisible() const override;
+    
+    /** Returns the native window handle (NSWindow*). */
     void* getNativeHandle() const override;
     
+    //======================================================================================
+    /** Sets the associated BaseWindow for callbacks.
+        
+        @param baseWindow  The BaseWindow that owns this implementation
+    */
     void setBaseWindow(BaseWindow* baseWindow) override;
+    
+    /** Returns the Metal render surface (CAMetalLayer*). */
     void* getRenderSurface() const override;
+    
+    /** Returns the display's DPI scale factor. */
     float getDpiScale() const override;
+    
+    /** Converts window coordinates to screen coordinates.
+        
+        @param windowPos  Position in window space
+        @returns Position in screen space
+    */
     Vec2 mapToScreen(const Vec2& windowPos) const override;
+    
+    /** Returns the IME cursor rectangle in window coordinates. */
     Rect getInputMethodCursorWindowRect() const override;
+    
+    /** Enables or disables IME input.
+        
+        @param enabled  True to enable, false to disable
+    */
     void setIMEEnabled(bool enabled) override;
     
+    //======================================================================================
+    /** Forwards a native event to the BaseWindow.
+        
+        @param event  The native NSEvent*
+    */
     void onEvent(void* event);
+    
+    /** Triggers a render frame. */
     void onRender();
+    
+    /** Handles window resize events.
+        
+        @param width   New width in pixels
+        @param height  New height in pixels
+    */
     void onResize(int width, int height);
+    
+    /** Handles window close requests. */
     void onWindowClosing();
+    
+    /** Handles IME marked text.
+        
+        @param text              The marked text
+        @param cursorPos         Cursor position
+        @param selectionLength   Selection length
+    */
     void handleMarkedText(const char* text, int cursorPos, int selectionLength);
+    
+    /** Handles committed text from IME.
+        
+        @param text  The committed text string
+    */
     void handleCommittedText(const char* text);
+    
+    /** Handles IME unmark (composition completion). */
     void handleUnmarkText();
 
 private:
+    //======================================================================================
+    /** Creates the NSWindow style mask based on configuration.
+        
+        @param config  Window configuration
+        @returns The appropriate NSWindowStyleMask
+    */
     NSWindowStyleMask createStyleMask(const WindowConfig& config);
+    
+    /** Positions the window on screen.
+        
+        @param config  Window configuration with parent info
+    */
     void positionWindow(const WindowConfig& config);
+    
+    /** Cleans up delegate and view, breaking retain cycles. */
     void cleanupDelegateAndView();
 
-    NSWindow* m_window;
-    UniversalMetalView* m_metalView;
-    UniversalWindowDelegate* m_delegate;
-    BaseWindow* m_baseWindow;
-    WindowType m_type;
+    //======================================================================================
+    NSWindow* m_window;                     ///< The native NSWindow
+    UniversalMetalView* m_metalView;        ///< The Metal-backed content view
+    UniversalWindowDelegate* m_delegate;    ///< Window delegate for events
+    BaseWindow* m_baseWindow;               ///< Associated YuchenUI window
+    WindowType m_type;                      ///< Window type
 };
 
-}
+} // namespace YuchenUI
+
+//==========================================================================================
+// UniversalWindowDelegate Implementation
 
 @implementation UniversalWindowDelegate
 
@@ -125,6 +321,9 @@ private:
 
 @end
 
+//==========================================================================================
+// UniversalMetalView Implementation
+
 @implementation UniversalMetalView
 
 - (instancetype)initWithFrame:(NSRect)frame device:(id<MTLDevice>)device windowType:(YuchenUI::WindowType)type
@@ -143,10 +342,12 @@ private:
         self.textInputContext = [[NSTextInputContext alloc] initWithClient:self];
         self.imeEnabled = YES;
         
+        // Configure view for layer backing
         self.wantsLayer = YES;
         self.layerContentsRedrawPolicy = NSViewLayerContentsRedrawDuringViewResize;
         self.layerContentsPlacement = NSViewLayerContentsPlacementScaleAxesIndependently;
         
+        // Set up mouse tracking
         NSTrackingAreaOptions options = NSTrackingMouseMoved | NSTrackingActiveInActiveApp | NSTrackingInVisibleRect;
         NSTrackingArea* trackingArea = [[NSTrackingArea alloc] initWithRect:frame options:options owner:self userInfo:nil];
         [self addTrackingArea:trackingArea];
@@ -163,6 +364,7 @@ private:
 
 - (CALayer *)makeBackingLayer
 {
+    // Create CAMetalLayer for GPU rendering
     metalLayer = [CAMetalLayer layer];
     metalLayer.device = metalDevice;
     metalLayer.pixelFormat = MTLPixelFormatBGRA8Unorm;
@@ -210,6 +412,7 @@ private:
 
 - (void)displayLayer:(CALayer *)layer
 {
+    // Prevent reentrancy
     if (isRendering.load()) return;
     
     isRendering.store(true);
@@ -248,6 +451,7 @@ private:
         displayLink = NULL;
     }
     
+    // Wait for any in-progress render to complete
     int waitCount = 0;
     while (isRendering.load() && waitCount < 1000)
     {
@@ -267,10 +471,12 @@ private:
         }
     });
 }
+
 - (void)startModalRefresh
 {
     if (self.modalRefreshTimer) return;
     
+    // Create timer for modal dialog rendering (60 FPS)
     self.modalRefreshTimer = [NSTimer timerWithTimeInterval:(1.0 / 60.0)
                                                      target:self
                                                    selector:@selector(modalRefreshTick:)
@@ -294,6 +500,9 @@ private:
     [metalLayer setNeedsDisplay];
 }
 
+//==========================================================================================
+// Event Forwarding
+
 - (void)mouseDown:(NSEvent *)event { [self forwardEvent:event]; }
 - (void)mouseUp:(NSEvent *)event { [self forwardEvent:event]; }
 - (void)rightMouseDown:(NSEvent *)event { [self forwardEvent:event]; }
@@ -307,11 +516,14 @@ private:
 - (void)scrollWheel:(NSEvent *)event { [self forwardEvent:event]; }
 - (void)keyUp:(NSEvent *)event { [self forwardEvent:event]; }
 - (void)flagsChanged:(NSEvent *)event { [self forwardEvent:event]; }
+
+/** Empty implementation to prevent system beep on unhandled commands. */
 - (void)doCommandBySelector:(SEL)selector {}
 
 - (void)keyDown:(NSEvent *)event
 {
     [self forwardEvent:event];
+    // Allow text input system to interpret the key
     [self interpretKeyEvents:@[event]];
 }
 
@@ -322,6 +534,9 @@ private:
 
 - (BOOL)acceptsFirstResponder { return YES; }
 - (BOOL)canBecomeKeyView { return YES; }
+
+//==========================================================================================
+// Text Input Management
 
 - (NSTextInputContext *)inputContext
 {
@@ -343,6 +558,9 @@ private:
     return [super resignFirstResponder];
 }
 
+//==========================================================================================
+// NSTextInputClient Protocol Implementation
+
 - (void)insertText:(id)string replacementRange:(NSRange)replacementRange
 {
     @autoreleasepool {
@@ -353,6 +571,7 @@ private:
             characters = (NSString*)string;
         }
         
+        // Clear any marked text
         [self unmarkText];
         
         if (!self.windowImpl || [characters length] == 0) return;
@@ -366,6 +585,7 @@ private:
 
 - (void)setMarkedText:(id)string selectedRange:(NSRange)selectedRange replacementRange:(NSRange)replacementRange
 {
+    // If IME is disabled, reject marked text
     if (!self.imeEnabled) {
         [self unmarkText];
         return;
@@ -436,8 +656,10 @@ private:
         return NSZeroRect;
     }
     
+    // Get cursor position from window
     YuchenUI::Rect cursorRect = self.windowImpl->getInputMethodCursorWindowRect();
     
+    // Return default position if no cursor rect available
     if (cursorRect.width == 0.0f || cursorRect.height == 0.0f) {
         NSWindow* window = [self window];
         if (!window) {
@@ -447,6 +669,7 @@ private:
         NSRect windowFrame = [window frame];
         NSRect contentRect = [window contentRectForFrameRect:windowFrame];
         
+        // Return center of window as default
         return NSMakeRect(
             contentRect.origin.x + contentRect.size.width / 2,
             contentRect.origin.y + contentRect.size.height / 2,
@@ -460,9 +683,11 @@ private:
         return NSZeroRect;
     }
     
+    // Convert window coordinates to screen coordinates
     NSRect windowFrame = [window frame];
     NSRect contentRect = [window contentRectForFrameRect:windowFrame];
     
+    // Convert from top-left origin (YuchenUI) to bottom-left origin (Cocoa)
     float screenTopY = contentRect.origin.y + contentRect.size.height - cursorRect.y;
     float screenBottomY = screenTopY - cursorRect.height;
     float screenX = contentRect.origin.x + cursorRect.x;
@@ -491,8 +716,15 @@ private:
 
 @end
 
+// ============================================================================
+// MacOSWindowImpl Implementation
+// ============================================================================
+
 namespace YuchenUI
 {
+
+//==========================================================================================
+// Construction and Destruction
 
 MacOSWindowImpl::MacOSWindowImpl()
     : m_window(nil)
@@ -508,6 +740,9 @@ MacOSWindowImpl::~MacOSWindowImpl()
     destroy();
 }
 
+//==========================================================================================
+// Window Lifecycle
+
 bool MacOSWindowImpl::create(const WindowConfig& config)
 {
     YUCHEN_ASSERT(config.width > 0 && config.height > 0);
@@ -520,8 +755,10 @@ bool MacOSWindowImpl::create(const WindowConfig& config)
         NSRect windowRect = NSMakeRect(0, 0, config.width, config.height);
         NSWindowStyleMask styleMask = createStyleMask(config);
         
+        // Create appropriate window type
         if (config.type == WindowType::ToolWindow)
         {
+            // Use NSPanel for tool windows
             m_window = [[NSPanel alloc] initWithContentRect:windowRect styleMask:styleMask
                                                     backing:NSBackingStoreBuffered defer:NO];
             NSPanel* panel = (NSPanel*)m_window;
@@ -536,6 +773,7 @@ bool MacOSWindowImpl::create(const WindowConfig& config)
         }
         else
         {
+            // Main window
             m_window = [[NSWindow alloc] initWithContentRect:windowRect styleMask:styleMask
                                                      backing:NSBackingStoreBuffered defer:NO];
         }
@@ -550,13 +788,16 @@ bool MacOSWindowImpl::create(const WindowConfig& config)
         
         positionWindow(config);
         
+        // Create Metal device
         id<MTLDevice> device = MTLCreateSystemDefaultDevice();
         YUCHEN_ASSERT(device);
         
+        // Create Metal view
         NSRect contentRect = NSMakeRect(0, 0, config.width, config.height);
         m_metalView = [[UniversalMetalView alloc] initWithFrame:contentRect device:device windowType:m_type];
         YUCHEN_ASSERT(m_metalView);
         
+        // Create window delegate
         m_delegate = [[UniversalWindowDelegate alloc] init];
         m_delegate.windowImpl = this;
         m_delegate.windowType = m_type;
@@ -574,6 +815,7 @@ void MacOSWindowImpl::destroy()
 {
     @autoreleasepool
     {
+        // Stop modal refresh if active
         if (m_metalView) [m_metalView stopModalRefresh];
         
         cleanupDelegateAndView();
@@ -600,6 +842,7 @@ void MacOSWindowImpl::cleanupDelegateAndView()
         if (m_metalView)
         {
             m_metalView.windowImpl = nullptr;
+            // Clean up tracking areas
             NSArray* trackingAreas = [m_metalView.trackingAreas copy];
             for (NSTrackingArea* area in trackingAreas)
             {
@@ -610,6 +853,9 @@ void MacOSWindowImpl::cleanupDelegateAndView()
         }
     }
 }
+
+//==========================================================================================
+// Window Display
 
 void MacOSWindowImpl::show()
 {
@@ -637,10 +883,14 @@ void MacOSWindowImpl::showModal()
     
     @autoreleasepool
     {
+        // Start timer-based refresh for modal dialogs
         [m_metalView startModalRefresh];
         [m_window center];
         [m_window makeKeyAndOrderFront:nil];
+        
+        // Block until modal is closed
         [NSApp runModalForWindow:m_window];
+        
         [m_metalView stopModalRefresh];
         [m_window orderOut:nil];
     }
@@ -658,6 +908,9 @@ void MacOSWindowImpl::closeModal()
         }
     }
 }
+
+//==========================================================================================
+// Window Properties
 
 Vec2 MacOSWindowImpl::getSize() const
 {
@@ -713,6 +966,8 @@ Vec2 MacOSWindowImpl::mapToScreen(const Vec2& windowPos) const
     @autoreleasepool {
         NSRect windowFrame = [m_window frame];
         NSRect contentRect = [m_window contentRectForFrameRect:windowFrame];
+        
+        // Convert from top-left origin (YuchenUI) to screen coordinates
         float screenX = contentRect.origin.x + windowPos.x;
         float screenY = contentRect.origin.y + contentRect.size.height - windowPos.y;
         
@@ -725,6 +980,9 @@ Rect MacOSWindowImpl::getInputMethodCursorWindowRect() const
     if (!m_baseWindow) return Rect();
     return m_baseWindow->getInputMethodCursorRect();
 }
+
+//==========================================================================================
+// Event Handling
 
 void MacOSWindowImpl::onEvent(void* event)
 {
@@ -746,6 +1004,9 @@ void MacOSWindowImpl::onWindowClosing()
     if (m_baseWindow) m_baseWindow->closeWithResult(WindowContentResult::Close);
 }
 
+//==========================================================================================
+// IME Support
+
 void MacOSWindowImpl::handleMarkedText(const char* text, int cursorPos, int selectionLength)
 {
     if (m_baseWindow) {
@@ -761,9 +1022,11 @@ void MacOSWindowImpl::handleCommittedText(const char* text)
         NSString* nsText = [NSString stringWithUTF8String:text];
         NSUInteger length = [nsText length];
         
+        // Convert each character to a text input event
         for (NSUInteger i = 0; i < length; i++) {
             unichar ch = [nsText characterAtIndex:i];
             
+            // Skip control characters
             if (ch < 32 || ch == 127) continue;
             
             double timestamp = CACurrentMediaTime();
@@ -780,6 +1043,9 @@ void MacOSWindowImpl::handleUnmarkText()
         m_baseWindow->handleUnmarkText();
     }
 }
+
+//==========================================================================================
+// Private Methods
 
 NSWindowStyleMask MacOSWindowImpl::createStyleMask(const WindowConfig& config)
 {
@@ -799,6 +1065,7 @@ void MacOSWindowImpl::positionWindow(const WindowConfig& config)
 {
     if (config.parent)
     {
+        // Position relative to parent
         Vec2 parentPos = config.parent->getWindowPosition();
         Vec2 parentSize = config.parent->getSize();
         NSPoint newOrigin = NSMakePoint(parentPos.x + parentSize.x + 20, parentPos.y);
@@ -806,6 +1073,7 @@ void MacOSWindowImpl::positionWindow(const WindowConfig& config)
     }
     else if (m_type != WindowType::Main)
     {
+        // Center dialogs and tool windows
         [m_window center];
     }
 }
@@ -819,9 +1087,12 @@ void MacOSWindowImpl::setIMEEnabled(bool enabled)
     }
 }
 
+//==========================================================================================
+// Factory
+
 WindowImpl* WindowImplFactory::create()
 {
     return new MacOSWindowImpl();
 }
 
-}
+} // namespace YuchenUI

@@ -1,13 +1,14 @@
 #pragma once
 
 #include "YuchenUI/widgets/Widget.h"
+#include "YuchenUI/widgets/IScrollable.h"
 #include "YuchenUI/core/Types.h"
 
 namespace YuchenUI {
 
 class RenderList;
 
-class ScrollArea : public Widget {
+class ScrollArea : public Widget, public IScrollable {
 public:
     explicit ScrollArea(const Rect& bounds);
     ~ScrollArea() override;
@@ -27,7 +28,6 @@ public:
     void setContentSize(const Vec2& size);
     Vec2 getContentSize() const { return m_contentSize; }
     
-    Vec2 getScrollOffset() const { return Vec2(m_scrollX, m_scrollY); }
     void setScrollOffset(const Vec2& offset);
     void setScrollX(float x);
     void setScrollY(float y);
@@ -45,6 +45,10 @@ public:
     bool handleMouseMove(const Vec2& position, const Vec2& offset = Vec2()) override;
     bool handleMouseClick(const Vec2& position, bool pressed, const Vec2& offset = Vec2()) override;
     bool handleMouseWheel(const Vec2& delta, const Vec2& position, const Vec2& offset = Vec2()) override;
+
+    bool scrollRectIntoView(const Rect& rect) override;
+    Rect getVisibleContentArea() const override;
+    Vec2 getScrollOffset() const override { return Vec2(m_scrollX, m_scrollY); }
 
 private:
     Vec2 m_contentSize;

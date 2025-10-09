@@ -1,10 +1,38 @@
+/*******************************************************************************************
+**
+** YuchenUI - Modern C++ GUI Framework
+**
+** Copyright (C) 2025 Yuchen Wei
+** Contact: https://github.com/YuchenSound/YuchenUI
+**
+** This file is part of the YuchenUI Events module (Windows).
+**
+** $YUCHEN_BEGIN_LICENSE:MIT$
+** Licensed under the MIT License
+** $YUCHEN_END_LICENSE$
+**
+********************************************************************************************/
+
+//==========================================================================================
+/** @file Win32EventManager.cpp
+    
+    Implementation notes:
+    - Virtual key codes are mapped to YuchenUI KeyCode enum
+    - Mouse position is extracted from LPARAM using GET_X_LPARAM/GET_Y_LPARAM macros
+    - IME composition text is stored in UTF-8 format
+    - Text input filters out control characters (< 32, 127-159)
+    - Wheel delta is normalized (WHEEL_DELTA = 120 clicks)
+    - Event queue uses circular buffer with overflow protection
+*/
+
 #include "Win32EventManager.h"
 #include <chrono>
 #include <windowsx.h>
 
 namespace YuchenUI {
 
-// MARK: - Constructor and Destructor
+//==========================================================================================
+// Construction and Destruction
 
 Win32EventManager::Win32EventManager(HWND hwnd)
     : m_hwnd(hwnd)
@@ -24,7 +52,8 @@ Win32EventManager::~Win32EventManager()
     destroy();
 }
 
-// MARK: - Initialization
+//==========================================================================================
+// Initialization
 
 bool Win32EventManager::initialize()
 {
@@ -54,7 +83,8 @@ bool Win32EventManager::isInitialized() const
     return m_isInitialized;
 }
 
-// MARK: - Event Queue Management
+//==========================================================================================
+// Event Queue Management
 
 bool Win32EventManager::hasEvents() const
 {
@@ -87,7 +117,8 @@ size_t Win32EventManager::getEventCount() const
     return m_eventQueue.size();
 }
 
-// MARK: - Event Callback
+//==========================================================================================
+// Event Callback
 
 void Win32EventManager::setEventCallback(EventCallback callback)
 {
@@ -105,7 +136,8 @@ bool Win32EventManager::hasEventCallback() const
     return m_eventCallback != nullptr;
 }
 
-// MARK: - Native Event Handling
+//==========================================================================================
+// Native Event Handling
 
 void Win32EventManager::handleNativeEvent(void* event)
 {
@@ -116,7 +148,8 @@ void Win32EventManager::handleNativeEvent(void* event)
     handleWindowsMessage(msg->message, msg->wParam, msg->lParam);
 }
 
-// MARK: - Input State Queries
+//==========================================================================================
+// Input State Queries
 
 bool Win32EventManager::isKeyPressed(KeyCode key) const
 {
@@ -142,7 +175,8 @@ KeyModifiers Win32EventManager::getCurrentModifiers() const
     return extractModifiers();
 }
 
-// MARK: - Text Input Control
+//==========================================================================================
+// Text Input Control
 
 void Win32EventManager::enableTextInput()
 {
@@ -161,7 +195,8 @@ bool Win32EventManager::isTextInputEnabled() const
     return m_textInputEnabled;
 }
 
-// MARK: - Message Dispatching
+//==========================================================================================
+// Message Dispatching
 
 void Win32EventManager::handleWindowsMessage(UINT msg, WPARAM wParam, LPARAM lParam)
 {
@@ -175,6 +210,7 @@ void Win32EventManager::handleWindowsMessage(UINT msg, WPARAM wParam, LPARAM lPa
         break;
 
     case WM_CHAR:
+        // Only process character input when text input is enabled and not composing
         if (m_textInputEnabled && !m_imeComposing)
         {
             handleCharEvent(wParam);
@@ -229,18 +265,24 @@ void Win32EventManager::handleWindowsMessage(UINT msg, WPARAM wParam, LPARAM lPa
     }
 }
 
-// MARK: - Keyboard Event Handling
+//==========================================================================================
+// Keyboard Event Handling
 
 void Win32EventManager::handleKeyEvent(UINT msg, WPARAM wParam, LPARAM lParam)
 {
+    // Map virtual key to YuchenUI key code
     KeyCode key = mapVirtualKey(wParam);
     if (key == KeyCode::Unknown) return;
 
+    // Determine if this is a press or release
     bool pressed = (msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN);
+    // Check if this is a repeat (bit 30 of lParam indicates previous key state)
     bool isRepeat = (lParam & 0x40000000) != 0;
 
+    // Update key state tracker
     m_keyTracker.setKeyState(key, pressed);
 
+    // Create key event
     EventType eventType = pressed ? EventType::KeyPressed : EventType::KeyReleased;
     KeyModifiers modifiers = extractModifiers();
     double timestamp = getCurrentTime();
@@ -254,17 +296,21 @@ void Win32EventManager::handleKeyEvent(UINT msg, WPARAM wParam, LPARAM lParam)
     pushEvent(event);
 }
 
-// MARK: - Mouse Event Handling
+//==========================================================================================
+// Mouse Event Handling
 
 void Win32EventManager::handleMouseButtonEvent(UINT msg, WPARAM wParam, LPARAM lParam)
 {
+    // Determine which button and whether pressed or released
     MouseButton button = mapMouseButton(msg);
     Vec2 position = getMousePositionFromLParam(lParam);
     bool pressed = (msg == WM_LBUTTONDOWN || msg == WM_RBUTTONDOWN || msg == WM_MBUTTONDOWN);
 
+    // Update mouse state tracker
     m_mouseTracker.setButtonState(button, pressed);
     m_mouseTracker.setPosition(position);
 
+    // Create mouse button event
     EventType eventType = pressed ? EventType::MouseButtonPressed : EventType::MouseButtonReleased;
     KeyModifiers modifiers = extractModifiers();
     double timestamp = getCurrentTime();
@@ -281,6 +327,7 @@ void Win32EventManager::handleMouseMoveEvent(WPARAM wParam, LPARAM lParam)
 {
     Vec2 position = getMousePositionFromLParam(lParam);
     Vec2 oldPosition = m_mouseTracker.getPosition();
+    // Calculate movement delta
     Vec2 delta = Vec2(position.x - oldPosition.x, position.y - oldPosition.y);
 
     m_mouseTracker.setPosition(position);
@@ -297,12 +344,15 @@ void Win32EventManager::handleMouseWheelEvent(UINT msg, WPARAM wParam, LPARAM lP
 {
     Vec2 position = m_mouseTracker.getPosition();
 
+    // Get wheel delta (typically +/-120 per notch)
     int delta = GET_WHEEL_DELTA_WPARAM(wParam);
+    // Normalize to notches (1.0 = one notch)
     float scrollDelta = static_cast<float>(delta) / WHEEL_DELTA;
 
+    // WM_MOUSEWHEEL is vertical, WM_MOUSEHWHEEL is horizontal
     Vec2 scrollVec = (msg == WM_MOUSEWHEEL) ?
-        Vec2(0.0f, scrollDelta) :
-        Vec2(scrollDelta, 0.0f);
+        Vec2(0.0f, scrollDelta) :   // Vertical scroll
+        Vec2(scrollDelta, 0.0f);    // Horizontal scroll
 
     KeyModifiers modifiers = extractModifiers();
     double timestamp = getCurrentTime();
@@ -312,12 +362,15 @@ void Win32EventManager::handleMouseWheelEvent(UINT msg, WPARAM wParam, LPARAM lP
     pushEvent(event);
 }
 
-// MARK: - Text Input Event Handling
+//==========================================================================================
+// Text Input Event Handling
 
 void Win32EventManager::handleCharEvent(WPARAM wParam)
 {
     uint32_t codepoint = static_cast<uint32_t>(wParam);
 
+    // Filter out control characters
+    // Skip characters in ranges: 0-31 (control chars) and 127-159 (extended control)
     if (codepoint < 32 || (codepoint >= 127 && codepoint < 160))
     {
         return;
@@ -329,7 +382,8 @@ void Win32EventManager::handleCharEvent(WPARAM wParam)
     pushEvent(event);
 }
 
-// MARK: - IME Event Handling
+//==========================================================================================
+// IME Event Handling
 
 void Win32EventManager::handleImeStartComposition()
 {
@@ -344,67 +398,81 @@ void Win32EventManager::handleImeComposition(LPARAM lParam)
 
     double timestamp = getCurrentTime();
 
+    // Handle composition string (partially entered text)
     if (lParam & GCS_COMPSTR)
     {
+        // Get length of composition string
         LONG len = ImmGetCompositionStringW(hImc, GCS_COMPSTR, NULL, 0);
 
         if (len > 0)
         {
+            // Read composition string as UTF-16
             std::vector<wchar_t> wbuf(len / sizeof(wchar_t) + 1);
             ImmGetCompositionStringW(hImc, GCS_COMPSTR, wbuf.data(), len);
             wbuf[len / sizeof(wchar_t)] = 0;
 
+            // Convert to UTF-8
             int utf8Len = WideCharToMultiByte(CP_UTF8, 0, wbuf.data(), -1, NULL, 0, NULL, NULL);
             m_imeCompositionBuffer.resize(utf8Len);
             WideCharToMultiByte(CP_UTF8, 0, wbuf.data(), -1, m_imeCompositionBuffer.data(), utf8Len, NULL, NULL);
 
+            // Get cursor position within composition string
             LONG cursorPos = ImmGetCompositionStringW(hImc, GCS_CURSORPOS, NULL, 0);
             if (cursorPos < 0) cursorPos = 0;
 
+            // Create text composition event
             Event event = Event::createTextCompositionEvent(
                 m_imeCompositionBuffer.data(),
                 static_cast<int>(cursorPos),
-                0,
+                0,  // selectionLength (not used in current implementation)
                 timestamp
             );
             pushEvent(event);
         }
     }
 
+    // Handle result string (finalized text)
     if (lParam & GCS_RESULTSTR)
     {
+        // Get length of result string
         LONG len = ImmGetCompositionStringW(hImc, GCS_RESULTSTR, NULL, 0);
 
         if (len > 0)
         {
+            // Read result string as UTF-16
             std::vector<wchar_t> wbuf(len / sizeof(wchar_t) + 1);
             ImmGetCompositionStringW(hImc, GCS_RESULTSTR, wbuf.data(), len);
             wbuf[len / sizeof(wchar_t)] = 0;
 
+            // Convert each character to text input events
             for (size_t i = 0; i < wbuf.size() && wbuf[i] != 0; ++i)
             {
                 wchar_t wc = wbuf[i];
 
-                if (wc >= 0xD800 && wc <= 0xDBFF)
+                // Handle surrogate pairs for characters outside Basic Multilingual Plane
+                if (wc >= 0xD800 && wc <= 0xDBFF)  // High surrogate
                 {
                     if (i + 1 < wbuf.size())
                     {
                         wchar_t low = wbuf[i + 1];
-                        if (low >= 0xDC00 && low <= 0xDFFF)
+                        if (low >= 0xDC00 && low <= 0xDFFF)  // Low surrogate
                         {
+                            // Combine surrogates to get full codepoint
                             uint32_t codepoint = 0x10000 + ((wc - 0xD800) << 10) + (low - 0xDC00);
                             Event event = Event::createTextInputEvent(codepoint, timestamp);
                             pushEvent(event);
-                            ++i;
+                            ++i;  // Skip the low surrogate
                             continue;
                         }
                     }
                 }
 
+                // Regular character (BMP)
                 Event event = Event::createTextInputEvent(static_cast<uint32_t>(wc), timestamp);
                 pushEvent(event);
             }
 
+            // Clear composition display if no more composition string
             LONG compLen = ImmGetCompositionStringW(hImc, GCS_COMPSTR, NULL, 0);
             if (compLen <= 0)
             {
@@ -422,6 +490,7 @@ void Win32EventManager::handleImeEndComposition()
     m_imeComposing = false;
     m_imeCompositionBuffer.clear();
 
+    // Send empty composition event to clear any displayed composition
     double timestamp = getCurrentTime();
     Event event = Event::createTextCompositionEvent("", 0, 0, timestamp);
     pushEvent(event);
@@ -429,14 +498,20 @@ void Win32EventManager::handleImeEndComposition()
 
 void Win32EventManager::handleImeNotify(WPARAM wParam)
 {
+    // IME notification handler
+    // Currently not processing specific notifications
+    // This could be extended for advanced IME features like candidate list changes
 }
 
-// MARK: - Mapping Functions
+//==========================================================================================
+// Mapping Functions
 
 KeyCode Win32EventManager::mapVirtualKey(WPARAM vk) const
 {
+    // Map Windows virtual key codes to YuchenUI KeyCode enum
     switch (vk)
     {
+    // Letter keys
     case 'A': return KeyCode::A;
     case 'B': return KeyCode::B;
     case 'C': return KeyCode::C;
@@ -464,6 +539,7 @@ KeyCode Win32EventManager::mapVirtualKey(WPARAM vk) const
     case 'Y': return KeyCode::Y;
     case 'Z': return KeyCode::Z;
 
+    // Number keys
     case '0': return KeyCode::Num0;
     case '1': return KeyCode::Num1;
     case '2': return KeyCode::Num2;
@@ -475,6 +551,7 @@ KeyCode Win32EventManager::mapVirtualKey(WPARAM vk) const
     case '8': return KeyCode::Num8;
     case '9': return KeyCode::Num9;
 
+    // Function keys
     case VK_F1: return KeyCode::F1;
     case VK_F2: return KeyCode::F2;
     case VK_F3: return KeyCode::F3;
@@ -488,6 +565,7 @@ KeyCode Win32EventManager::mapVirtualKey(WPARAM vk) const
     case VK_F11: return KeyCode::F11;
     case VK_F12: return KeyCode::F12;
 
+    // Special keys
     case VK_RETURN: return KeyCode::Return;
     case VK_TAB: return KeyCode::Tab;
     case VK_SPACE: return KeyCode::Space;
@@ -495,19 +573,22 @@ KeyCode Win32EventManager::mapVirtualKey(WPARAM vk) const
     case VK_ESCAPE: return KeyCode::Escape;
     case VK_DELETE: return KeyCode::Delete;
 
+    // Arrow keys
     case VK_LEFT: return KeyCode::LeftArrow;
     case VK_RIGHT: return KeyCode::RightArrow;
     case VK_UP: return KeyCode::UpArrow;
     case VK_DOWN: return KeyCode::DownArrow;
 
+    // Modifier keys (note: Left/Right distinction not always available)
     case VK_SHIFT: return KeyCode::LeftShift;
     case VK_CONTROL: return KeyCode::LeftControl;
-    case VK_MENU: return KeyCode::LeftAlt;
+    case VK_MENU: return KeyCode::LeftAlt;  // VK_MENU is Alt key
 
+    // Navigation keys
     case VK_HOME: return KeyCode::Home;
     case VK_END: return KeyCode::End;
-    case VK_PRIOR: return KeyCode::PageUp;
-    case VK_NEXT: return KeyCode::PageDown;
+    case VK_PRIOR: return KeyCode::PageUp;   // VK_PRIOR is Page Up
+    case VK_NEXT: return KeyCode::PageDown;  // VK_NEXT is Page Down
 
     default: return KeyCode::Unknown;
     }
@@ -515,6 +596,7 @@ KeyCode Win32EventManager::mapVirtualKey(WPARAM vk) const
 
 MouseButton Win32EventManager::mapMouseButton(UINT msg) const
 {
+    // Map Windows mouse messages to MouseButton enum
     switch (msg)
     {
     case WM_LBUTTONDOWN:
@@ -533,25 +615,32 @@ MouseButton Win32EventManager::mapMouseButton(UINT msg) const
 
 KeyModifiers Win32EventManager::extractModifiers() const
 {
+    // Query current modifier key states
     KeyModifiers modifiers;
+    // GetKeyState returns high-order bit set if key is down
     modifiers.leftShift = (GetKeyState(VK_SHIFT) & 0x8000) != 0;
     modifiers.leftControl = (GetKeyState(VK_CONTROL) & 0x8000) != 0;
     modifiers.leftAlt = (GetKeyState(VK_MENU) & 0x8000) != 0;
+    // Low-order bit indicates toggle state (on/off) for Caps Lock
     modifiers.capsLock = (GetKeyState(VK_CAPITAL) & 0x0001) != 0;
     return modifiers;
 }
 
 Vec2 Win32EventManager::getMousePositionFromLParam(LPARAM lParam) const
 {
+    // Extract mouse coordinates from LPARAM
+    // Windows packs X in low word, Y in high word
     int x = GET_X_LPARAM(lParam);
     int y = GET_Y_LPARAM(lParam);
     return Vec2(static_cast<float>(x), static_cast<float>(y));
 }
 
-// MARK: - Utility Functions
+//==========================================================================================
+// Utility Functions
 
 double Win32EventManager::getCurrentTime() const
 {
+    // Get high-resolution timestamp
     auto now = std::chrono::high_resolution_clock::now();
     auto duration = now.time_since_epoch();
     return std::chrono::duration<double>(duration).count();
@@ -561,6 +650,7 @@ void Win32EventManager::pushEvent(const Event& event)
 {
     YUCHEN_ASSERT(event.isValid());
 
+    // If queue is full, discard oldest event to make room
     if (m_eventQueue.isFull())
     {
         Event discarded;
@@ -570,6 +660,7 @@ void Win32EventManager::pushEvent(const Event& event)
     bool success = m_eventQueue.push(event);
     YUCHEN_ASSERT(success);
 
+    // Invoke callback if set
     if (m_eventCallback)
     {
         m_eventCallback(event);

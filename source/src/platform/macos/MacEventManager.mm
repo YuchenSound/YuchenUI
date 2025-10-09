@@ -1,3 +1,30 @@
+/*******************************************************************************************
+**
+** YuchenUI - Modern C++ GUI Framework
+**
+** Copyright (C) 2025 Yuchen Wei
+** Contact: https://github.com/YuchenSound/YuchenUI
+**
+** This file is part of the YuchenUI Platform module.
+**
+** $YUCHEN_BEGIN_LICENSE:MIT$
+** Licensed under the MIT License
+** $YUCHEN_END_LICENSE$
+**
+********************************************************************************************/
+
+//==========================================================================================
+/** @file MacEventManager.mm
+    
+    Implementation notes:
+    - Uses Carbon framework key code constants (kVK_*) for key mapping
+    - Converts Cocoa coordinate system (bottom-left origin) to YuchenUI (top-left origin)
+    - Mouse move events are merged to reduce queue overflow
+    - IME composition creates TextComposition events with marked text
+    - Modifier flags are tracked continuously, not just on key events
+    - Character input filters control characters (< 32 and 127)
+*/
+
 #import <Cocoa/Cocoa.h>
 #import <Carbon/Carbon.h>
 #include "MacEventManager.h"
@@ -5,8 +32,12 @@
 namespace YuchenUI
 {
 
+//==========================================================================================
+// Key Code Mapping Table
+
 const MacKeyCodeMapper::KeyMapping MacKeyCodeMapper::s_keyMappings[] =
 {
+    // Alphabetic keys
     {kVK_ANSI_A,                KeyCode::A},
     {kVK_ANSI_S,                KeyCode::S},
     {kVK_ANSI_D,                KeyCode::D},
@@ -24,41 +55,51 @@ const MacKeyCodeMapper::KeyMapping MacKeyCodeMapper::s_keyMappings[] =
     {kVK_ANSI_R,                KeyCode::R},
     {kVK_ANSI_Y,                KeyCode::Y},
     {kVK_ANSI_T,                KeyCode::T},
+    
+    // Number keys
     {kVK_ANSI_1,                KeyCode::Num1},
     {kVK_ANSI_2,                KeyCode::Num2},
     {kVK_ANSI_3,                KeyCode::Num3},
     {kVK_ANSI_4,                KeyCode::Num4},
     {kVK_ANSI_6,                KeyCode::Num6},
     {kVK_ANSI_5,                KeyCode::Num5},
-    {kVK_ANSI_Equal,            KeyCode::Equal},
     {kVK_ANSI_9,                KeyCode::Num9},
     {kVK_ANSI_7,                KeyCode::Num7},
-    {kVK_ANSI_Minus,            KeyCode::Minus},
     {kVK_ANSI_8,                KeyCode::Num8},
     {kVK_ANSI_0,                KeyCode::Num0},
+    
+    // Symbol keys
+    {kVK_ANSI_Equal,            KeyCode::Equal},
+    {kVK_ANSI_Minus,            KeyCode::Minus},
     {kVK_ANSI_RightBracket,     KeyCode::RightBracket},
-    {kVK_ANSI_O,                KeyCode::O},
-    {kVK_ANSI_U,                KeyCode::U},
     {kVK_ANSI_LeftBracket,      KeyCode::LeftBracket},
-    {kVK_ANSI_I,                KeyCode::I},
-    {kVK_ANSI_P,                KeyCode::P},
-    {kVK_Return,                KeyCode::Return},
-    {kVK_ANSI_L,                KeyCode::L},
-    {kVK_ANSI_J,                KeyCode::J},
     {kVK_ANSI_Quote,            KeyCode::Quote},
-    {kVK_ANSI_K,                KeyCode::K},
     {kVK_ANSI_Semicolon,        KeyCode::Semicolon},
     {kVK_ANSI_Backslash,        KeyCode::Backslash},
     {kVK_ANSI_Comma,            KeyCode::Comma},
     {kVK_ANSI_Slash,            KeyCode::Slash},
+    {kVK_ANSI_Period,           KeyCode::Period},
+    {kVK_ANSI_Grave,            KeyCode::Grave},
+    
+    // Letter keys (continued)
+    {kVK_ANSI_O,                KeyCode::O},
+    {kVK_ANSI_U,                KeyCode::U},
+    {kVK_ANSI_I,                KeyCode::I},
+    {kVK_ANSI_P,                KeyCode::P},
+    {kVK_ANSI_L,                KeyCode::L},
+    {kVK_ANSI_J,                KeyCode::J},
+    {kVK_ANSI_K,                KeyCode::K},
     {kVK_ANSI_N,                KeyCode::N},
     {kVK_ANSI_M,                KeyCode::M},
-    {kVK_ANSI_Period,           KeyCode::Period},
+    
+    // Control keys
+    {kVK_Return,                KeyCode::Return},
     {kVK_Tab,                   KeyCode::Tab},
     {kVK_Space,                 KeyCode::Space},
-    {kVK_ANSI_Grave,            KeyCode::Grave},
     {kVK_Delete,                KeyCode::Backspace},
     {kVK_Escape,                KeyCode::Escape},
+    
+    // Modifier keys
     {kVK_Command,               KeyCode::LeftCommand},
     {kVK_Shift,                 KeyCode::LeftShift},
     {kVK_CapsLock,              KeyCode::CapsLock},
@@ -68,31 +109,12 @@ const MacKeyCodeMapper::KeyMapping MacKeyCodeMapper::s_keyMappings[] =
     {kVK_RightOption,           KeyCode::RightAlt},
     {kVK_RightControl,          KeyCode::RightControl},
     {kVK_Function,              KeyCode::Function},
+    
+    // Function keys
     {kVK_F17,                   KeyCode::F17},
-    {kVK_ANSI_KeypadDecimal,    KeyCode::KeypadDecimal},
-    {kVK_ANSI_KeypadMultiply,   KeyCode::KeypadMultiply},
-    {kVK_ANSI_KeypadPlus,       KeyCode::KeypadPlus},
-    {kVK_ANSI_KeypadClear,      KeyCode::KeypadClear},
-    {kVK_VolumeUp,              KeyCode::VolumeUp},
-    {kVK_VolumeDown,            KeyCode::VolumeDown},
-    {kVK_Mute,                  KeyCode::Mute},
-    {kVK_ANSI_KeypadDivide,     KeyCode::KeypadDivide},
-    {kVK_ANSI_KeypadEnter,      KeyCode::KeypadEnter},
-    {kVK_ANSI_KeypadMinus,      KeyCode::KeypadMinus},
     {kVK_F18,                   KeyCode::F18},
     {kVK_F19,                   KeyCode::F19},
-    {kVK_ANSI_KeypadEquals,     KeyCode::KeypadEquals},
-    {kVK_ANSI_Keypad0,          KeyCode::Keypad0},
-    {kVK_ANSI_Keypad1,          KeyCode::Keypad1},
-    {kVK_ANSI_Keypad2,          KeyCode::Keypad2},
-    {kVK_ANSI_Keypad3,          KeyCode::Keypad3},
-    {kVK_ANSI_Keypad4,          KeyCode::Keypad4},
-    {kVK_ANSI_Keypad5,          KeyCode::Keypad5},
-    {kVK_ANSI_Keypad6,          KeyCode::Keypad6},
-    {kVK_ANSI_Keypad7,          KeyCode::Keypad7},
     {kVK_F20,                   KeyCode::F20},
-    {kVK_ANSI_Keypad8,          KeyCode::Keypad8},
-    {kVK_ANSI_Keypad9,          KeyCode::Keypad9},
     {kVK_F5,                    KeyCode::F5},
     {kVK_F6,                    KeyCode::F6},
     {kVK_F7,                    KeyCode::F7},
@@ -106,15 +128,42 @@ const MacKeyCodeMapper::KeyMapping MacKeyCodeMapper::s_keyMappings[] =
     {kVK_F10,                   KeyCode::F10},
     {kVK_F12,                   KeyCode::F12},
     {kVK_F15,                   KeyCode::F15},
+    {kVK_F4,                    KeyCode::F4},
+    {kVK_F2,                    KeyCode::F2},
+    {kVK_F1,                    KeyCode::F1},
+    
+    // Keypad keys
+    {kVK_ANSI_KeypadDecimal,    KeyCode::KeypadDecimal},
+    {kVK_ANSI_KeypadMultiply,   KeyCode::KeypadMultiply},
+    {kVK_ANSI_KeypadPlus,       KeyCode::KeypadPlus},
+    {kVK_ANSI_KeypadClear,      KeyCode::KeypadClear},
+    {kVK_ANSI_KeypadDivide,     KeyCode::KeypadDivide},
+    {kVK_ANSI_KeypadEnter,      KeyCode::KeypadEnter},
+    {kVK_ANSI_KeypadMinus,      KeyCode::KeypadMinus},
+    {kVK_ANSI_KeypadEquals,     KeyCode::KeypadEquals},
+    {kVK_ANSI_Keypad0,          KeyCode::Keypad0},
+    {kVK_ANSI_Keypad1,          KeyCode::Keypad1},
+    {kVK_ANSI_Keypad2,          KeyCode::Keypad2},
+    {kVK_ANSI_Keypad3,          KeyCode::Keypad3},
+    {kVK_ANSI_Keypad4,          KeyCode::Keypad4},
+    {kVK_ANSI_Keypad5,          KeyCode::Keypad5},
+    {kVK_ANSI_Keypad6,          KeyCode::Keypad6},
+    {kVK_ANSI_Keypad7,          KeyCode::Keypad7},
+    {kVK_ANSI_Keypad8,          KeyCode::Keypad8},
+    {kVK_ANSI_Keypad9,          KeyCode::Keypad9},
+    
+    // Volume keys
+    {kVK_VolumeUp,              KeyCode::VolumeUp},
+    {kVK_VolumeDown,            KeyCode::VolumeDown},
+    {kVK_Mute,                  KeyCode::Mute},
+    
+    // Navigation keys
     {kVK_Help,                  KeyCode::Insert},
     {kVK_Home,                  KeyCode::Home},
     {kVK_PageUp,                KeyCode::PageUp},
     {kVK_ForwardDelete,         KeyCode::Delete},
-    {kVK_F4,                    KeyCode::F4},
     {kVK_End,                   KeyCode::End},
-    {kVK_F2,                    KeyCode::F2},
     {kVK_PageDown,              KeyCode::PageDown},
-    {kVK_F1,                    KeyCode::F1},
     {kVK_LeftArrow,             KeyCode::LeftArrow},
     {kVK_RightArrow,            KeyCode::RightArrow},
     {kVK_DownArrow,             KeyCode::DownArrow},
@@ -132,7 +181,9 @@ KeyCode MacKeyCodeMapper::mapKeyCode(unsigned short macKeyCode)
     return KeyCode::Unknown;
 }
 
-// MARK: - Lifecycle
+//==========================================================================================
+// Lifecycle
+
 MacEventManager::MacEventManager(NSWindow* window)
     : m_window(window)
     , m_eventQueue()
@@ -181,7 +232,9 @@ bool MacEventManager::isInitialized() const
     return m_isInitialized;
 }
 
-// MARK: - Event Queue
+//==========================================================================================
+// Event Queue
+
 bool MacEventManager::hasEvents() const
 {
     YUCHEN_ASSERT_MSG(m_isInitialized, "MacEventManager not initialized");
@@ -214,7 +267,9 @@ size_t MacEventManager::getEventCount() const
     return m_eventQueue.size();
 }
 
-// MARK: - Event Callback
+//==========================================================================================
+// Event Callback
+
 void MacEventManager::setEventCallback(EventCallback callback)
 {
     YUCHEN_ASSERT_MSG(m_isInitialized, "MacEventManager not initialized");
@@ -231,7 +286,9 @@ bool MacEventManager::hasEventCallback() const
     return m_eventCallback != nullptr;
 }
 
-// MARK: - State Query
+//==========================================================================================
+// State Query
+
 bool MacEventManager::isKeyPressed(KeyCode key) const
 {
     YUCHEN_ASSERT_MSG(m_isInitialized, "MacEventManager not initialized");
@@ -270,7 +327,9 @@ KeyModifiers MacEventManager::getCurrentModifiers() const
     return modifiers;
 }
 
-// MARK: - Text Input
+//==========================================================================================
+// Text Input
+
 void MacEventManager::enableTextInput()
 {
     YUCHEN_ASSERT_MSG(m_isInitialized, "MacEventManager not initialized");
@@ -288,7 +347,9 @@ bool MacEventManager::isTextInputEnabled() const
     return m_textInputEnabled;
 }
 
-// MARK: - Native Event Handling
+//==========================================================================================
+// Native Event Handling
+
 void MacEventManager::handleNSEvent(NSEvent* event)
 {
     YUCHEN_ASSERT_MSG(m_isInitialized, "MacEventManager not initialized");
@@ -346,7 +407,9 @@ void MacEventManager::handleNativeEvent(void* event)
     handleNSEvent((__bridge NSEvent*)event);
 }
 
-// MARK: - Event Handlers
+//==========================================================================================
+// Event Handlers
+
 void MacEventManager::handleKeyEvent(NSEvent* event, EventType eventType)
 {
     YUCHEN_ASSERT(eventType == EventType::KeyPressed || eventType == EventType::KeyReleased);
@@ -361,9 +424,11 @@ void MacEventManager::handleKeyEvent(NSEvent* event, EventType eventType)
         bool isRepeat = (eventType == EventType::KeyPressed) ? [event isARepeat] : false;
         double timestamp = getCurrentTime();
         
+        // Update key state tracker
         bool pressed = (eventType == EventType::KeyPressed);
         m_keyTracker.setKeyState(mappedKey, pressed);
         
+        // Create and push key event
         Event keyEvent = Event::createKeyEvent(eventType, mappedKey, keyCode, modifiers, isRepeat, timestamp);
         YUCHEN_ASSERT(keyEvent.isValid());
         pushEvent(keyEvent);
@@ -401,10 +466,12 @@ void MacEventManager::handleMouseButtonEvent(NSEvent* event, EventType eventType
         KeyModifiers modifiers = extractModifiers([event modifierFlags]);
         double timestamp = getCurrentTime();
         
+        // Update mouse state tracker
         bool pressed = (eventType == EventType::MouseButtonPressed);
         m_mouseTracker.setButtonState(mappedButton, pressed);
         m_mouseTracker.setPosition(position);
         
+        // Create and push mouse button event
         Event mouseEvent = Event::createMouseButtonEvent(eventType, mappedButton, position, clickCount, modifiers, timestamp);
         YUCHEN_ASSERT(mouseEvent.isValid());
         
@@ -423,11 +490,14 @@ void MacEventManager::handleMouseMoveEvent(NSEvent* event)
         KeyModifiers modifiers = extractModifiers([event modifierFlags]);
         double timestamp = getCurrentTime();
         
+        // Update mouse position tracker
         m_mouseTracker.setPosition(position);
         
+        // Create mouse move event
         Event moveEvent = Event::createMouseMoveEvent(position, delta, modifiers, timestamp);
         YUCHEN_ASSERT(moveEvent.isValid());
         
+        // Try to merge with previous mouse move to reduce event count
         tryMergeMouseMove(moveEvent);
     }
 }
@@ -454,6 +524,7 @@ void MacEventManager::handleModifierFlagsEvent(NSEvent* event)
     {
         unsigned long modifierFlags = [event modifierFlags];
         
+        // Update all modifier key states
         m_keyTracker.setKeyState(KeyCode::LeftShift, (modifierFlags & NSEventModifierFlagShift) != 0);
         m_keyTracker.setKeyState(KeyCode::LeftControl, (modifierFlags & NSEventModifierFlagControl) != 0);
         m_keyTracker.setKeyState(KeyCode::LeftAlt, (modifierFlags & NSEventModifierFlagOption) != 0);
@@ -470,7 +541,9 @@ void MacEventManager::handleModifierFlagsEvent(NSEvent* event)
     }
 }
 
-// MARK: - Mapping and Conversion
+//==========================================================================================
+// Mapping and Conversion
+
 KeyCode MacEventManager::mapKeyCode(unsigned short keyCode) const
 {
     return MacKeyCodeMapper::mapKeyCode(keyCode);
@@ -509,6 +582,7 @@ uint32_t MacEventManager::extractUnicodeFromNSEvent(NSEvent* event) const
         NSString* characters = [event characters];
         if (!characters || [characters length] == 0) return 0;
         unichar character = [characters characterAtIndex:0];
+        // Filter out control characters
         if (character < 32 || (character >= 127 && character < 160)) return 0;
         return (uint32_t)character;
     }
@@ -522,6 +596,7 @@ Vec2 MacEventManager::convertMousePosition(NSEvent* event) const
         NSRect windowFrame = [m_window frame];
         NSRect contentRect = [m_window contentRectForFrameRect:windowFrame];
         
+        // Convert from Cocoa's bottom-left origin to top-left origin
         float x = locationInWindow.x;
         float y = contentRect.size.height - locationInWindow.y;
         
@@ -534,11 +609,14 @@ double MacEventManager::getCurrentTime() const
     return CACurrentMediaTime();
 }
 
-// MARK: - Event Queue Management
+//==========================================================================================
+// Event Queue Management
+
 void MacEventManager::pushEvent(const Event& event)
 {
     YUCHEN_ASSERT(event.isValid());
     
+    // If queue is full, discard the oldest event
     if (m_eventQueue.isFull())
     {
         Event discarded;
@@ -549,6 +627,7 @@ void MacEventManager::pushEvent(const Event& event)
     (void)success;
     YUCHEN_ASSERT(success);
     
+    // Invoke callback if set
     if (m_eventCallback)
     {
         m_eventCallback(event);
@@ -565,6 +644,7 @@ void MacEventManager::tryMergeMouseMove(Event& event)
         return;
     }
     
+    // Check if the last event in queue is also a mouse move
     Event lastEvent;
     if (!m_eventQueue.peek(lastEvent))
     {
@@ -574,6 +654,7 @@ void MacEventManager::tryMergeMouseMove(Event& event)
     
     if (lastEvent.type == EventType::MouseMoved)
     {
+        // Replace the last mouse move event with the new one
         Event temp;
         m_eventQueue.pop(temp);
         pushEvent(event);
@@ -584,11 +665,14 @@ void MacEventManager::tryMergeMouseMove(Event& event)
     }
 }
 
-// MARK: - IME Manager
+//==========================================================================================
+// IME Support
+
 void MacEventManager::handleMarkedText(const char* text, int cursorPos, int selectionLength)
 {
     YUCHEN_ASSERT_MSG(m_isInitialized, "MacEventManager not initialized");
     
+    // Store marked text for composition
     if (text) {
         strncpy(m_markedText, text, 255);
         m_markedText[255] = '\0';
@@ -599,6 +683,7 @@ void MacEventManager::handleMarkedText(const char* text, int cursorPos, int sele
     m_markedCursorPos = cursorPos;
     m_markedSelectionLength = selectionLength;
     
+    // Create text composition event
     double timestamp = getCurrentTime();
     Event compositionEvent = Event::createTextCompositionEvent(m_markedText, cursorPos, selectionLength, timestamp);
     YUCHEN_ASSERT(compositionEvent.type == EventType::TextComposition);
@@ -609,11 +694,13 @@ void MacEventManager::handleUnmarkText()
 {
     YUCHEN_ASSERT_MSG(m_isInitialized, "MacEventManager not initialized");
     
+    // Clear marked text if it exists
     if (m_markedText[0] != '\0') {
         m_markedText[0] = '\0';
         m_markedCursorPos = 0;
         m_markedSelectionLength = 0;
         
+        // Create empty composition event to signal completion
         double timestamp = getCurrentTime();
         Event compositionEvent = Event::createTextCompositionEvent("", 0, 0, timestamp);
         pushEvent(compositionEvent);

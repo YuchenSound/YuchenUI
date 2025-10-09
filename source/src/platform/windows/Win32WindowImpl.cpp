@@ -1,3 +1,29 @@
+/*******************************************************************************************
+**
+** YuchenUI - Modern C++ GUI Framework
+**
+** Copyright (C) 2025 Yuchen Wei
+** Contact: https://github.com/YuchenSound/YuchenUI
+**
+** This file is part of the YuchenUI Platform module (Windows).
+**
+** $YUCHEN_BEGIN_LICENSE:MIT$
+** Licensed under the MIT License
+** $YUCHEN_END_LICENSE$
+**
+********************************************************************************************/
+
+//==========================================================================================
+/** @file Win32WindowImpl.cpp
+    
+    Implementation notes:
+    - Window class is registered once globally on first window creation
+    - DPI awareness is set to per-monitor v2 for proper scaling
+    - Modal dialogs disable their parent window and run a message loop
+    - IME composition window position is updated on each composition event
+    - Window procedure uses GWLP_USERDATA to store the Win32WindowImpl pointer
+*/
+
 #include "Win32WindowImpl.h"
 #include "YuchenUI/windows/BaseWindow.h"
 #include "YuchenUI/core/Assert.h"
@@ -8,12 +34,14 @@
 
 namespace YuchenUI {
 
-// MARK: - Static Members
+//==========================================================================================
+// Static Member Initialization
 
 const wchar_t* Win32WindowImpl::WINDOW_CLASS_NAME = L"YuchenUIWindow";
 bool Win32WindowImpl::s_classRegistered = false;
 
-// MARK: - Constructor and Destructor
+//==========================================================================================
+// Construction and Destruction
 
 Win32WindowImpl::Win32WindowImpl()
     : m_hwnd(nullptr)
@@ -33,20 +61,23 @@ Win32WindowImpl::~Win32WindowImpl()
     destroy();
 }
 
-// MARK: - Window Creation and Destruction
+//==========================================================================================
+// Window Creation and Destruction
 
 bool Win32WindowImpl::create(const WindowConfig& config)
 {
     YUCHEN_ASSERT(config.width > 0 && config.height > 0);
     YUCHEN_ASSERT(config.title);
     
+    // Enable per-monitor DPI awareness v2 for proper high-DPI support
     SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
     
+    // Register window class on first use
     if (!s_classRegistered)
     {
         WNDCLASSEXW wc = {};
         wc.cbSize = sizeof(WNDCLASSEXW);
-        wc.style = CS_HREDRAW | CS_VREDRAW | CS_OWNDC;
+        wc.style = CS_HREDRAW | CS_VREDRAW | CS_OWNDC;  // Redraw on resize, own DC
         wc.lpfnWndProc = WindowProc;
         wc.hInstance = GetModuleHandle(NULL);
         wc.hCursor = LoadCursor(NULL, IDC_ARROW);
@@ -64,37 +95,43 @@ bool Win32WindowImpl::create(const WindowConfig& config)
     m_width = config.width;
     m_height = config.height;
     
+    // Get appropriate window styles
     DWORD style = getWindowStyle(config);
     DWORD exStyle = getWindowExStyle(config);
     
+    // Adjust for window borders to get correct client area size
     RECT rect = { 0, 0, config.width, config.height };
     AdjustWindowRectEx(&rect, style, FALSE, exStyle);
     
     int windowWidth = rect.right - rect.left;
     int windowHeight = rect.bottom - rect.top;
     
+    // Convert UTF-8 title to UTF-16
     std::wstring wTitle;
     int len = MultiByteToWideChar(CP_UTF8, 0, config.title, -1, NULL, 0);
     wTitle.resize(len);
     MultiByteToWideChar(CP_UTF8, 0, config.title, -1, &wTitle[0], len);
     
+    // Get parent window handle if specified
     HWND parentHwnd = nullptr;
     if (config.parent)
     {
         parentHwnd = static_cast<HWND>(config.parent->getNativeWindowHandle());
     }
     
+    // Create the window
+    // Pass 'this' pointer in lpParam to be available in WM_NCCREATE
     m_hwnd = CreateWindowExW(
         exStyle,
         WINDOW_CLASS_NAME,
         wTitle.c_str(),
         style,
-        CW_USEDEFAULT, CW_USEDEFAULT,
+        CW_USEDEFAULT, CW_USEDEFAULT,  // Let Windows choose initial position
         windowWidth, windowHeight,
         parentHwnd,
         NULL,
         GetModuleHandle(NULL),
-        this
+        this  // lpParam - passed to WindowProc in WM_NCCREATE
     );
     
     if (!m_hwnd)
@@ -102,6 +139,7 @@ bool Win32WindowImpl::create(const WindowConfig& config)
         return false;
     }
     
+    // Calculate DPI scale for this monitor
     calculateDpiScale();
     
     return true;
@@ -111,18 +149,21 @@ void Win32WindowImpl::destroy()
 {
     if (m_hwnd)
     {
+        // Clear the user data pointer before destroying
         SetWindowLongPtr(m_hwnd, GWLP_USERDATA, 0);
         DestroyWindow(m_hwnd);
         m_hwnd = nullptr;
     }
 }
 
-// MARK: - Window Display
+//==========================================================================================
+// Window Display
 
 void Win32WindowImpl::show()
 {
     if (m_hwnd)
     {
+        // Center main windows on screen (but not modal dialogs)
         if (m_windowType == WindowType::Main && !m_isModal)
         {
             centerWindow();
@@ -150,17 +191,20 @@ void Win32WindowImpl::showModal()
     
     m_isModal = true;
     
+    // Disable the parent window while dialog is active
     HWND parentHwnd = GetParent(m_hwnd);
     if (parentHwnd)
     {
         EnableWindow(parentHwnd, FALSE);
     }
     
+    // Center dialog on screen
     centerWindow();
     ShowWindow(m_hwnd, SW_SHOW);
     UpdateWindow(m_hwnd);
     m_isVisible = true;
     
+    // Run message loop until dialog is closed
     MSG msg;
     while (m_isModal && GetMessage(&msg, NULL, 0, 0))
     {
@@ -168,6 +212,7 @@ void Win32WindowImpl::showModal()
         DispatchMessage(&msg);
     }
     
+    // Re-enable parent window
     if (parentHwnd)
     {
         EnableWindow(parentHwnd, TRUE);
@@ -184,7 +229,8 @@ void Win32WindowImpl::closeModal()
     }
 }
 
-// MARK: - Window Properties
+//==========================================================================================
+// Window Properties
 
 Vec2 Win32WindowImpl::getSize() const
 {
@@ -253,16 +299,19 @@ void Win32WindowImpl::setIMEEnabled(bool enabled)
     {
         if (enabled)
         {
+            // Enable IME with default context
             ImmAssociateContextEx(m_hwnd, NULL, IACE_DEFAULT);
         }
         else
         {
+            // Disable IME
             ImmAssociateContextEx(m_hwnd, NULL, IACE_IGNORENOCONTEXT);
         }
     }
 }
 
-// MARK: - Window Events
+//==========================================================================================
+// Window Events
 
 void Win32WindowImpl::onRender()
 {
@@ -283,21 +332,25 @@ void Win32WindowImpl::onResize(int width, int height)
     }
 }
 
-// MARK: - Window Style Helpers
+//==========================================================================================
+// Window Style Helpers
 
 DWORD Win32WindowImpl::getWindowStyle(const WindowConfig& config) const
 {
-    DWORD style = WS_OVERLAPPEDWINDOW;
+    DWORD style = WS_OVERLAPPEDWINDOW;  // Default: title bar, borders, system menu, min/max buttons
     
     if (config.type == WindowType::Dialog)
     {
+        // Dialogs: title bar and system menu only (no resize, min/max)
         style = WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU;
     }
     else if (config.type == WindowType::ToolWindow)
     {
+        // Tool windows: resizable with title bar
         style = WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME;
     }
     
+    // Remove resize capability if specified
     if (!config.resizable)
     {
         style &= ~(WS_THICKFRAME | WS_MAXIMIZEBOX);
@@ -308,18 +361,18 @@ DWORD Win32WindowImpl::getWindowStyle(const WindowConfig& config) const
 
 DWORD Win32WindowImpl::getWindowExStyle(const WindowConfig& config) const
 {
-    DWORD exStyle = WS_EX_APPWINDOW;
+    DWORD exStyle = WS_EX_APPWINDOW;  // Show in taskbar
     
     if (config.type == WindowType::Dialog)
     {
-        exStyle |= WS_EX_DLGMODALFRAME;
+        exStyle |= WS_EX_DLGMODALFRAME;  // Dialog-style frame
     }
     else if (config.type == WindowType::ToolWindow)
     {
-        exStyle |= WS_EX_TOOLWINDOW;
+        exStyle |= WS_EX_TOOLWINDOW;  // Tool window (smaller title bar, not in taskbar)
         if (config.floating)
         {
-            exStyle |= WS_EX_TOPMOST;
+            exStyle |= WS_EX_TOPMOST;  // Always on top
         }
     }
     
@@ -330,17 +383,21 @@ void Win32WindowImpl::centerWindow()
 {
     if (!m_hwnd) return;
     
+    // Get window dimensions
     RECT rect;
     GetWindowRect(m_hwnd, &rect);
     int width = rect.right - rect.left;
     int height = rect.bottom - rect.top;
     
+    // Get screen dimensions
     int screenWidth = GetSystemMetrics(SM_CXSCREEN);
     int screenHeight = GetSystemMetrics(SM_CYSCREEN);
     
+    // Calculate centered position
     int x = (screenWidth - width) / 2;
     int y = (screenHeight - height) / 2;
     
+    // Move window to center
     SetWindowPos(m_hwnd, NULL, x, y, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
 }
 
@@ -352,16 +409,20 @@ void Win32WindowImpl::calculateDpiScale()
         return;
     }
 
+    // Get DPI for the monitor this window is on
     UINT dpi = GetDpiForWindow(m_hwnd);
+    // 96 DPI is considered 100% scaling (1.0x)
     m_dpiScale = static_cast<float>(dpi) / 96.0f;
 }
 
-// MARK: - Window Procedure
+//==========================================================================================
+// Window Procedure
 
 LRESULT CALLBACK Win32WindowImpl::WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     Win32WindowImpl* impl = nullptr;
 
+    // On window creation, store the Win32WindowImpl pointer
     if (msg == WM_NCCREATE)
     {
         CREATESTRUCT* cs = reinterpret_cast<CREATESTRUCT*>(lParam);
@@ -370,9 +431,11 @@ LRESULT CALLBACK Win32WindowImpl::WindowProc(HWND hwnd, UINT msg, WPARAM wParam,
     }
     else
     {
+        // Retrieve the Win32WindowImpl pointer
         impl = reinterpret_cast<Win32WindowImpl*>(GetWindowLongPtr(hwnd, GWLP_USERDATA));
     }
 
+    // If no implementation or base window, use default processing
     if (!impl || !impl->m_baseWindow)
     {
         return DefWindowProc(hwnd, msg, wParam, lParam);
@@ -381,6 +444,7 @@ LRESULT CALLBACK Win32WindowImpl::WindowProc(HWND hwnd, UINT msg, WPARAM wParam,
     switch (msg)
     {
     case WM_CLOSE:
+        // Tool windows just hide instead of closing
         if (impl->m_windowType == WindowType::ToolWindow)
         {
             impl->m_baseWindow->hide();
@@ -410,7 +474,10 @@ LRESULT CALLBACK Win32WindowImpl::WindowProc(HWND hwnd, UINT msg, WPARAM wParam,
 
     case WM_DPICHANGED:
     {
+        // DPI changed (e.g., window moved to different monitor)
         impl->calculateDpiScale();
+        
+        // Windows suggests a new window rectangle
         RECT* rect = reinterpret_cast<RECT*>(lParam);
         SetWindowPos(hwnd, NULL,
             rect->left, rect->top,
@@ -421,6 +488,7 @@ LRESULT CALLBACK Win32WindowImpl::WindowProc(HWND hwnd, UINT msg, WPARAM wParam,
     }
 
     case WM_IME_SETCONTEXT:
+        // Disable default IME composition window (we'll position it manually)
         if (wParam)
         {
             lParam &= ~ISC_SHOWUICOMPOSITIONWINDOW;
@@ -429,26 +497,31 @@ LRESULT CALLBACK Win32WindowImpl::WindowProc(HWND hwnd, UINT msg, WPARAM wParam,
 
     case WM_IME_STARTCOMPOSITION:
     {
+        // Forward to event manager first
         MSG message = { hwnd, msg, wParam, lParam };
         impl->m_baseWindow->handleNativeEvent(&message);
 
+        // Position IME composition window
         HIMC hImc = ImmGetContext(hwnd);
         if (hImc && impl->m_imeEnabled)
         {
             Rect cursorRect = impl->getInputMethodCursorWindowRect();
 
+            // Set composition window position (where text is being typed)
             COMPOSITIONFORM cf;
             cf.dwStyle = CFS_POINT;
             cf.ptCurrentPos.x = static_cast<LONG>(cursorRect.x);
             cf.ptCurrentPos.y = static_cast<LONG>(cursorRect.y);
             ImmSetCompositionWindow(hImc, &cf);
 
+            // Set candidate window position (where selection list appears)
             CANDIDATEFORM caf;
             caf.dwStyle = CFS_CANDIDATEPOS;
             caf.ptCurrentPos.x = static_cast<LONG>(cursorRect.x);
             caf.ptCurrentPos.y = static_cast<LONG>(cursorRect.y + cursorRect.height);
             ImmSetCandidateWindow(hImc, &caf);
 
+            // Set font for composition window
             LOGFONTA lf = {};
             lf.lfHeight = -static_cast<LONG>(14.0f * impl->getDpiScale());
             lf.lfCharSet = DEFAULT_CHARSET;
@@ -462,9 +535,11 @@ LRESULT CALLBACK Win32WindowImpl::WindowProc(HWND hwnd, UINT msg, WPARAM wParam,
 
     case WM_IME_COMPOSITION:
     {
+        // Forward to event manager first
         MSG message = { hwnd, msg, wParam, lParam };
         impl->m_baseWindow->handleNativeEvent(&message);
 
+        // Update IME window position if composition or result string changed
         if (lParam & (GCS_COMPSTR | GCS_RESULTSTR))
         {
             HIMC hImc = ImmGetContext(hwnd);
@@ -505,10 +580,12 @@ LRESULT CALLBACK Win32WindowImpl::WindowProc(HWND hwnd, UINT msg, WPARAM wParam,
     }
 
     case WM_IME_CHAR:
+        // Ignore IME_CHAR (we handle text through WM_CHAR and IME composition)
         return 0;
 
     default:
     {
+        // Forward all other messages to the event manager
         MSG message = { hwnd, msg, wParam, lParam };
         impl->m_baseWindow->handleNativeEvent(&message);
         break;
@@ -518,7 +595,8 @@ LRESULT CALLBACK Win32WindowImpl::WindowProc(HWND hwnd, UINT msg, WPARAM wParam,
     return DefWindowProc(hwnd, msg, wParam, lParam);
 }
 
-// MARK: - Factory
+//==========================================================================================
+// Factory
 
 WindowImpl* WindowImplFactory::create()
 {

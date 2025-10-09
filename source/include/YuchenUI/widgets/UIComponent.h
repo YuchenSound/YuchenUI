@@ -2,6 +2,7 @@
 
 #include "YuchenUI/core/Types.h"
 #include "YuchenUI/events/Event.h"
+#include "YuchenUI/focus/FocusPolicy.h"
 
 namespace YuchenUI {
 
@@ -9,10 +10,11 @@ class RenderList;
 class BaseWindow;
 class IWindowContent;
 class Menu;
+class FocusManager;
 
 class UIComponent {
 public:
-    UIComponent() : m_isVisible(true), m_isEnabled(true), m_tabOrder(-1), m_ownerWindow(nullptr), m_ownerContent(nullptr), m_parent(nullptr), m_contextMenu(nullptr), m_drawsFocusIndicator(true) {}
+    UIComponent();
     virtual ~UIComponent() = default;
     
     virtual void addDrawCommands(RenderList& commandList, const Vec2& offset = Vec2()) const = 0;
@@ -29,10 +31,10 @@ public:
     Rect mapToWindow(const Rect& localRect) const;
     
     virtual bool isVisible() const { return m_isVisible; }
-    virtual void setVisible(bool visible) { m_isVisible = visible; }
+    virtual void setVisible(bool visible);
     
     virtual bool isEnabled() const { return m_isEnabled; }
-    virtual void setEnabled(bool enabled) { m_isEnabled = enabled; }
+    virtual void setEnabled(bool enabled);
     
     virtual void setOwnerWindow(BaseWindow* window) { m_ownerWindow = window; }
     BaseWindow* getOwnerWindow() const { return m_ownerWindow; }
@@ -43,23 +45,40 @@ public:
     void setParent(UIComponent* parent) { m_parent = parent; }
     UIComponent* getParent() const { return m_parent; }
     
-    virtual bool canReceiveFocus() const { return false; }
-    virtual void onFocusGained() {}
-    virtual void onFocusLost() {}
-    
-    void requestFocus();
-    bool isFocused() const;
-    
-    void setTabOrder(int order);
-    int getTabOrder() const { return m_tabOrder; }
-    
     void setContextMenu(Menu* menu) { m_contextMenu = menu; }
     Menu* getContextMenu() const { return m_contextMenu; }
     bool hasContextMenu() const { return m_contextMenu != nullptr; }
     
-    void setDrawsFocusIndicator(bool draws) { m_drawsFocusIndicator = draws; }
-    bool drawsFocusIndicator() const { return m_drawsFocusIndicator; }
-
+    void setFocusPolicy(FocusPolicy policy);
+    FocusPolicy getFocusPolicy() const { return m_focusPolicy; }
+    
+    bool canAcceptFocus() const;
+    bool acceptsTabFocus() const;
+    bool acceptsClickFocus() const;
+    
+    bool hasFocus() const { return m_hasFocus; }
+    
+    void setFocus(FocusReason reason = FocusReason::OtherFocusReason);
+    void clearFocus();
+    
+    void requestFocus(FocusReason reason = FocusReason::OtherFocusReason) {
+        setFocus(reason);
+    }
+    
+    void setFocusProxy(UIComponent* proxy);
+    UIComponent* getFocusProxy() const { return m_focusProxy; }
+    UIComponent* effectiveFocusWidget();
+    
+    void setTabOrder(int order);
+    int getTabOrder() const { return m_tabOrder; }
+    
+    void setShowFocusIndicator(bool show) { m_showFocusIndicator = show; }
+    bool showsFocusIndicator() const { return m_showFocusIndicator; }
+    
+    virtual bool shouldHandleDirectionKey(FocusDirection direction) const {
+        return false;
+    }
+    
 protected:
     void captureMouse();
     void releaseMouse();
@@ -67,14 +86,35 @@ protected:
     virtual void drawFocusIndicator(RenderList& commandList, const Vec2& offset) const;
     virtual CornerRadius getFocusIndicatorCornerRadius() const { return CornerRadius(); }
     
+    virtual void focusInEvent(FocusReason reason) {}
+    virtual void focusOutEvent(FocusReason reason) {}
+    
     bool m_isVisible;
     bool m_isEnabled;
-    int m_tabOrder;
     BaseWindow* m_ownerWindow;
     IWindowContent* m_ownerContent;
     UIComponent* m_parent;
     Menu* m_contextMenu;
-    bool m_drawsFocusIndicator;
+
+private:
+    void onFocusIn(FocusReason reason);
+    void onFocusOut(FocusReason reason);
+    
+    void scrollIntoViewIfNeeded();
+    
+    void notifyFocusIn(FocusReason reason);
+    void notifyFocusOut(FocusReason reason);
+    void setFocusState(bool focused) { m_hasFocus = focused; }
+    
+    FocusPolicy m_focusPolicy;
+    bool m_hasFocus;
+    int m_tabOrder;
+    UIComponent* m_focusProxy;
+    bool m_showFocusIndicator;
+    FocusManager* m_focusManagerAccessor;
+    
+    friend class FocusManager;
+    friend class IWindowContent;
 };
 
 }
