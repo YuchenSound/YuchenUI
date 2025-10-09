@@ -4,7 +4,10 @@
 #include "YuchenUI/platform/WindowImpl.h"
 #include "YuchenUI/widgets/ScrollArea.h"
 #include "YuchenUI/widgets/ComboBox.h"
+#include "YuchenUI/widgets/CheckBox.h"
+#include "YuchenUI/widgets/RadioButton.h"
 #include "YuchenUI/core/Assert.h"
+
 
 namespace YuchenUI {
 
@@ -39,6 +42,10 @@ ProtoolsClassicStyle::ProtoolsClassicStyle()
     , m_scrollbarTriangleNormal(Vec4::FromRGBA(100, 100, 100, 255))
     , m_scrollbarTriangleHovered(Vec4::FromRGBA(60, 60, 60, 255))
     , m_scrollbarTrianglePressed(Vec4::FromRGBA(30, 30, 30, 255))
+    , m_spinBoxTextNormal(Vec4::FromRGBA(169, 231, 0, 255))
+    , m_spinBoxTextEditing(Vec4::FromRGBA(50, 50, 50, 255))
+    , m_spinBoxEditingBg(Vec4::FromRGBA(169, 231, 0, 255))
+    , m_spinBoxCursor(Vec4::FromRGBA(0, 0, 0, 255))
     , m_groupBoxTitleBarHeight(20.0f)
 {
 }
@@ -151,7 +158,6 @@ void ProtoolsClassicStyle::drawFrame(const FrameDrawInfo& info, RenderList& cmdL
 }
 
 void ProtoolsClassicStyle::drawGroupBox(const GroupBoxDrawInfo& info, RenderList& cmdList) {
-    // 使用主题定义的标题栏高度
     const float TITLE_HEIGHT = m_groupBoxTitleBarHeight;
     static constexpr float TITLE_PADDING_LEFT = 8.0f;
     static constexpr float CORNER_RADIUS = 2.0f;
@@ -322,12 +328,36 @@ void ProtoolsClassicStyle::drawTextInput(const TextInputDrawInfo& info, RenderLi
 }
 
 void ProtoolsClassicStyle::drawSpinBox(const SpinBoxDrawInfo& info, RenderList& cmdList) {
-    Vec4 bgColor = !info.isEnabled ? Vec4::FromRGBA(230, 230, 230, 255) :
-                   info.isEditing ? Vec4::FromRGBA(245, 245, 245, 255) :
-                   info.isHovered ? Vec4::FromRGBA(242, 242, 242, 255) :
-                   Vec4::FromRGBA(240, 240, 240, 255);
+    cmdList.fillRect(info.bounds, Vec4::FromRGBA(76, 76, 76, 255), CornerRadius(2.0f));
+
+    if (info.displayText.empty()) return;
     
-    cmdList.fillRect(info.bounds, bgColor, CornerRadius(2.0f));
+    FontManager& fontManager = FontManager::getInstance();
+    FontHandle arialBold = fontManager.getArialBold();
+    FontMetrics metrics = fontManager.getFontMetrics(arialBold, info.fontSize);
+    
+    float contentHeight = info.bounds.height - info.paddingTop - info.paddingBottom;
+    float textY = info.bounds.y + info.paddingTop + (contentHeight - metrics.lineHeight) * 0.5f + metrics.ascender;
+    float textX = info.bounds.x + info.paddingLeft;
+    
+    Vec4 textColor = m_spinBoxTextNormal;
+    
+    if (info.isEditing) {
+        Vec2 textSize = fontManager.measureText(info.displayText.c_str(), info.fontSize);
+        
+        Rect textBgRect(
+            textX - 1.0f,
+            info.bounds.y + info.paddingTop + (contentHeight - metrics.lineHeight) * 0.5f - 1.0f,
+            textSize.x + 2.0f,
+            metrics.lineHeight + 2.0f
+        );
+        
+        cmdList.fillRect(textBgRect, m_spinBoxEditingBg);
+        textColor = Vec4::FromRGBA(50, 50, 50, 255);
+    }
+    
+    cmdList.drawText(info.displayText.c_str(), Vec2(textX, textY),
+                    arialBold, info.chineseFont, info.fontSize, textColor);
 }
 
 void ProtoolsClassicStyle::drawComboBox(const ComboBoxDrawInfo& info, RenderList& cmdList) {
@@ -373,5 +403,55 @@ void ProtoolsClassicStyle::drawFocusIndicator(const FocusIndicatorDrawInfo& info
 Vec4 ProtoolsClassicStyle::getDefaultScrollAreaBackground() const {
     return m_scrollAreaBg;
 }
+void ProtoolsClassicStyle::drawCheckBox(const CheckBoxDrawInfo& info, RenderList& cmdList) {
+    std::string resourcePath = "components/checkbox/classical/";
+    
+    if (!info.isEnabled) {
+        switch (info.state) {
+            case CheckBoxState::Checked:
+                resourcePath += "checkbox_checked_disabled@2x.png";
+                break;
+            case CheckBoxState::Indeterminate:
+                resourcePath += "checkbox_indeterminate_disabled@2x.png";
+                break;
+            default:
+                resourcePath += "checkbox_unchecked-disabled@2x.png";
+                break;
+        }
+    } else {
+        switch (info.state) {
+            case CheckBoxState::Checked:
+                resourcePath += "checkbox_checked@2x.png";
+                break;
+            case CheckBoxState::Indeterminate:
+                resourcePath += "checkbox_indeterminate@2x.png";
+                break;
+            default:
+                resourcePath += "checkbox_unchecked@2x.png";
+                break;
+        }
+    }
+    
+    cmdList.drawImage(resourcePath.c_str(), info.bounds, ScaleMode::Original);
+}
 
+void ProtoolsClassicStyle::drawRadioButton(const RadioButtonDrawInfo& info, RenderList& cmdList) {
+    std::string resourcePath = "components/radio/classical/";
+    
+    if (!info.isEnabled) {
+        if (info.isChecked) {
+            resourcePath += "radio_checked_disabled@2x.png";
+        } else {
+            resourcePath += "radio_unchecked_disabled@2x.png";
+        }
+    } else {
+        if (info.isChecked) {
+            resourcePath += "radio_checked@2x.png";
+        } else {
+            resourcePath += "radio_unchecked@2x.png";
+        }
+    }
+    
+    cmdList.drawImage(resourcePath.c_str(), info.bounds, ScaleMode::Original);
+}
 }

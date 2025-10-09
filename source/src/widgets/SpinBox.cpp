@@ -58,15 +58,7 @@ void SpinBox::addDrawCommands(RenderList& commandList, const Vec2& offset) const
         m_bounds.width,
         m_bounds.height
     );
-    if (m_hasBackground) {
-        SpinBoxDrawInfo bgInfo;
-        bgInfo.bounds = absRect;
-        bgInfo.isEditing = m_isEditing;
-        bgInfo.isHovered = m_isHovered;
-        bgInfo.isEnabled = m_isEnabled;
-        
-        style->drawSpinBox(bgInfo, commandList);
-    }
+    
     std::string displayText;
     if (m_isEditing) {
         displayText = m_inputBuffer;
@@ -74,42 +66,24 @@ void SpinBox::addDrawCommands(RenderList& commandList, const Vec2& offset) const
         displayText = formatValueWithSuffix();
     }
     
-    if (!displayText.empty()) {
-        FontHandle westernFont = style->getDefaultLabelFont();
-        FontHandle chineseFont = fontManager.getPingFangFont();
-        FontMetrics metrics = fontManager.getFontMetrics(westernFont, m_fontSize);
+    if (m_hasBackground) {
+        SpinBoxDrawInfo drawInfo;
+        drawInfo.bounds = absRect;
+        drawInfo.displayText = displayText;
+        drawInfo.westernFont = style->getDefaultLabelFont();
+        drawInfo.chineseFont = fontManager.getPingFangFont();
+        drawInfo.fontSize = m_fontSize;
+        drawInfo.isEditing = m_isEditing;
+        drawInfo.isHovered = m_isHovered;
+        drawInfo.isEnabled = m_isEnabled;
+        drawInfo.showCursor = m_showCursor;
+        drawInfo.cursorPosition = m_cursorPosition;
+        drawInfo.paddingLeft = m_paddingLeft;
+        drawInfo.paddingTop = m_paddingTop;
+        drawInfo.paddingRight = m_paddingRight;
+        drawInfo.paddingBottom = m_paddingBottom;
         
-        float contentHeight = m_bounds.height - m_paddingTop - m_paddingBottom;
-        float textY = absRect.y + m_paddingTop + (contentHeight - metrics.lineHeight) * 0.5f + metrics.ascender;
-        float textX = absRect.x + m_paddingLeft;
-        
-        Vec4 textColor = Vec4::FromRGBA(0, 255, 100, 255);
-        
-        if (m_isEditing) {
-            Vec2 textSize = fontManager.measureText(displayText.c_str(), m_fontSize);
-            
-            Rect textBgRect(
-                textX - 2.0f,
-                absRect.y + m_paddingTop + (contentHeight - metrics.lineHeight) * 0.5f - 1.0f,
-                textSize.x + 4.0f,
-                metrics.lineHeight + 2.0f
-            );
-            
-            commandList.fillRect(textBgRect, Vec4::FromRGBA(0, 200, 100, 255), CornerRadius(2.0f));
-            textColor = Vec4::FromRGBA(0, 0, 0, 255);
-        }
-        
-        commandList.drawText(displayText.c_str(), Vec2(textX, textY), westernFont, chineseFont, m_fontSize, textColor);
-    
-        if (m_isEditing && m_showCursor) {
-            std::string beforeCursor = displayText.substr(0, m_cursorPosition);
-            float cursorX = textX + fontManager.measureText(beforeCursor.c_str(), m_fontSize).x;
-            
-            Vec2 cursorStart(cursorX, absRect.y + m_paddingTop + (contentHeight - metrics.lineHeight) * 0.5f);
-            Vec2 cursorEnd(cursorX, cursorStart.y + metrics.lineHeight);
-            
-            commandList.drawLine(cursorStart, cursorEnd, Vec4::FromRGBA(0, 0, 0, 255), 1.5f);
-        }
+        style->drawSpinBox(drawInfo, commandList);
     }
     
     if (m_isEditing) {
@@ -541,4 +515,5 @@ void SpinBox::setCanReceiveFocusConfig(bool canFocus) {
 bool SpinBox::canReceiveFocus() const {
     return m_canReceiveFocusConfig && m_isEnabled && m_isVisible;
 }
+
 }

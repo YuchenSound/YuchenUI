@@ -18,6 +18,9 @@
 #include "YuchenUI/widgets/Image.h"
 #include "YuchenUI/widgets/ComboBox.h"
 #include "YuchenUI/widgets/SpinBox.h"
+#include "YuchenUI/widgets/CheckBox.h"
+#include "YuchenUI/widgets/RadioButton.h"
+
 
 #include "YuchenUI/windows/IWindowContent.h"
 #include "YuchenUI/utils/Clipboard.h"

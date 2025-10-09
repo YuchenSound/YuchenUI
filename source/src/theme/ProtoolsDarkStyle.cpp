@@ -4,6 +4,8 @@
 #include "YuchenUI/platform/WindowImpl.h"
 #include "YuchenUI/widgets/ScrollArea.h"
 #include "YuchenUI/widgets/ComboBox.h"
+#include "YuchenUI/widgets/CheckBox.h"
+#include "YuchenUI/widgets/RadioButton.h"
 #include "YuchenUI/core/Assert.h"
 
 namespace YuchenUI {
@@ -12,7 +14,7 @@ ProtoolsDarkStyle::ProtoolsDarkStyle()
     : m_mainWindowBg(Vec4::FromRGBA(75, 75, 75, 255))
     , m_dialogBg(Vec4::FromRGBA(30, 30, 30, 255))
     , m_toolWindowBg(Vec4::FromRGBA(48, 48, 48, 255))
-    , m_textColor(Vec4::FromRGBA(255, 255, 255, 255))
+    , m_uiTextColor(Vec4::FromRGBA(255, 255, 255, 196))
     , m_textDisabledColor(Vec4::FromRGBA(120, 120, 120, 255))
     , m_buttonNormal(Vec4::FromRGBA(100, 100, 100, 255))
     , m_buttonHover(Vec4::FromRGBA(120, 120, 120, 255))
@@ -39,6 +41,10 @@ ProtoolsDarkStyle::ProtoolsDarkStyle()
     , m_scrollbarTriangleNormal(Vec4::FromRGBA(150, 150, 150, 255))
     , m_scrollbarTriangleHovered(Vec4::FromRGBA(181, 181, 181, 255))
     , m_scrollbarTrianglePressed(Vec4::FromRGBA(255, 255, 255, 255))
+    , m_spinBoxTextNormal(Vec4::FromRGBA(56, 209, 119, 255))
+    , m_spinBoxTextEditing(Vec4::FromRGBA(0, 0, 0, 255))
+    , m_spinBoxEditingBg(Vec4::FromRGBA(56, 209, 119, 255))
+    , m_spinBoxCursor(Vec4::FromRGBA(0, 0, 0, 255))
     , m_groupBoxTitleBarHeight(20.0f)
 {
 }
@@ -89,7 +95,7 @@ Vec4 ProtoolsDarkStyle::getWindowBackground(WindowType type) const {
 }
 
 Vec4 ProtoolsDarkStyle::getDefaultTextColor() const {
-    return m_textColor;
+    return m_uiTextColor;
 }
 
 void ProtoolsDarkStyle::drawButton(const ButtonDrawInfo& info, RenderList& cmdList) {
@@ -157,7 +163,6 @@ void ProtoolsDarkStyle::drawFrame(const FrameDrawInfo& info, RenderList& cmdList
 }
 
 void ProtoolsDarkStyle::drawGroupBox(const GroupBoxDrawInfo& info, RenderList& cmdList) {
-    // 使用主题定义的标题栏高度
     const float TITLE_HEIGHT = m_groupBoxTitleBarHeight;
     static constexpr float TITLE_PADDING_LEFT = 8.0f;
     static constexpr float CORNER_RADIUS = 2.0f;
@@ -194,7 +199,7 @@ void ProtoolsDarkStyle::drawGroupBox(const GroupBoxDrawInfo& info, RenderList& c
         float textY = info.bounds.y + (TITLE_HEIGHT - metrics.lineHeight) * 0.5f + metrics.ascender;
         
         Vec2 titleTextPos(textX, textY);
-        Vec4 titleTextColor = Vec4::FromRGBA(255, 255, 255, 255);
+        Vec4 titleTextColor = m_uiTextColor;
         FontHandle chineseFont = fontManager.getPingFangFont();
         
         cmdList.drawText(info.title.c_str(), titleTextPos, info.titleFont,
@@ -207,8 +212,29 @@ void ProtoolsDarkStyle::drawScrollbarTrack(const ScrollbarTrackDrawInfo& info, R
 }
 
 void ProtoolsDarkStyle::drawScrollbarThumb(const ScrollbarThumbDrawInfo& info, RenderList& cmdList) {
+    cmdList.fillRect(info.bounds, Vec4::FromRGBA(0, 0, 0, 0));
+    
+    Rect innerRect;
+    if (info.orientation == ScrollbarOrientation::Vertical) {
+        float margin = (info.bounds.width - 6.0f) / 2.0f;
+        innerRect = Rect(
+            info.bounds.x + margin,
+            info.bounds.y + margin,
+            6.0f,
+            info.bounds.height - margin * 2.0f
+        );
+    } else {
+        float margin = (info.bounds.height - 6.0f) / 2.0f;
+        innerRect = Rect(
+            info.bounds.x + margin,
+            info.bounds.y + margin,
+            info.bounds.width - margin * 2.0f,
+            6.0f
+        );
+    }
+    
     Vec4 thumbColor = (info.isDragging || info.isHovered) ? m_scrollbarThumbHovered : m_scrollbarThumb;
-    cmdList.fillRect(info.bounds, thumbColor, CornerRadius(2.0f));
+    cmdList.fillRect(innerRect, thumbColor);
 }
 
 void ProtoolsDarkStyle::drawScrollbarButton(const ScrollbarButtonDrawInfo& info, RenderList& cmdList) {
@@ -294,7 +320,7 @@ void ProtoolsDarkStyle::drawTextInput(const TextInputDrawInfo& info, RenderList&
         float textY = info.textY + metrics.ascender;
         
         cmdList.drawText(info.text.c_str(), Vec2(info.textX, textY),
-                        westernFont, chineseFont, info.fontSize, m_textColor);
+                        westernFont, chineseFont, info.fontSize, m_uiTextColor);
     } else if (!info.placeholder.empty() && !info.hasFocus) {
         FontManager& fontManager = FontManager::getInstance();
         FontHandle westernFont = getDefaultLabelFont();
@@ -312,19 +338,43 @@ void ProtoolsDarkStyle::drawTextInput(const TextInputDrawInfo& info, RenderList&
         float cursorY1 = info.bounds.y + (info.bounds.height - info.cursorHeight) * 0.5f;
         float cursorY2 = cursorY1 + info.cursorHeight;
         cmdList.drawLine(Vec2(info.cursorX, cursorY1), Vec2(info.cursorX, cursorY2),
-                        m_textColor, 1.0f);
+                        m_uiTextColor, 1.0f);
     }
     
     cmdList.popClipRect();
 }
 
 void ProtoolsDarkStyle::drawSpinBox(const SpinBoxDrawInfo& info, RenderList& cmdList) {
-    Vec4 bgColor = !info.isEnabled ? Vec4::FromRGBA(35, 35, 35, 255) :
-                   info.isEditing ? Vec4::FromRGBA(50, 50, 50, 255) :
-                   info.isHovered ? Vec4::FromRGBA(48, 48, 48, 255) :
-                   Vec4::FromRGBA(45, 45, 45, 255);
+    cmdList.fillRect(info.bounds, Vec4::FromRGBA(0, 0, 0, 255), CornerRadius(2.0f));
+
+    if (info.displayText.empty()) return;
     
-    cmdList.fillRect(info.bounds, bgColor, CornerRadius(2.0f));
+    FontManager& fontManager = FontManager::getInstance();
+    FontHandle arialBold = fontManager.getArialBold();
+    FontMetrics metrics = fontManager.getFontMetrics(arialBold, info.fontSize);
+    
+    float contentHeight = info.bounds.height - info.paddingTop - info.paddingBottom;
+    float textY = info.bounds.y + info.paddingTop + (contentHeight - metrics.lineHeight) * 0.5f + metrics.ascender;
+    float textX = info.bounds.x + info.paddingLeft;
+    
+    Vec4 textColor = m_spinBoxTextNormal;
+    
+    if (info.isEditing) {
+        Vec2 textSize = fontManager.measureText(info.displayText.c_str(), info.fontSize);
+        
+        Rect textBgRect(
+            textX - 1.0f,
+            info.bounds.y + info.paddingTop + (contentHeight - metrics.lineHeight) * 0.5f - 1.0f,
+            textSize.x + 2.0f,
+            metrics.lineHeight + 2.0f
+        );
+        
+        cmdList.fillRect(textBgRect, m_spinBoxEditingBg);
+        textColor = Vec4::FromRGBA(0, 0, 0, 255);
+    }
+    
+    cmdList.drawText(info.displayText.c_str(), Vec2(textX, textY),
+                    arialBold, info.chineseFont, info.fontSize, textColor);
 }
 
 void ProtoolsDarkStyle::drawComboBox(const ComboBoxDrawInfo& info, RenderList& cmdList) {
@@ -335,9 +385,7 @@ void ProtoolsDarkStyle::drawComboBox(const ComboBoxDrawInfo& info, RenderList& c
     static constexpr float ARROW_MARGIN_RIGHT = 3.0f;
     static constexpr float ARROW_MARGIN_TOP   = 4.0f;
     
-    Vec4 textColor;
     const char* backgroundResource = "components/dropdown/dropdown_background_black.png";
-    textColor = Vec4::FromRGBA(255, 255, 255, 255);
 
     NineSliceMargins margins(NINE_SLICE_MARGIN, NINE_SLICE_MARGIN, NINE_SLICE_MARGIN, NINE_SLICE_MARGIN);
     cmdList.drawImage(backgroundResource, info.bounds, ScaleMode::NineSlice, margins);
@@ -352,7 +400,7 @@ void ProtoolsDarkStyle::drawComboBox(const ComboBoxDrawInfo& info, RenderList& c
         
         Vec2 textPosition(textX, textY);
         cmdList.drawText(displayText.c_str(), textPosition,
-                        info.westernFont, info.chineseFont, info.fontSize, textColor);
+                        info.westernFont, info.chineseFont, info.fontSize, m_uiTextColor);
     }
     
     float arrowX = info.bounds.x + info.bounds.width - ARROW_MARGIN_RIGHT - ARROW_BASE_SIZE;
@@ -369,6 +417,59 @@ Vec4 ProtoolsDarkStyle::getDefaultScrollAreaBackground() const {
 void ProtoolsDarkStyle::drawFocusIndicator(const FocusIndicatorDrawInfo& info, RenderList& cmdList) {
     Vec4 focusColor = Vec4::FromRGBA(255, 200, 0, 255);
     cmdList.drawRect(info.bounds, focusColor, UIStyle::FOCUS_INDICATOR_BORDER_WIDTH, info.cornerRadius);
+}
+
+
+void ProtoolsDarkStyle::drawCheckBox(const CheckBoxDrawInfo& info, RenderList& cmdList) {
+    std::string resourcePath = "components/checkbox/dark/";
+    
+    if (!info.isEnabled) {
+        switch (info.state) {
+            case CheckBoxState::Checked:
+                resourcePath += "checkbox_checked_disabled@2x.png";
+                break;
+            case CheckBoxState::Indeterminate:
+                resourcePath += "checkbox_indeterminate_disabled@2x.png";
+                break;
+            default:
+                resourcePath += "checkbox_unchecked_disabled@2x.png";
+                break;
+        }
+    } else {
+        switch (info.state) {
+            case CheckBoxState::Checked:
+                resourcePath += "checkbox_checked@2x.png";
+                break;
+            case CheckBoxState::Indeterminate:
+                resourcePath += "checkbox_indeterminate@2x.png";
+                break;
+            default:
+                resourcePath += "checkbox_unchecked@2x.png";
+                break;
+        }
+    }
+    
+    cmdList.drawImage(resourcePath.c_str(), info.bounds, ScaleMode::Original);
+}
+
+void ProtoolsDarkStyle::drawRadioButton(const RadioButtonDrawInfo& info, RenderList& cmdList) {
+    std::string resourcePath = "components/radio/dark/";
+    
+    if (!info.isEnabled) {
+        if (info.isChecked) {
+            resourcePath += "radio_checked_disabled@2x.png";
+        } else {
+            resourcePath += "radio_unchecked_disabled@2x.png";
+        }
+    } else {
+        if (info.isChecked) {
+            resourcePath += "radio_checked@2x.png";
+        } else {
+            resourcePath += "radio_unchecked@2x.png";
+        }
+    }
+    
+    cmdList.drawImage(resourcePath.c_str(), info.bounds, ScaleMode::Original);
 }
 
 }

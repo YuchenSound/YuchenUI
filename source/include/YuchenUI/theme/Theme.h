@@ -136,13 +136,38 @@ struct ComboBoxDrawInfo {
 
 struct SpinBoxDrawInfo {
     Rect bounds;
+    std::string displayText;
+    FontHandle westernFont;
+    FontHandle chineseFont;
+    float fontSize;
     bool isEditing;
     bool isHovered;
     bool isEnabled;
+    bool showCursor;
+    size_t cursorPosition;
+    float paddingLeft;
+    float paddingTop;
+    float paddingRight;
+    float paddingBottom;
 };
 
 enum class WindowType;
 
+enum class CheckBoxState;
+
+struct CheckBoxDrawInfo {
+    Rect bounds;
+    CheckBoxState state;
+    bool isHovered;
+    bool isEnabled;
+};
+
+struct RadioButtonDrawInfo {
+    Rect bounds;
+    bool isChecked;
+    bool isHovered;
+    bool isEnabled;
+};
 class UIStyle {
 public:
     virtual ~UIStyle() = default;
@@ -177,7 +202,10 @@ public:
     virtual Vec4 getDefaultScrollAreaBackground() const = 0;
     
     virtual float getGroupBoxTitleBarHeight() const = 0;
-
+    
+    virtual void drawCheckBox(const CheckBoxDrawInfo& info, RenderList& cmdList) = 0;
+    virtual void drawRadioButton(const RadioButtonDrawInfo& info, RenderList& cmdList) = 0;
+    
 };
 
 class ProtoolsDarkStyle : public UIStyle {
@@ -212,12 +240,14 @@ public:
     Vec4 getDefaultScrollAreaBackground() const override;
     
     float getGroupBoxTitleBarHeight() const override;
+    void drawCheckBox(const CheckBoxDrawInfo& info, RenderList& cmdList) override;
+    void drawRadioButton(const RadioButtonDrawInfo& info, RenderList& cmdList) override;
 
 private:
     Vec4 m_mainWindowBg;
     Vec4 m_dialogBg;
     Vec4 m_toolWindowBg;
-    Vec4 m_textColor;
+    Vec4 m_uiTextColor;
     Vec4 m_textDisabledColor;
     
     Vec4 m_buttonNormal;
@@ -250,6 +280,12 @@ private:
     Vec4 m_scrollbarTriangleNormal;
     Vec4 m_scrollbarTriangleHovered;
     Vec4 m_scrollbarTrianglePressed;
+    
+    Vec4 m_spinBoxTextNormal;
+    Vec4 m_spinBoxTextEditing;
+    Vec4 m_spinBoxEditingBg;
+    Vec4 m_spinBoxCursor;
+    
     float m_groupBoxTitleBarHeight;
 
     void drawButtonInternal(const ButtonDrawInfo& info, RenderList& cmdList,
@@ -291,7 +327,8 @@ public:
     Vec4 getDefaultScrollAreaBackground() const override;
     
     float getGroupBoxTitleBarHeight() const override;
-
+    void drawCheckBox(const CheckBoxDrawInfo& info, RenderList& cmdList) override;
+    void drawRadioButton(const RadioButtonDrawInfo& info, RenderList& cmdList) override;
 private:
     Vec4 m_mainWindowBg;
     Vec4 m_dialogBg;
@@ -330,8 +367,12 @@ private:
     Vec4 m_scrollbarTriangleHovered;
     Vec4 m_scrollbarTrianglePressed;
     
+    Vec4 m_spinBoxTextNormal;
+    Vec4 m_spinBoxTextEditing;
+    Vec4 m_spinBoxEditingBg;
+    Vec4 m_spinBoxCursor;
+    
     float m_groupBoxTitleBarHeight;
-
 };
 
 }
