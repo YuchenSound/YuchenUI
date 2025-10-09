@@ -1,10 +1,12 @@
-// Win32WindowImpl.h
 #pragma once
 
 #include "YuchenUI/platform/WindowImpl.h"
 #include "YuchenUI/core/Types.h"
 #include <Windows.h>
+#include <imm.h>
 #include <string>
+
+#pragma comment(lib, "Imm32.lib")
 
 namespace YuchenUI {
 

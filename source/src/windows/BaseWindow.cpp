@@ -199,19 +199,21 @@ void BaseWindow::closeModal()
 
 void BaseWindow::closeWithResult(WindowContentResult result)
 {
+    WindowManager& wm = WindowManager::getInstance();
+
     if (m_windowType == WindowType::Dialog)
     {
         closeModal();
     }
-    else
+    else if (wm.isMainWindow(this))
     {
         m_shouldClose = true;
-
-        WindowManager& wm = WindowManager::getInstance();
-        if (wm.isMainWindow(this))
-        {
-            wm.closeMainWindow(this);
-        }
+        wm.closeMainWindow(this);
+    }
+    else if (m_windowType == WindowType::ToolWindow)
+    {
+        m_shouldClose = true;
+        wm.closeToolWindow(this);
     }
 }
 

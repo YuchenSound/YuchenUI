@@ -275,11 +275,16 @@ void IWindowContent::requestTextInput(bool enable) {
     if (m_window) {
         if (enable) {
             m_window->enableTextInput();
-            m_window->setIMEEnabled(true);
-        } else {
-            m_window->disableTextInput();
-            m_window->setIMEEnabled(false);
         }
+        else {
+            m_window->disableTextInput();
+        }
+    }
+}
+
+void IWindowContent::setIMEEnabled(bool enable) {
+    if (m_window) {
+        m_window->setIMEEnabled(enable);
     }
 }
 

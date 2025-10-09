@@ -35,7 +35,8 @@ struct ClipState {
     bool hasClip;
 };
 
-uint64_t computeClipHash(const ClipState& state) {
+uint64_t computeClipHash(const ClipState& state)
+{
     if (!state.hasClip) return 0;
     
     uint64_t hash = 0;
@@ -49,6 +50,8 @@ uint64_t computeClipHash(const ClipState& state) {
 }
 
 namespace YuchenUI {
+
+// MARK: - Constructor and Destructor
 
 D3D11Renderer::D3D11Renderer()
     : m_usingSharedDevice(false)
@@ -95,26 +98,11 @@ D3D11Renderer::~D3D11Renderer()
     releaseResources();
 }
 
-void D3D11Renderer::setSharedDevice(void* sharedDevice)
-{
-    YUCHEN_ASSERT_MSG(sharedDevice != nullptr, "Shared device cannot be null");
-    YUCHEN_ASSERT_MSG(!m_isInitialized, "Cannot set shared device after initialization");
-    
-    m_device = static_cast<ID3D11Device*>(sharedDevice);
-    m_device->AddRef();
-    m_device->GetImmediateContext(&m_context);
-    m_usingSharedDevice = true;
-}
+// MARK: - Public Interface
 
 bool D3D11Renderer::initialize(int width, int height, float dpiScale)
 {
     YUCHEN_ASSERT_MSG(!m_isInitialized, "Already initialized");
-
-    std::cout << "[D3D11Renderer::initialize] Starting initialization..." << std::endl;
-    std::cout << "[D3D11Renderer::initialize] Size: " << width << "x" << height
-        << ", DPI: " << dpiScale << std::endl;
-    std::cout << "[D3D11Renderer::initialize] Using shared device: "
-        << (m_usingSharedDevice ? "YES" : "NO") << std::endl;
 
     m_width = width;
     m_height = height;
@@ -122,59 +110,50 @@ bool D3D11Renderer::initialize(int width, int height, float dpiScale)
 
     if (!m_usingSharedDevice)
     {
-        std::cout << "[D3D11Renderer::initialize] Creating device..." << std::endl;
-        if (!createDevice()) {
-            std::cerr << "[D3D11Renderer::initialize] Failed to create device" << std::endl;
+        if (!createDevice())
+        {
             return false;
         }
-        std::cout << "[D3D11Renderer::initialize] Device created" << std::endl;
     }
 
-    std::cout << "[D3D11Renderer::initialize] Loading shaders..." << std::endl;
-    if (!loadShaders()) {
-        std::cerr << "[D3D11Renderer::initialize] Failed to load shaders" << std::endl;
+    if (!loadShaders())
+    {
         return false;
     }
 
-    std::cout << "[D3D11Renderer::initialize] Creating input layouts..." << std::endl;
-    if (!createInputLayouts()) {
-        std::cerr << "[D3D11Renderer::initialize] Failed to create input layouts" << std::endl;
+    if (!createInputLayouts())
+    {
         return false;
     }
 
-    std::cout << "[D3D11Renderer::initialize] Creating blend states..." << std::endl;
-    if (!createBlendStates()) {
-        std::cerr << "[D3D11Renderer::initialize] Failed to create blend states" << std::endl;
+    if (!createBlendStates())
+    {
         return false;
     }
 
-    std::cout << "[D3D11Renderer::initialize] Creating sampler states..." << std::endl;
-    if (!createSamplerStates()) {
-        std::cerr << "[D3D11Renderer::initialize] Failed to create sampler states" << std::endl;
+    if (!createSamplerStates())
+    {
         return false;
     }
 
-    std::cout << "[D3D11Renderer::initialize] Creating rasterizer states..." << std::endl;
-    if (!createRasterizerStates()) {
-        std::cerr << "[D3D11Renderer::initialize] Failed to create rasterizer states" << std::endl;
+    if (!createRasterizerStates())
+    {
         return false;
     }
 
-    std::cout << "[D3D11Renderer::initialize] Creating constant buffers..." << std::endl;
-    if (!createConstantBuffers()) {
-        std::cerr << "[D3D11Renderer::initialize] Failed to create constant buffers" << std::endl;
+    if (!createConstantBuffers())
+    {
         return false;
     }
 
-    std::cout << "[D3D11Renderer::initialize] Creating text buffers..." << std::endl;
     D3D11_BUFFER_DESC vbDesc = {};
     vbDesc.ByteWidth = static_cast<UINT>(m_maxTextVertices * sizeof(TextVertex));
     vbDesc.Usage = D3D11_USAGE_DYNAMIC;
     vbDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
     vbDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
 
-    if (FAILED(m_device->CreateBuffer(&vbDesc, nullptr, &m_textVertexBuffer))) {
-        std::cerr << "[D3D11Renderer::initialize] Failed to create text vertex buffer" << std::endl;
+    if (FAILED(m_device->CreateBuffer(&vbDesc, nullptr, &m_textVertexBuffer)))
+    {
         return false;
     }
 
@@ -199,30 +178,38 @@ bool D3D11Renderer::initialize(int width, int height, float dpiScale)
     D3D11_SUBRESOURCE_DATA ibData = {};
     ibData.pSysMem = indices.data();
 
-    if (FAILED(m_device->CreateBuffer(&ibDesc, &ibData, &m_textIndexBuffer))) {
-        std::cerr << "[D3D11Renderer::initialize] Failed to create text index buffer" << std::endl;
+    if (FAILED(m_device->CreateBuffer(&ibDesc, &ibData, &m_textIndexBuffer)))
+    {
         return false;
     }
 
     m_isInitialized = true;
 
-    std::cout << "[D3D11Renderer::initialize] Creating TextRenderer..." << std::endl;
     m_textRenderer = std::make_unique<TextRenderer>(this);
-    if (!m_textRenderer->initialize(m_dpiScale)) {
-        std::cerr << "[D3D11Renderer::initialize] Failed to initialize TextRenderer" << std::endl;
+    if (!m_textRenderer->initialize(m_dpiScale))
+    {
         return false;
     }
 
-    std::cout << "[D3D11Renderer::initialize] Creating TextureCache..." << std::endl;
     m_textureCache = std::make_unique<TextureCache>(this);
-    if (!m_textureCache->initialize()) {
-        std::cerr << "[D3D11Renderer::initialize] Failed to initialize TextureCache" << std::endl;
+    if (!m_textureCache->initialize())
+    {
         return false;
     }
     m_textureCache->setCurrentDPI(m_dpiScale);
 
-    std::cout << "[D3D11Renderer::initialize] Initialization complete" << std::endl;
     return true;
+}
+
+void D3D11Renderer::setSharedDevice(void* sharedDevice)
+{
+    YUCHEN_ASSERT_MSG(sharedDevice != nullptr, "Shared device cannot be null");
+    YUCHEN_ASSERT_MSG(!m_isInitialized, "Cannot set shared device after initialization");
+    
+    m_device = static_cast<ID3D11Device*>(sharedDevice);
+    m_device->AddRef();
+    m_device->GetImmediateContext(&m_context);
+    m_usingSharedDevice = true;
 }
 
 void D3D11Renderer::setSurface(void* surface)
@@ -278,54 +265,116 @@ bool D3D11Renderer::isInitialized() const
     return m_isInitialized;
 }
 
-void D3D11Renderer::releaseResources()
+void D3D11Renderer::beginFrame()
 {
-    if (m_textRenderer)
-    {
-        m_textRenderer->destroy();
-        m_textRenderer.reset();
-    }
+    if (!m_rtv) return;
     
-    if (m_textureCache)
-    {
-        m_textureCache->destroy();
-        m_textureCache.reset();
-    }
+    m_context->OMSetRenderTargets(1, &m_rtv, nullptr);
     
-    if (m_textIndexBuffer) { m_textIndexBuffer->Release(); m_textIndexBuffer = nullptr; }
-    if (m_textVertexBuffer) { m_textVertexBuffer->Release(); m_textVertexBuffer = nullptr; }
-    if (m_constantBuffer) { m_constantBuffer->Release(); m_constantBuffer = nullptr; }
-    if (m_rasterizerState) { m_rasterizerState->Release(); m_rasterizerState = nullptr; }
-    if (m_samplerState) { m_samplerState->Release(); m_samplerState = nullptr; }
-    if (m_blendState) { m_blendState->Release(); m_blendState = nullptr; }
+    D3D11_VIEWPORT viewport = {};
+    viewport.Width = static_cast<FLOAT>(m_width);
+    viewport.Height = static_cast<FLOAT>(m_height);
+    viewport.MaxDepth = 1.0f;
+    m_context->RSSetViewports(1, &viewport);
     
-    if (m_circleInputLayout) { m_circleInputLayout->Release(); m_circleInputLayout = nullptr; }
-    if (m_circlePS) { m_circlePS->Release(); m_circlePS = nullptr; }
-    if (m_circleVS) { m_circleVS->Release(); m_circleVS = nullptr; }
+    float clearColor[4] = { m_clearColor.x, m_clearColor.y, m_clearColor.z, m_clearColor.w };
+    m_context->ClearRenderTargetView(m_rtv, clearColor);
     
-    if (m_shapeInputLayout) { m_shapeInputLayout->Release(); m_shapeInputLayout = nullptr; }
-    if (m_shapePS) { m_shapePS->Release(); m_shapePS = nullptr; }
-    if (m_shapeVS) { m_shapeVS->Release(); m_shapeVS = nullptr; }
+    applyFullScreenScissor();
+    m_context->RSSetState(m_rasterizerState);
+    m_context->OMSetBlendState(m_blendState, nullptr, 0xFFFFFFFF);
     
-    if (m_imageInputLayout) { m_imageInputLayout->Release(); m_imageInputLayout = nullptr; }
-    if (m_imagePS) { m_imagePS->Release(); m_imagePS = nullptr; }
-    if (m_imageVS) { m_imageVS->Release(); m_imageVS = nullptr; }
+    ViewportUniforms uniforms = getViewportUniforms();
+    updateConstantBuffer(uniforms);
     
-    if (m_textInputLayout) { m_textInputLayout->Release(); m_textInputLayout = nullptr; }
-    if (m_textPS) { m_textPS->Release(); m_textPS = nullptr; }
-    if (m_textVS) { m_textVS->Release(); m_textVS = nullptr; }
+    m_currentPipeline = ActivePipeline::None;
     
-    if (m_rectInputLayout) { m_rectInputLayout->Release(); m_rectInputLayout = nullptr; }
-    if (m_rectPS) { m_rectPS->Release(); m_rectPS = nullptr; }
-    if (m_rectVS) { m_rectVS->Release(); m_rectVS = nullptr; }
-    
-    if (m_rtv) { m_rtv->Release(); m_rtv = nullptr; }
-    if (m_swapChain) { m_swapChain->Release(); m_swapChain = nullptr; }
-    if (m_context) { m_context->Release(); m_context = nullptr; }
-    if (m_device && !m_usingSharedDevice) { m_device->Release(); m_device = nullptr; }
-    
-    m_isInitialized = false;
+    if (m_textRenderer) m_textRenderer->beginFrame();
 }
+
+void D3D11Renderer::endFrame()
+{
+    if (m_swapChain)
+    {
+        m_swapChain->Present(1, 0);
+    }
+}
+
+void* D3D11Renderer::getCurrentAtlasTexture() const
+{
+    if (!m_textRenderer) return nullptr;
+    return m_textRenderer->getCurrentAtlasTexture();
+}
+
+// MARK: - Texture Management
+
+void* D3D11Renderer::createTexture2D(uint32_t width, uint32_t height, TextureFormat format)
+{
+    YUCHEN_ASSERT_MSG(m_isInitialized, "Renderer not initialized");
+    
+    DXGI_FORMAT dxgiFormat = (format == TextureFormat::R8_Unorm) ? DXGI_FORMAT_R8_UNORM : DXGI_FORMAT_R8G8B8A8_UNORM;
+    
+    D3D11_TEXTURE2D_DESC texDesc = {};
+    texDesc.Width = width;
+    texDesc.Height = height;
+    texDesc.MipLevels = 1;
+    texDesc.ArraySize = 1;
+    texDesc.Format = dxgiFormat;
+    texDesc.SampleDesc.Count = 1;
+    texDesc.Usage = D3D11_USAGE_DEFAULT;
+    texDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+    
+    ID3D11Texture2D* texture = nullptr;
+    if (FAILED(m_device->CreateTexture2D(&texDesc, nullptr, &texture))) return nullptr;
+    
+    D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+    srvDesc.Format = dxgiFormat;
+    srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+    srvDesc.Texture2D.MipLevels = 1;
+    
+    ID3D11ShaderResourceView* srv = nullptr;
+    if (FAILED(m_device->CreateShaderResourceView(texture, &srvDesc, &srv)))
+    {
+        texture->Release();
+        return nullptr;
+    }
+    
+    texture->Release();
+    return srv;
+}
+
+void D3D11Renderer::updateTexture2D(void* texture, uint32_t x, uint32_t y, uint32_t width, uint32_t height, const void* data, size_t bytesPerRow)
+{
+    YUCHEN_ASSERT_MSG(texture != nullptr, "Texture is null");
+    YUCHEN_ASSERT_MSG(data != nullptr, "Data is null");
+    
+    ID3D11ShaderResourceView* srv = static_cast<ID3D11ShaderResourceView*>(texture);
+    
+    ID3D11Resource* resource = nullptr;
+    srv->GetResource(&resource);
+    
+    D3D11_BOX box = {};
+    box.left = x;
+    box.top = y;
+    box.right = x + width;
+    box.bottom = y + height;
+    box.front = 0;
+    box.back = 1;
+    
+    m_context->UpdateSubresource(resource, 0, &box, data, static_cast<UINT>(bytesPerRow), 0);
+    
+    resource->Release();
+}
+
+void D3D11Renderer::destroyTexture(void* texture)
+{
+    if (!texture) return;
+    
+    ID3D11ShaderResourceView* srv = static_cast<ID3D11ShaderResourceView*>(texture);
+    srv->Release();
+}
+
+// MARK: - Device and Resource Creation
 
 bool D3D11Renderer::createDevice()
 {
@@ -353,7 +402,6 @@ bool D3D11Renderer::createDevice()
         &m_context
     );
 
-    // Retry without debug flag if it failed
     if (FAILED(hr) && (flags & D3D11_CREATE_DEVICE_DEBUG))
     {
         flags &= ~D3D11_CREATE_DEVICE_DEBUG;
@@ -427,21 +475,22 @@ bool D3D11Renderer::loadShaderFromFile(const wchar_t* path, ID3DBlob** outBlob)
     std::wstring fullPath = path;
     std::ifstream file(fullPath, std::ios::binary);
 
-    if (!file.is_open()) {
+    if (!file.is_open())
+    {
         wchar_t exePath[MAX_PATH];
         GetModuleFileNameW(NULL, exePath, MAX_PATH);
         std::wstring exeDir = exePath;
         size_t lastSlash = exeDir.find_last_of(L"\\/");
-        if (lastSlash != std::wstring::npos) {
+        if (lastSlash != std::wstring::npos)
+        {
             exeDir = exeDir.substr(0, lastSlash + 1);
         }
 
         fullPath = exeDir + path;
         file.open(fullPath, std::ios::binary);
 
-        if (!file.is_open()) {
-            std::wcerr << L"[D3D11Renderer] Failed to open shader file: " << path << std::endl;
-            std::wcerr << L"[D3D11Renderer] Tried: " << fullPath << std::endl;
+        if (!file.is_open())
+        {
             return false;
         }
     }
@@ -453,8 +502,8 @@ bool D3D11Renderer::loadShaderFromFile(const wchar_t* path, ID3DBlob** outBlob)
     std::vector<char> data(size);
     file.read(data.data(), size);
 
-    if (FAILED(D3DCreateBlob(size, outBlob))) {
-        std::cerr << "[D3D11Renderer] Failed to create blob for shader" << std::endl;
+    if (FAILED(D3DCreateBlob(size, outBlob)))
+    {
         return false;
     }
 
@@ -620,40 +669,56 @@ bool D3D11Renderer::createConstantBuffers()
     return SUCCEEDED(m_device->CreateBuffer(&cbDesc, nullptr, &m_constantBuffer));
 }
 
-void D3D11Renderer::beginFrame()
+void D3D11Renderer::releaseResources()
 {
-    if (!m_rtv) return;
+    if (m_textRenderer)
+    {
+        m_textRenderer->destroy();
+        m_textRenderer.reset();
+    }
     
-    m_context->OMSetRenderTargets(1, &m_rtv, nullptr);
+    if (m_textureCache)
+    {
+        m_textureCache->destroy();
+        m_textureCache.reset();
+    }
     
-    D3D11_VIEWPORT viewport = {};
-    viewport.Width = static_cast<FLOAT>(m_width);
-    viewport.Height = static_cast<FLOAT>(m_height);
-    viewport.MaxDepth = 1.0f;
-    m_context->RSSetViewports(1, &viewport);
+    if (m_textIndexBuffer) { m_textIndexBuffer->Release(); m_textIndexBuffer = nullptr; }
+    if (m_textVertexBuffer) { m_textVertexBuffer->Release(); m_textVertexBuffer = nullptr; }
+    if (m_constantBuffer) { m_constantBuffer->Release(); m_constantBuffer = nullptr; }
+    if (m_rasterizerState) { m_rasterizerState->Release(); m_rasterizerState = nullptr; }
+    if (m_samplerState) { m_samplerState->Release(); m_samplerState = nullptr; }
+    if (m_blendState) { m_blendState->Release(); m_blendState = nullptr; }
     
-    float clearColor[4] = { m_clearColor.x, m_clearColor.y, m_clearColor.z, m_clearColor.w };
-    m_context->ClearRenderTargetView(m_rtv, clearColor);
+    if (m_circleInputLayout) { m_circleInputLayout->Release(); m_circleInputLayout = nullptr; }
+    if (m_circlePS) { m_circlePS->Release(); m_circlePS = nullptr; }
+    if (m_circleVS) { m_circleVS->Release(); m_circleVS = nullptr; }
     
-    applyFullScreenScissor();
-    m_context->RSSetState(m_rasterizerState);
-    m_context->OMSetBlendState(m_blendState, nullptr, 0xFFFFFFFF);
+    if (m_shapeInputLayout) { m_shapeInputLayout->Release(); m_shapeInputLayout = nullptr; }
+    if (m_shapePS) { m_shapePS->Release(); m_shapePS = nullptr; }
+    if (m_shapeVS) { m_shapeVS->Release(); m_shapeVS = nullptr; }
     
-    ViewportUniforms uniforms = getViewportUniforms();
-    updateConstantBuffer(uniforms);
+    if (m_imageInputLayout) { m_imageInputLayout->Release(); m_imageInputLayout = nullptr; }
+    if (m_imagePS) { m_imagePS->Release(); m_imagePS = nullptr; }
+    if (m_imageVS) { m_imageVS->Release(); m_imageVS = nullptr; }
     
-    m_currentPipeline = ActivePipeline::None;
+    if (m_textInputLayout) { m_textInputLayout->Release(); m_textInputLayout = nullptr; }
+    if (m_textPS) { m_textPS->Release(); m_textPS = nullptr; }
+    if (m_textVS) { m_textVS->Release(); m_textVS = nullptr; }
     
-    if (m_textRenderer) m_textRenderer->beginFrame();
+    if (m_rectInputLayout) { m_rectInputLayout->Release(); m_rectInputLayout = nullptr; }
+    if (m_rectPS) { m_rectPS->Release(); m_rectPS = nullptr; }
+    if (m_rectVS) { m_rectVS->Release(); m_rectVS = nullptr; }
+    
+    if (m_rtv) { m_rtv->Release(); m_rtv = nullptr; }
+    if (m_swapChain) { m_swapChain->Release(); m_swapChain = nullptr; }
+    if (m_context) { m_context->Release(); m_context = nullptr; }
+    if (m_device && !m_usingSharedDevice) { m_device->Release(); m_device = nullptr; }
+    
+    m_isInitialized = false;
 }
 
-void D3D11Renderer::endFrame()
-{
-    if (m_swapChain)
-    {
-        m_swapChain->Present(1, 0);
-    }
-}
+// MARK: - Pipeline Management
 
 void D3D11Renderer::setPipeline(ActivePipeline pipeline)
 {
@@ -693,6 +758,8 @@ void D3D11Renderer::setPipeline(ActivePipeline pipeline)
     m_currentPipeline = pipeline;
 }
 
+// MARK: - Scissor Rectangle Management
+
 D3D11_RECT D3D11Renderer::computeScissorRect(const Rect& clipRect) const
 {
     D3D11_RECT scissor;
@@ -724,6 +791,8 @@ void D3D11Renderer::applyFullScreenScissor()
     scissor.bottom = m_height;
     m_context->RSSetScissorRects(1, &scissor);
 }
+
+// MARK: - Render Command Execution
 
 void D3D11Renderer::executeRenderCommands(const RenderList& commandList)
 {
@@ -819,7 +888,8 @@ void D3D11Renderer::executeRenderCommands(const RenderList& commandList)
     {
         const auto& cmd = commands[i];
         
-        switch (cmd.type) {
+        switch (cmd.type)
+        {
             case RenderCommandType::Clear:
                 m_clearColor = cmd.color;
                 break;
@@ -839,23 +909,27 @@ void D3D11Renderer::executeRenderCommands(const RenderList& commandList)
                 uint32_t texWidth = 0, texHeight = 0;
                 float designScale = 1.0f;
                 void* texture = m_textureCache->getTexture(cmd.text.c_str(), texWidth, texHeight, &designScale);
-                if (texture) {
+                if (texture)
+                {
                     uint64_t clipHash = computeClipHash(clipStates[i]);
                     uint64_t textureHash = reinterpret_cast<uint64_t>(texture);
                     uint64_t key = (textureHash << 32) | clipHash;
                     
                     bool foundBatch = false;
-                    for (auto& batch : imageBatches) {
+                    for (auto& batch : imageBatches)
+                    {
                         uint64_t batchKey = (reinterpret_cast<uint64_t>(batch.texture) << 32) |
                                            computeClipHash(ClipState{batch.clipRect, batch.hasClip});
-                        if (batchKey == key) {
+                        if (batchKey == key)
+                        {
                             batch.indices.push_back(i);
                             foundBatch = true;
                             break;
                         }
                     }
                     
-                    if (!foundBatch) {
+                    if (!foundBatch)
+                    {
                         ImageBatch newBatch;
                         newBatch.indices.push_back(i);
                         newBatch.texture = texture;
@@ -885,11 +959,11 @@ void D3D11Renderer::executeRenderCommands(const RenderList& commandList)
                             size_t lastIdx = textBatchStarts.size() - 1;
                             if (textBatchHasClips[lastIdx] == clipStates[i].hasClip)
                             {
-                                if (!clipStates[i].hasClip ||(
-                                    textBatchClips[lastIdx].x == clipStates[i].clipRect.x &&
-                                    textBatchClips[lastIdx].y == clipStates[i].clipRect.y &&
-                                    textBatchClips[lastIdx].width == clipStates[i].clipRect.width &&
-                                    textBatchClips[lastIdx].height == clipStates[i].clipRect.height))
+                                if (!clipStates[i].hasClip ||
+                                    (textBatchClips[lastIdx].x == clipStates[i].clipRect.x &&
+                                     textBatchClips[lastIdx].y == clipStates[i].clipRect.y &&
+                                     textBatchClips[lastIdx].width == clipStates[i].clipRect.width &&
+                                     textBatchClips[lastIdx].height == clipStates[i].clipRect.height))
                                 {
                                     canMerge = true;
                                 }
@@ -1024,6 +1098,8 @@ void D3D11Renderer::executeRenderCommands(const RenderList& commandList)
     applyFullScreenScissor();
 }
 
+// MARK: - Rectangle Rendering
+
 void D3D11Renderer::renderRectangle(const Rect& rect, const Vec4& color, const CornerRadius& cornerRadius, float borderWidth)
 {
     YUCHEN_ASSERT_MSG(m_isInitialized, "Not initialized");
@@ -1079,6 +1155,8 @@ void D3D11Renderer::renderRectBatch(const std::vector<RenderCommand>& commands, 
         renderRectangle(cmd.rect, cmd.color, cmd.cornerRadius, cmd.borderWidth);
     }
 }
+
+// MARK: - Image Rendering
 
 void D3D11Renderer::generateImageVertices(const Rect& destRect, const Rect& sourceRect, uint32_t texWidth, uint32_t texHeight, std::vector<float>& outVertices)
 {
@@ -1249,6 +1327,8 @@ void D3D11Renderer::renderImageBatch(const std::vector<size_t>& commandIndices, 
     vertexBuffer->Release();
 }
 
+// MARK: - Text Rendering
+
 void D3D11Renderer::renderTextBatches(const std::vector<TextVertex>& allVertices, const std::vector<size_t>& batchStarts, const std::vector<size_t>& batchCounts, const std::vector<Rect>& batchClips, const std::vector<bool>& batchHasClips)
 {
     if (allVertices.empty() || batchStarts.empty()) return;
@@ -1290,6 +1370,8 @@ void D3D11Renderer::renderTextBatches(const std::vector<TextVertex>& allVertices
         m_context->DrawIndexed(indexCount, startIndexLocation, 0);
     }
 }
+
+// MARK: - Shape Rendering
 
 void D3D11Renderer::renderLine(const Vec2& start, const Vec2& end, const Vec4& color, float width)
 {
@@ -1419,77 +1501,7 @@ void D3D11Renderer::renderCircle(const Vec2& center, float radius, const Vec4& c
     vertexBuffer->Release();
 }
 
-void* D3D11Renderer::getCurrentAtlasTexture() const
-{
-    if (!m_textRenderer) return nullptr;
-    return m_textRenderer->getCurrentAtlasTexture();
-}
-
-void* D3D11Renderer::createTexture2D(uint32_t width, uint32_t height, TextureFormat format)
-{
-    YUCHEN_ASSERT_MSG(m_isInitialized, "Renderer not initialized");
-    
-    DXGI_FORMAT dxgiFormat = (format == TextureFormat::R8_Unorm) ? DXGI_FORMAT_R8_UNORM : DXGI_FORMAT_R8G8B8A8_UNORM;
-    
-    D3D11_TEXTURE2D_DESC texDesc = {};
-    texDesc.Width = width;
-    texDesc.Height = height;
-    texDesc.MipLevels = 1;
-    texDesc.ArraySize = 1;
-    texDesc.Format = dxgiFormat;
-    texDesc.SampleDesc.Count = 1;
-    texDesc.Usage = D3D11_USAGE_DEFAULT;
-    texDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
-    
-    ID3D11Texture2D* texture = nullptr;
-    if (FAILED(m_device->CreateTexture2D(&texDesc, nullptr, &texture))) return nullptr;
-    
-    D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-    srvDesc.Format = dxgiFormat;
-    srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
-    srvDesc.Texture2D.MipLevels = 1;
-    
-    ID3D11ShaderResourceView* srv = nullptr;
-    if (FAILED(m_device->CreateShaderResourceView(texture, &srvDesc, &srv)))
-    {
-        texture->Release();
-        return nullptr;
-    }
-    
-    texture->Release();
-    return srv;
-}
-
-void D3D11Renderer::updateTexture2D(void* texture, uint32_t x, uint32_t y, uint32_t width, uint32_t height, const void* data, size_t bytesPerRow)
-{
-    YUCHEN_ASSERT_MSG(texture != nullptr, "Texture is null");
-    YUCHEN_ASSERT_MSG(data != nullptr, "Data is null");
-    
-    ID3D11ShaderResourceView* srv = static_cast<ID3D11ShaderResourceView*>(texture);
-    
-    ID3D11Resource* resource = nullptr;
-    srv->GetResource(&resource);
-    
-    D3D11_BOX box = {};
-    box.left = x;
-    box.top = y;
-    box.right = x + width;
-    box.bottom = y + height;
-    box.front = 0;
-    box.back = 1;
-    
-    m_context->UpdateSubresource(resource, 0, &box, data, static_cast<UINT>(bytesPerRow), 0);
-    
-    resource->Release();
-}
-
-void D3D11Renderer::destroyTexture(void* texture)
-{
-    if (!texture) return;
-    
-    ID3D11ShaderResourceView* srv = static_cast<ID3D11ShaderResourceView*>(texture);
-    srv->Release();
-}
+// MARK: - Utility Functions
 
 void D3D11Renderer::convertToNDC(float x, float y, float& ndcX, float& ndcY) const
 {

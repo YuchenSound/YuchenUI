@@ -7,9 +7,13 @@
 
 namespace YuchenUI {
 
+// MARK: - Static Members
+
 std::unordered_map<UINT, Win32MenuImpl*> Win32MenuImpl::s_menuMap;
 std::unordered_map<UINT, MenuItem*> Win32MenuImpl::s_itemMap;
 UINT Win32MenuImpl::s_globalMenuId = 1000;
+
+// MARK: - Constructor and Destructor
 
 Win32MenuImpl::Win32MenuImpl()
     : m_hMenu(nullptr)
@@ -22,6 +26,8 @@ Win32MenuImpl::~Win32MenuImpl()
 {
     destroyNativeMenu();
 }
+
+// MARK: - Menu Lifecycle
 
 void Win32MenuImpl::setOwnerMenu(Menu* menu)
 {
@@ -56,6 +62,13 @@ void Win32MenuImpl::destroyNativeMenu()
     m_indexToId.clear();
     m_idToIndex.clear();
 }
+
+void* Win32MenuImpl::getNativeHandle() const
+{
+    return m_hMenu;
+}
+
+// MARK: - Menu Item Management
 
 void Win32MenuImpl::addNativeItem(const MenuItem* item, size_t index)
 {
@@ -117,6 +130,8 @@ void Win32MenuImpl::addNativeSubmenu(const MenuItem* item, Menu* submenu, size_t
     
     m_indexToId[index] = 0;
 }
+
+// MARK: - Menu Item Updates
 
 void Win32MenuImpl::updateItemEnabled(size_t index, bool enabled)
 {
@@ -181,6 +196,8 @@ void Win32MenuImpl::clearNativeMenu()
     }
 }
 
+// MARK: - Menu Display
+
 void Win32MenuImpl::popupNativeMenu(float screenX, float screenY)
 {
     YUCHEN_ASSERT_MSG(m_hMenu != nullptr, "Menu not created");
@@ -193,10 +210,7 @@ void Win32MenuImpl::popupNativeMenu(float screenX, float screenY)
                    0, hwnd, nullptr);
 }
 
-void* Win32MenuImpl::getNativeHandle() const
-{
-    return m_hMenu;
-}
+// MARK: - Command Handling
 
 void Win32MenuImpl::handleMenuCommand(UINT menuId)
 {
@@ -232,6 +246,8 @@ void Win32MenuImpl::handleMenuCommand(UINT menuId)
     
     item->triggerCallback();
 }
+
+// MARK: - Factory
 
 MenuImpl* MenuImplFactory::create()
 {

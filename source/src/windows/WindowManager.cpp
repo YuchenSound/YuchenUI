@@ -68,34 +68,58 @@ void WindowManager::run()
 {
     YUCHEN_ASSERT_MSG(m_isInitialized, "WindowManager not initialized");
     YUCHEN_ASSERT_MSG(!m_isRunning, "WindowManager already running");
-    
+
     m_isRunning = true;
 
 #ifdef __APPLE__
-    @autoreleasepool {
+    @autoreleasepool{
         while (m_isRunning)
         {
             @autoreleasepool
             {
-                NSEvent* event = [NSApp nextEventMatchingMask:NSEventMaskAny
-                                                    untilDate:[NSDate distantFuture]
-                                                       inMode:NSDefaultRunLoopMode
-                                                      dequeue:YES];
+                NSEvent * event = [NSApp nextEventMatchingMask : NSEventMaskAny
+                                                    untilDate : [NSDate distantFuture]
+                                                       inMode : NSDefaultRunLoopMode
+                                                      dequeue : YES];
                 if (event)
                 {
-                    [NSApp sendEvent:event];
+                    [NSApp sendEvent : event] ;
                 }
-                
+
                 processScheduledDestructions();
             }
         }
     }
 #elif defined(_WIN32)
     MSG msg;
-    while (GetMessageW(&msg, NULL, 0, 0))
+    while (m_isRunning)
     {
-        TranslateMessage(&msg);
-        DispatchMessageW(&msg);
+        if (PeekMessageW(&msg, NULL, 0, 0, PM_REMOVE))
+        {
+            if (msg.message == WM_QUIT)
+            {
+                m_isRunning = false;
+                break;
+            }
+
+            TranslateMessage(&msg);
+            DispatchMessageW(&msg);
+        }
+        else
+        {
+            for (Window* window : m_allWindows)
+            {
+                if (window)
+                {
+                    BaseWindow* baseWindow = static_cast<BaseWindow*>(window);
+                    if (baseWindow->isVisible())
+                    {
+                        baseWindow->renderContent();
+                    }
+                }
+            }
+        }
+
         processScheduledDestructions();
     }
 #endif

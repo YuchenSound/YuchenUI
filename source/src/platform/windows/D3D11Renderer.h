@@ -61,9 +61,7 @@ public:
     float getDPIScale() const { return m_dpiScale; }
     
     void* createTexture2D(uint32_t width, uint32_t height, TextureFormat format) override;
-    void updateTexture2D(void* texture, uint32_t x, uint32_t y,
-                        uint32_t width, uint32_t height,
-                        const void* data, size_t bytesPerRow) override;
+    void updateTexture2D(void* texture, uint32_t x, uint32_t y, uint32_t width, uint32_t height, const void* data, size_t bytesPerRow) override;
     void destroyTexture(void* texture) override;
 
 private:
@@ -71,6 +69,7 @@ private:
     bool createSwapChain(HWND hwnd);
     bool createRenderTarget();
     bool loadShaders();
+    bool loadShaderFromFile(const wchar_t* path, ID3DBlob** outBlob);
     bool createInputLayouts();
     bool createBlendStates();
     bool createSamplerStates();
@@ -78,6 +77,7 @@ private:
     bool createConstantBuffers();
     
     void executeRenderCommands(const RenderList& commandList) override;
+    void releaseResources();
     
     void setPipeline(ActivePipeline pipeline);
     void applyScissorRect(const Rect& clipRect);
@@ -99,10 +99,6 @@ private:
     void convertToNDC(float x, float y, float& ndcX, float& ndcY) const;
     ViewportUniforms getViewportUniforms() const;
     void updateConstantBuffer(const ViewportUniforms& uniforms);
-    
-    void releaseResources();
-    
-    bool loadShaderFromFile(const wchar_t* path, ID3DBlob** outBlob);
     
     bool m_usingSharedDevice;
     

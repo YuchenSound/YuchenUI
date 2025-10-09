@@ -59,7 +59,7 @@ public:
     void markFocusOrderDirty();
     
     virtual void requestTextInput(bool enable);
-    
+    void setIMEEnabled(bool enable);
     virtual Rect getInputMethodCursorRect() const;
 
 protected:
