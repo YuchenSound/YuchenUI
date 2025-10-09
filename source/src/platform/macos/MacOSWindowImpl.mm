@@ -708,8 +708,16 @@ float MacOSWindowImpl::getDpiScale() const
 
 Vec2 MacOSWindowImpl::mapToScreen(const Vec2& windowPos) const
 {
-    if (!m_baseWindow) return Vec2();
-    return m_baseWindow->mapToScreen(windowPos);
+    if (!m_window) return Vec2();
+    
+    @autoreleasepool {
+        NSRect windowFrame = [m_window frame];
+        NSRect contentRect = [m_window contentRectForFrameRect:windowFrame];
+        float screenX = contentRect.origin.x + windowPos.x;
+        float screenY = contentRect.origin.y + contentRect.size.height - windowPos.y;
+        
+        return Vec2(screenX, screenY);
+    }
 }
 
 Rect MacOSWindowImpl::getInputMethodCursorWindowRect() const

@@ -53,50 +53,21 @@ bool BaseWindow::create(int width, int height, const char* title, Window* parent
 
     WindowConfig config(width, height, title, parent, m_windowType);
 
-    std::cout << "[BaseWindow] Creating window implementation..." << std::endl;
-    if (!m_impl->create(config)) {
-        std::cerr << "[BaseWindow] Failed to create window implementation" << std::endl;
-        return false;
-    }
+    YUCHEN_ASSERT_MSG(m_impl->create(config), "Failed to create window implementation");
     m_impl->setBaseWindow(this);
-    std::cout << "[BaseWindow] Window implementation created, HWND="
-        << m_impl->getNativeHandle() << std::endl;
 
     detectDPIScale();
-    std::cout << "[BaseWindow] DPI Scale: " << m_dpiScale << std::endl;
 
-    std::cout << "[BaseWindow] Initializing renderer..." << std::endl;
-    if (!initializeRenderer()) {
-        std::cerr << "[BaseWindow] Failed to initialize renderer" << std::endl;
-        m_impl->destroy();
-        m_impl.reset();
-        return false;
-    }
-    std::cout << "[BaseWindow] Renderer initialized successfully" << std::endl;
+    YUCHEN_ASSERT_MSG(initializeRenderer(), "Failed to initialize renderer");
 
-    std::cout << "[BaseWindow] Creating EventManager..." << std::endl;
     m_eventManager.reset(PlatformBackend::createEventManager(m_impl->getNativeHandle()));
-    if (!m_eventManager) {
-        std::cerr << "[BaseWindow] Failed to create EventManager" << std::endl;
-        releaseResources();
-        m_impl->destroy();
-        m_impl.reset();
-        return false;
-    }
+    YUCHEN_ASSERT_MSG(m_eventManager, "Failed to create EventManager");
 
-    if (!m_eventManager->initialize()) {
-        std::cerr << "[BaseWindow] Failed to initialize EventManager" << std::endl;
-        m_eventManager.reset();
-        releaseResources();
-        m_impl->destroy();
-        m_impl.reset();
-        return false;
-    }
-    std::cout << "[BaseWindow] EventManager initialized successfully" << std::endl;
+    YUCHEN_ASSERT_MSG(m_eventManager->initialize(), "Failed to initialize EventManager");
 
     m_eventManager->setEventCallback([this](const Event& event) {
         this->handleEvent(event);
-        });
+    });
 
     setupUserInterface();
 
@@ -104,13 +75,12 @@ bool BaseWindow::create(int width, int height, const char* title, Window* parent
     transitionToState(WindowState::RendererReady);
 
     if (m_windowType == WindowType::Main) {
-        std::cout << "[BaseWindow] Showing window..." << std::endl;
         show();
     }
 
-    std::cout << "[BaseWindow] Window creation complete" << std::endl;
     return true;
 }
+
 void BaseWindow::destroy()
 {
     if (isInState(WindowState::Uninitialized)) return;
@@ -229,9 +199,6 @@ void BaseWindow::closeModal()
 
 void BaseWindow::closeWithResult(WindowContentResult result)
 {
-    std::cout << "[BaseWindow::closeWithResult] Called with type="
-        << static_cast<int>(m_windowType) << std::endl;
-
     if (m_windowType == WindowType::Dialog)
     {
         closeModal();
@@ -239,12 +206,10 @@ void BaseWindow::closeWithResult(WindowContentResult result)
     else
     {
         m_shouldClose = true;
-        std::cout << "[BaseWindow::closeWithResult] shouldClose set to true" << std::endl;
 
         WindowManager& wm = WindowManager::getInstance();
         if (wm.isMainWindow(this))
         {
-            std::cout << "[BaseWindow::closeWithResult] This is a main window, notifying WindowManager" << std::endl;
             wm.closeMainWindow(this);
         }
     }
@@ -307,16 +272,8 @@ void BaseWindow::setupUserInterface()
 void BaseWindow::handleNativeEvent(void* event)
 {
     YUCHEN_ASSERT(event);
-
-    if (!m_eventManager) {
-        std::cout << "[BaseWindow::handleNativeEvent] EventManager is null, ignoring event" << std::endl;
-        return;
-    }
-
-    if (!m_eventManager->isInitialized()) {
-        std::cout << "[BaseWindow::handleNativeEvent] EventManager not initialized, ignoring event" << std::endl;
-        return;
-    }
+    YUCHEN_ASSERT(m_eventManager);
+    YUCHEN_ASSERT(m_eventManager->isInitialized());
 
     m_eventManager->handleNativeEvent(event);
 }
@@ -344,46 +301,27 @@ bool BaseWindow::initializeRenderer()
 {
     WindowManager& windowManager = WindowManager::getInstance();
 
-    std::cout << "[BaseWindow::initializeRenderer] Creating renderer..." << std::endl;
     m_renderer = PlatformBackend::createRenderer();
-    if (!m_renderer) {
-        std::cerr << "[BaseWindow::initializeRenderer] createRenderer returned null" << std::endl;
-        return false;
-    }
+    YUCHEN_ASSERT_MSG(m_renderer, "createRenderer returned null");
 
     void* sharedDevice = windowManager.getSharedRenderDevice();
-    std::cout << "[BaseWindow::initializeRenderer] Shared device: " << sharedDevice << std::endl;
-    if (!sharedDevice) {
-        std::cerr << "[BaseWindow::initializeRenderer] Shared device is null" << std::endl;
-        delete m_renderer;
-        m_renderer = nullptr;
-        return false;
-    }
+    YUCHEN_ASSERT_MSG(sharedDevice, "Shared device is null");
 
     m_renderer->setSharedDevice(sharedDevice);
 
-    std::cout << "[BaseWindow::initializeRenderer] Initializing renderer with size "
-        << m_width << "x" << m_height << ", DPI=" << m_dpiScale << std::endl;
-    if (!m_renderer->initialize(m_width, m_height, m_dpiScale)) {
-        std::cerr << "[BaseWindow::initializeRenderer] Renderer initialize failed" << std::endl;
+    bool success = m_renderer->initialize(m_width, m_height, m_dpiScale);
+    if (!success) {
         delete m_renderer;
         m_renderer = nullptr;
+        YUCHEN_ASSERT_MSG(false, "Renderer initialize failed");
         return false;
     }
 
     void* surface = m_impl->getRenderSurface();
-    std::cout << "[BaseWindow::initializeRenderer] Surface handle: " << surface << std::endl;
-    if (!surface) {
-        std::cerr << "[BaseWindow::initializeRenderer] Surface is null" << std::endl;
-        delete m_renderer;
-        m_renderer = nullptr;
-        return false;
-    }
+    YUCHEN_ASSERT_MSG(surface, "Surface is null");
 
-    std::cout << "[BaseWindow::initializeRenderer] Setting surface..." << std::endl;
     m_renderer->setSurface(surface);
 
-    std::cout << "[BaseWindow::initializeRenderer] Renderer initialized successfully" << std::endl;
     return true;
 }
 

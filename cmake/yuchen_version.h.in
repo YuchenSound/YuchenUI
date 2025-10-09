@@ -1,0 +1,28 @@
+#pragma once
+
+#define YUCHEN_VERSION_MAJOR @VERSION_MAJOR@
+#define YUCHEN_VERSION_MINOR @VERSION_MINOR@
+#define YUCHEN_VERSION_PATCH @VERSION_PATCH@
+#define YUCHEN_VERSION_BUILD @VERSION_BUILD@
+
+#define YUCHEN_VERSION_STRING "@VERSION_STRING@"
+#define YUCHEN_VERSION_FULL "@VERSION_FULL@"
+
+#define YUCHEN_GIT_COMMIT "@VERSION_COMMIT@"
+#define YUCHEN_GIT_BRANCH "@VERSION_BRANCH@"
+
+namespace YuchenUI {
+
+struct Version {
+    static constexpr int Major = YUCHEN_VERSION_MAJOR;
+    static constexpr int Minor = YUCHEN_VERSION_MINOR;
+    static constexpr int Patch = YUCHEN_VERSION_PATCH;
+    static constexpr int Build = YUCHEN_VERSION_BUILD;
+    
+    static constexpr const char* String = YUCHEN_VERSION_STRING;
+    static constexpr const char* Full = YUCHEN_VERSION_FULL;
+    static constexpr const char* Commit = YUCHEN_GIT_COMMIT;
+    static constexpr const char* Branch = YUCHEN_GIT_BRANCH;
+};
+
+}
