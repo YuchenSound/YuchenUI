@@ -39,6 +39,7 @@ ProtoolsDarkStyle::ProtoolsDarkStyle()
     , m_scrollbarTriangleNormal(Vec4::FromRGBA(150, 150, 150, 255))
     , m_scrollbarTriangleHovered(Vec4::FromRGBA(181, 181, 181, 255))
     , m_scrollbarTrianglePressed(Vec4::FromRGBA(255, 255, 255, 255))
+    , m_groupBoxTitleBarHeight(20.0f)
 {
 }
 
@@ -68,6 +69,10 @@ Vec4 ProtoolsDarkStyle::getDefaultGroupBoxBackground() const {
 
 Vec4 ProtoolsDarkStyle::getDefaultGroupBoxBorder() const {
     return m_groupBoxBorder;
+}
+
+float ProtoolsDarkStyle::getGroupBoxTitleBarHeight() const {
+    return m_groupBoxTitleBarHeight;
 }
 
 Vec4 ProtoolsDarkStyle::getWindowBackground(WindowType type) const {
@@ -152,7 +157,8 @@ void ProtoolsDarkStyle::drawFrame(const FrameDrawInfo& info, RenderList& cmdList
 }
 
 void ProtoolsDarkStyle::drawGroupBox(const GroupBoxDrawInfo& info, RenderList& cmdList) {
-    static constexpr float TITLE_HEIGHT = 20.0f;
+    // 使用主题定义的标题栏高度
+    const float TITLE_HEIGHT = m_groupBoxTitleBarHeight;
     static constexpr float TITLE_PADDING_LEFT = 8.0f;
     static constexpr float CORNER_RADIUS = 2.0f;
     

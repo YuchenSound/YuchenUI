@@ -298,21 +298,14 @@ bool TextInput::handleKeyPress(const Event& event) {
 }
 
 bool TextInput::handleTextInput(uint32_t codepoint) {
-    std::cout << "[TextInput] handleTextInput called, codepoint: " << codepoint
-        << " (0x" << std::hex << codepoint << std::dec << ")" << std::endl;
-    std::cout << "[TextInput] - hasFocus: " << m_hasFocus << std::endl;
-    std::cout << "[TextInput] - isEnabled: " << m_isEnabled << std::endl;
-
     if (!m_hasFocus || !m_isEnabled) return false;
 
     if (codepoint < 32 || codepoint == 127) {
-        std::cout << "[TextInput] Control character ignored" << std::endl;
         return false;
     }
 
     if (m_inputType == TextInputType::Number) {
         if (!((codepoint >= '0' && codepoint <= '9') || codepoint == '.')) {
-            std::cout << "[TextInput] Non-numeric character rejected" << std::endl;
             return false;
         }
     }
@@ -320,16 +313,11 @@ bool TextInput::handleTextInput(uint32_t codepoint) {
     std::u32string u32char(1, codepoint);
     std::string utf8char = utf32ToUtf8(u32char);
 
-    std::cout << "[TextInput] Inserting text: " << utf8char << std::endl;
-    std::cout << "[TextInput] - Current composition text: " << m_compositionText << std::endl;
-
     insertTextAtCursor(utf8char);
 
-    // 【修复】清除组合文本
     m_compositionText[0] = '\0';
     m_compositionCursorPos = 0;
     m_compositionSelectionLength = 0;
-    std::cout << "[TextInput] Composition text cleared after input" << std::endl;
 
     m_showCursor = true;
     m_cursorBlinkTimer = 0.0f;
@@ -338,19 +326,11 @@ bool TextInput::handleTextInput(uint32_t codepoint) {
 }
 
 bool TextInput::handleComposition(const char* text, int cursorPos, int selectionLength) {
-    std::cout << "[TextInput] handleComposition called" << std::endl;
-    std::cout << "[TextInput] - hasFocus: " << m_hasFocus << std::endl;
-    std::cout << "[TextInput] - isEnabled: " << m_isEnabled << std::endl;
-    std::cout << "[TextInput] - text: " << (text ? text : "(null)") << std::endl;
-    std::cout << "[TextInput] - cursorPos: " << cursorPos << std::endl;
-
     if (!m_hasFocus || !m_isEnabled) {
-        std::cout << "[TextInput] Rejected: no focus or disabled" << std::endl;
         return false;
     }
 
     if (shouldDisableIME()) {
-        std::cout << "[TextInput] Rejected: IME disabled for this input type" << std::endl;
         return false;
     }
 
@@ -359,13 +339,11 @@ bool TextInput::handleComposition(const char* text, int cursorPos, int selection
         m_compositionText[255] = '\0';
         m_compositionCursorPos = cursorPos;
         m_compositionSelectionLength = selectionLength;
-        std::cout << "[TextInput] Composition text set: " << m_compositionText << std::endl;
     }
     else {
         m_compositionText[0] = '\0';
         m_compositionCursorPos = 0;
         m_compositionSelectionLength = 0;
-        std::cout << "[TextInput] Composition text cleared" << std::endl;
     }
 
     m_showCursor = true;
@@ -373,6 +351,7 @@ bool TextInput::handleComposition(const char* text, int cursorPos, int selection
 
     return true;
 }
+
 void TextInput::setText(const std::string& text) {
     if (!validateText(text)) return;
     

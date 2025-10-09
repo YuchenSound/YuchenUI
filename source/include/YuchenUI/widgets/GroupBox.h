@@ -15,6 +15,11 @@ public:
     
     void addDrawCommands(RenderList& commandList, const Vec2& offset = Vec2()) const override;
     
+    // 重写鼠标事件处理，应用标题栏偏移
+    bool handleMouseMove(const Vec2& position, const Vec2& offset) override;
+    bool handleMouseClick(const Vec2& position, bool pressed, const Vec2& offset) override;
+    bool handleMouseWheel(const Vec2& delta, const Vec2& position, const Vec2& offset) override;
+    
     void setTitle(const std::string& title);
     void setTitle(const char* title);
     const std::string& getTitle() const { return m_title; }

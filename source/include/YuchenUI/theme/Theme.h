@@ -175,6 +175,8 @@ public:
     virtual Vec4 getDefaultGroupBoxBackground() const = 0;
     virtual Vec4 getDefaultGroupBoxBorder() const = 0;
     virtual Vec4 getDefaultScrollAreaBackground() const = 0;
+    
+    virtual float getGroupBoxTitleBarHeight() const = 0;
 
 };
 
@@ -208,6 +210,9 @@ public:
     Vec4 getDefaultGroupBoxBackground() const override;
     Vec4 getDefaultGroupBoxBorder() const override;
     Vec4 getDefaultScrollAreaBackground() const override;
+    
+    float getGroupBoxTitleBarHeight() const override;
+
 private:
     Vec4 m_mainWindowBg;
     Vec4 m_dialogBg;
@@ -245,7 +250,8 @@ private:
     Vec4 m_scrollbarTriangleNormal;
     Vec4 m_scrollbarTriangleHovered;
     Vec4 m_scrollbarTrianglePressed;
-    
+    float m_groupBoxTitleBarHeight;
+
     void drawButtonInternal(const ButtonDrawInfo& info, RenderList& cmdList,
                            const Vec4& normalColor, const Vec4& hoverColor,
                            const Vec4& pressedColor, const Vec4& disabledColor,
@@ -283,6 +289,9 @@ public:
     Vec4 getDefaultGroupBoxBackground() const override;
     Vec4 getDefaultGroupBoxBorder() const override;
     Vec4 getDefaultScrollAreaBackground() const override;
+    
+    float getGroupBoxTitleBarHeight() const override;
+
 private:
     Vec4 m_mainWindowBg;
     Vec4 m_dialogBg;
@@ -320,6 +329,9 @@ private:
     Vec4 m_scrollbarTriangleNormal;
     Vec4 m_scrollbarTriangleHovered;
     Vec4 m_scrollbarTrianglePressed;
+    
+    float m_groupBoxTitleBarHeight;
+
 };
 
 }

@@ -55,7 +55,9 @@ void GroupBox::addDrawCommands(RenderList& commandList, const Vec2& offset) cons
     
     style->drawGroupBox(info, commandList);
     
-    renderChildren(commandList, absPos);
+    float titleBarHeight = style->getGroupBoxTitleBarHeight();
+    Vec2 contentOffset(absPos.x, absPos.y + titleBarHeight);
+    renderChildren(commandList, contentOffset);
 }
 
 void GroupBox::setTitle(const std::string& title) {
@@ -168,6 +170,93 @@ bool GroupBox::isValid() const {
            m_titleFontSize <= Config::Font::MAX_SIZE &&
            m_borderWidth >= 0.0f &&
            m_cornerRadius.isValid();
+}
+
+bool GroupBox::handleMouseMove(const Vec2& position, const Vec2& offset) {
+    if (!m_isEnabled || !m_isVisible) return false;
+    
+    // 计算 GroupBox 的绝对位置
+    Vec2 absPos(m_bounds.x + offset.x, m_bounds.y + offset.y);
+    Rect absRect(absPos.x, absPos.y, m_bounds.width, m_bounds.height);
+    
+    // 检查鼠标是否在 GroupBox 范围内
+    if (!absRect.contains(position)) return false;
+    
+    // 获取标题栏高度
+    UIStyle* style = ThemeManager::getInstance().getCurrentStyle();
+    float titleBarHeight = style->getGroupBoxTitleBarHeight();
+    
+    // 传递给子组件时，Y 轴要加上标题栏高度偏移
+    Vec2 contentOffset(absPos.x, absPos.y + titleBarHeight);
+    
+    // 反向遍历子组件（从上到下）
+    for (auto it = m_children.rbegin(); it != m_children.rend(); ++it) {
+        if ((*it) && (*it)->isVisible() && (*it)->isEnabled()) {
+            if ((*it)->handleMouseMove(position, contentOffset)) {
+                return true;
+            }
+        }
+    }
+    
+    return false;
+}
+
+bool GroupBox::handleMouseClick(const Vec2& position, bool pressed, const Vec2& offset) {
+    if (!m_isEnabled || !m_isVisible) return false;
+    
+    // 计算 GroupBox 的绝对位置
+    Vec2 absPos(m_bounds.x + offset.x, m_bounds.y + offset.y);
+    Rect absRect(absPos.x, absPos.y, m_bounds.width, m_bounds.height);
+    
+    // 检查鼠标是否在 GroupBox 范围内
+    if (!absRect.contains(position)) return false;
+    
+    // 获取标题栏高度
+    UIStyle* style = ThemeManager::getInstance().getCurrentStyle();
+    float titleBarHeight = style->getGroupBoxTitleBarHeight();
+    
+    // 传递给子组件时，Y 轴要加上标题栏高度偏移
+    Vec2 contentOffset(absPos.x, absPos.y + titleBarHeight);
+    
+    // 反向遍历子组件（从上到下）
+    for (auto it = m_children.rbegin(); it != m_children.rend(); ++it) {
+        if ((*it) && (*it)->isVisible()) {
+            if ((*it)->handleMouseClick(position, pressed, contentOffset)) {
+                return true;
+            }
+        }
+    }
+    
+    return false;
+}
+
+bool GroupBox::handleMouseWheel(const Vec2& delta, const Vec2& position, const Vec2& offset) {
+    if (!m_isEnabled || !m_isVisible) return false;
+    
+    // 计算 GroupBox 的绝对位置
+    Vec2 absPos(m_bounds.x + offset.x, m_bounds.y + offset.y);
+    Rect absRect(absPos.x, absPos.y, m_bounds.width, m_bounds.height);
+    
+    // 检查鼠标是否在 GroupBox 范围内
+    if (!absRect.contains(position)) return false;
+    
+    // 获取标题栏高度
+    UIStyle* style = ThemeManager::getInstance().getCurrentStyle();
+    float titleBarHeight = style->getGroupBoxTitleBarHeight();
+    
+    // 传递给子组件时，Y 轴要加上标题栏高度偏移
+    Vec2 contentOffset(absPos.x, absPos.y + titleBarHeight);
+    
+    // 反向遍历子组件（从上到下）
+    for (auto it = m_children.rbegin(); it != m_children.rend(); ++it) {
+        if ((*it) && (*it)->isVisible() && (*it)->isEnabled()) {
+            if ((*it)->handleMouseWheel(delta, position, contentOffset)) {
+                return true;
+            }
+        }
+    }
+    
+    return false;
 }
 
 }
