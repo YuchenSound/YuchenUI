@@ -1,3 +1,51 @@
+/*******************************************************************************************
+**
+** YuchenUI - Modern C++ GUI Framework
+**
+** Copyright (C) 2025 Yuchen Wei
+** Contact: https://github.com/YuchenSound/YuchenUI
+**
+** This file is part of the YuchenUI Windows module.
+**
+** $YUCHEN_BEGIN_LICENSE:MIT$
+** Licensed under the MIT License
+** $YUCHEN_END_LICENSE$
+**
+********************************************************************************************/
+
+//==========================================================================================
+/** @file BaseWindow.cpp
+    
+    Cross-platform base window implementation.
+    
+    This file implements the core window functionality that is shared across all platforms.
+    It manages window lifecycle, rendering, event handling, and UI content integration.
+    
+    Architecture:
+    - BaseWindow is a concrete implementation of the abstract Window interface
+    - Platform-specific behavior delegated to WindowImpl (created by factory)
+    - Rendering abstracted through IGraphicsBackend interface
+    - Event handling abstracted through EventManager
+    - UI content managed through UIContext which owns IUIContent
+    
+    Key responsibilities:
+    - Window creation, destruction, and state management
+    - Renderer initialization and frame rendering
+    - Event routing to UI components and content
+    - Mouse capture for drag operations
+    - Text input and IME coordination
+    - Modal dialog lifecycle management
+    - DPI scaling detection and propagation
+    
+    Threading model:
+    - All methods must be called from the main thread
+    - No internal synchronization (single-threaded by design)
+    
+    State machine:
+    - Uninitialized -> Created -> RendererReady -> Shown
+    - Transitions enforced through assertions in debug builds
+*/
+
 #include "YuchenUI/windows/BaseWindow.h"
 #include "YuchenUI/windows/WindowManager.h"
 #include "YuchenUI/rendering/RenderList.h"
@@ -14,7 +62,10 @@
 namespace YuchenUI
 {
 
-BaseWindow::BaseWindow (WindowType type)
+//==========================================================================================
+// Construction and Destruction
+
+BaseWindow::BaseWindow(WindowType type)
     : m_impl(nullptr)
     , m_backend(nullptr)
     , m_uiContext()
@@ -30,8 +81,9 @@ BaseWindow::BaseWindow (WindowType type)
     , m_isModal(false)
     , m_capturedComponent(nullptr)
 {
-    m_impl.reset (WindowImplFactory::create());
-    YUCHEN_ASSERT (m_impl);
+    // Create platform-specific window implementation
+    m_impl.reset(WindowImplFactory::create());
+    YUCHEN_ASSERT(m_impl);
 }
 
 BaseWindow::~BaseWindow()
@@ -39,38 +91,47 @@ BaseWindow::~BaseWindow()
     destroy();
 }
 
-bool BaseWindow::create (int width, int height, const char* title, Window* parent)
+//==========================================================================================
+// Window Lifecycle
+
+bool BaseWindow::create(int width, int height, const char* title, Window* parent)
 {
-    YUCHEN_ASSERT (width >= Config::Window::MIN_SIZE && width <= Config::Window::MAX_SIZE);
-    YUCHEN_ASSERT (height >= Config::Window::MIN_SIZE && height <= Config::Window::MAX_SIZE);
-    YUCHEN_ASSERT (title);
-    YUCHEN_ASSERT (isInState (WindowState::Uninitialized));
+    YUCHEN_ASSERT(width >= Config::Window::MIN_SIZE && width <= Config::Window::MAX_SIZE);
+    YUCHEN_ASSERT(height >= Config::Window::MIN_SIZE && height <= Config::Window::MAX_SIZE);
+    YUCHEN_ASSERT(title);
+    YUCHEN_ASSERT(isInState(WindowState::Uninitialized));
 
     m_parentWindow = parent;
     m_width = width;
     m_height = height;
 
-    WindowConfig config (width, height, title, parent, m_windowType);
+    // Create native platform window
+    WindowConfig config(width, height, title, parent, m_windowType);
+    YUCHEN_ASSERT_MSG(m_impl->create(config), "Failed to create window implementation");
+    m_impl->setBaseWindow(this);
 
-    YUCHEN_ASSERT_MSG (m_impl->create (config), "Failed to create window implementation");
-    m_impl->setBaseWindow (this);
-
+    // Initialize rendering subsystem
     detectDPIScale();
-    YUCHEN_ASSERT_MSG (initializeRenderer(), "Failed to initialize renderer");
+    YUCHEN_ASSERT_MSG(initializeRenderer(), "Failed to initialize renderer");
 
-    m_eventManager.reset (PlatformBackend::createEventManager (m_impl->getNativeHandle()));
-    YUCHEN_ASSERT_MSG (m_eventManager, "Failed to create EventManager");
-    YUCHEN_ASSERT_MSG (m_eventManager->initialize(), "Failed to initialize EventManager");
+    // Create and initialize event manager for this window
+    m_eventManager.reset(PlatformBackend::createEventManager(m_impl->getNativeHandle()));
+    YUCHEN_ASSERT_MSG(m_eventManager, "Failed to create EventManager");
+    YUCHEN_ASSERT_MSG(m_eventManager->initialize(), "Failed to initialize EventManager");
 
-    m_eventManager->setEventCallback ([this](const Event& event) {
-        this->handleEvent (event);
+    // Set up event callback to route events to this window
+    m_eventManager->setEventCallback([this](const Event& event) {
+        this->handleEvent(event);
     });
 
+    // Set up UI layer (content may be set later by user)
     setupUserInterface();
 
-    transitionToState (WindowState::Created);
-    transitionToState (WindowState::RendererReady);
+    // Transition through creation states
+    transitionToState(WindowState::Created);
+    transitionToState(WindowState::RendererReady);
 
+    // Show main windows immediately, dialogs shown via showModal()
     if (m_windowType == WindowType::Main)
     {
         show();
@@ -81,9 +142,10 @@ bool BaseWindow::create (int width, int height, const char* title, Window* paren
 
 void BaseWindow::destroy()
 {
-    if (isInState (WindowState::Uninitialized))
+    if (isInState(WindowState::Uninitialized))
         return;
     
+    // Destroy UI content first
     IUIContent* content = m_uiContext.getContent();
     if (content)
     {
@@ -91,6 +153,7 @@ void BaseWindow::destroy()
     }
     m_uiContext.setContent(nullptr);
     
+    // Clean up event manager
     if (m_eventManager)
     {
         m_eventManager->clearEventCallback();
@@ -98,8 +161,10 @@ void BaseWindow::destroy()
         m_eventManager.reset();
     }
 
+    // Release rendering resources
     releaseResources();
     
+    // Destroy platform window
     if (m_impl)
     {
         m_impl->destroy();
@@ -109,6 +174,9 @@ void BaseWindow::destroy()
     m_state = WindowState::Uninitialized;
 }
 
+//==========================================================================================
+// Window Visibility
+
 void BaseWindow::show()
 {
     if (!m_impl)
@@ -116,9 +184,9 @@ void BaseWindow::show()
     
     m_impl->show();
     
-    if (!isInState (WindowState::Shown))
+    if (!isInState(WindowState::Shown))
     {
-        transitionToState (WindowState::Shown);
+        transitionToState(WindowState::Shown);
         onWindowReady();
     }
 }
@@ -128,7 +196,7 @@ void BaseWindow::hide()
     if (m_impl)
     {
         m_impl->hide();
-        if (isInState (WindowState::Shown))
+        if (isInState(WindowState::Shown))
         {
             m_state = WindowState::RendererReady;
         }
@@ -145,6 +213,9 @@ bool BaseWindow::shouldClose()
     return m_shouldClose;
 }
 
+//==========================================================================================
+// Modal Dialog Management
+
 void BaseWindow::showModal()
 {
     if (!m_impl || m_windowType != WindowType::Dialog)
@@ -152,35 +223,44 @@ void BaseWindow::showModal()
     
     m_isModal = true;
     
+    // Notify content it's being shown
     IUIContent* content = m_uiContext.getContent();
     if (content)
         content->onShow();
     
+    // Enter platform modal loop (blocks until closeModal called)
     m_impl->showModal();
     
+    // Notify content it's being hidden
     if (content)
         content->onHide();
     
+    // Invoke result callback if registered
     if (m_resultCallback)
     {
         void* userData = content ? content->getUserData() : nullptr;
-        m_resultCallback (content ? content->getResult() : WindowContentResult::Close, userData);
+        m_resultCallback(content ? content->getResult() : WindowContentResult::Close, userData);
         m_resultCallback = nullptr;
     }
     
-    WindowManager::getInstance().scheduleDialogDestruction (this);
+    // Schedule destruction after modal loop exits
+    WindowManager::getInstance().scheduleDialogDestruction(this);
 }
 
 void BaseWindow::closeModal()
 {
     if (m_isModal && m_impl)
     {
+        // Exit platform modal loop
         m_impl->closeModal();
     }
     m_isModal = false;
 }
 
-void BaseWindow::closeWithResult (WindowContentResult result)
+//==========================================================================================
+// Window Closing
+
+void BaseWindow::closeWithResult(WindowContentResult result)
 {
     WindowManager& wm = WindowManager::getInstance();
 
@@ -188,25 +268,29 @@ void BaseWindow::closeWithResult (WindowContentResult result)
     {
         closeModal();
     }
-    else if (wm.isMainWindow (this))
+    else if (wm.isMainWindow(this))
     {
         m_shouldClose = true;
-        wm.closeMainWindow (this);
+        wm.closeMainWindow(this);
     }
     else if (m_windowType == WindowType::ToolWindow)
     {
         m_shouldClose = true;
-        wm.closeToolWindow (this);
+        wm.closeToolWindow(this);
     }
 }
 
-void BaseWindow::setResultCallback (DialogResultCallback callback)
+void BaseWindow::setResultCallback(DialogResultCallback callback)
 {
     m_resultCallback = callback;
 }
 
-void BaseWindow::setContent (std::unique_ptr<IUIContent> content)
+//==========================================================================================
+// Content Management
+
+void BaseWindow::setContent(std::unique_ptr<IUIContent> content)
 {
+    // Set up close callback so content can request window closure
     if (content) {
         content->setCloseCallback([this](WindowContentResult result) {
             if (m_windowType == WindowType::Dialog) {
@@ -217,6 +301,7 @@ void BaseWindow::setContent (std::unique_ptr<IUIContent> content)
         });
     }
     
+    // Transfer ownership to UIContext
     m_uiContext.setContent(std::move(content));
 }
 
@@ -225,22 +310,27 @@ IUIContent* BaseWindow::getContent() const
     return m_uiContext.getContent();
 }
 
+//==========================================================================================
+// Window Properties
+
 Vec2 BaseWindow::getSize() const
 {
-    return m_impl ? m_impl->getSize() : Vec2 (m_width, m_height);
+    return m_impl ? m_impl->getSize() : Vec2(m_width, m_height);
 }
 
-void BaseWindow::onResize (int width, int height)
+void BaseWindow::onResize(int width, int height)
 {
     if (width != m_width || height != m_height)
     {
         m_width = width;
         m_height = height;
         
+        // Update renderer viewport
         if (m_backend) {
             m_backend->resize(width, height);
         }
         
+        // Update UI layout
         m_uiContext.setViewportSize(Vec2(width, height));
     }
 }
@@ -259,50 +349,66 @@ Vec2 BaseWindow::mapToScreen(const Vec2& windowPos) const {
     return m_impl ? m_impl->mapToScreen(windowPos) : windowPos;
 }
 
+//==========================================================================================
+// Rendering
+
 Rect BaseWindow::calculateContentArea() const
 {
-    return Rect (0, 0, static_cast<float>(m_width), static_cast<float>(m_height));
+    return Rect(0, 0, static_cast<float>(m_width), static_cast<float>(m_height));
 }
 
 Vec4 BaseWindow::getBackgroundColor() const
 {
-    return ThemeManager::getInstance().getCurrentStyle()->getWindowBackground (m_windowType);
+    return ThemeManager::getInstance().getCurrentStyle()->getWindowBackground(m_windowType);
 }
 
 void BaseWindow::renderContent()
 {
-    if (!m_backend || !hasReachedState (WindowState::Created))
+    if (!m_backend || !hasReachedState(WindowState::Created))
         return;
     
+    // Begin rendering frame
     m_backend->beginFrame();
     
+    // Build command list
     RenderList commandList;
-    commandList.clear (getBackgroundColor());
+    commandList.clear(getBackgroundColor());
     
+    // Let UI context render its content
     m_uiContext.beginFrame();
     m_uiContext.render(commandList);
     m_uiContext.endFrame();
     
-    m_backend->executeRenderCommands (commandList);
+    // Execute rendering commands and present
+    m_backend->executeRenderCommands(commandList);
     m_backend->endFrame();
 }
 
+//==========================================================================================
+// Renderer Initialization
+
 bool BaseWindow::initializeRenderer()
 {
+    // Create platform-specific graphics backend
     m_backend.reset(PlatformBackend::createGraphicsBackend());
-    YUCHEN_ASSERT_MSG (m_backend, "createGraphicsBackend returned null");
+    YUCHEN_ASSERT_MSG(m_backend, "createGraphicsBackend returned null");
 
+    // Get render surface from platform implementation
     void* surface = m_impl->getRenderSurface();
-    YUCHEN_ASSERT_MSG (surface, "Surface is null");
+    YUCHEN_ASSERT_MSG(surface, "Surface is null");
 
+    // Initialize backend with window surface and DPI
     bool success = m_backend->initialize(surface, m_width, m_height, m_dpiScale);
-    YUCHEN_ASSERT_MSG (success, "Backend initialize failed");
+    YUCHEN_ASSERT_MSG(success, "Backend initialize failed");
     
+    // Configure UI context
     m_uiContext.setViewportSize(Vec2(m_width, m_height));
     m_uiContext.setDPIScale(m_dpiScale);
     
+    // Register this window as text input handler
     m_uiContext.setTextInputHandler(this);
     
+    // Register this window as coordinate mapper
     m_uiContext.setCoordinateMapper(this);
 
     return success;
@@ -310,9 +416,9 @@ bool BaseWindow::initializeRenderer()
 
 void BaseWindow::detectDPIScale()
 {
-    YUCHEN_ASSERT (m_impl);
+    YUCHEN_ASSERT(m_impl);
     m_dpiScale = m_impl->getDpiScale();
-    YUCHEN_ASSERT (m_dpiScale > 0.0f);
+    YUCHEN_ASSERT(m_dpiScale > 0.0f);
 }
 
 void BaseWindow::releaseResources()
@@ -320,17 +426,22 @@ void BaseWindow::releaseResources()
     m_backend.reset();
 }
 
-void BaseWindow::handleNativeEvent (void* event)
-{
-    YUCHEN_ASSERT (event);
-    YUCHEN_ASSERT (m_eventManager);
-    YUCHEN_ASSERT (m_eventManager->isInitialized());
+//==========================================================================================
+// Event Handling
 
-    m_eventManager->handleNativeEvent (event);
+void BaseWindow::handleNativeEvent(void* event)
+{
+    YUCHEN_ASSERT(event);
+    YUCHEN_ASSERT(m_eventManager);
+    YUCHEN_ASSERT(m_eventManager->isInitialized());
+
+    // Forward platform event to event manager for translation
+    m_eventManager->handleNativeEvent(event);
 }
 
-void BaseWindow::handleEvent (const Event& event)
+void BaseWindow::handleEvent(const Event& event)
 {
+    // If a component has mouse capture, route mouse events to it first
     if (m_capturedComponent)
     {
         bool handled = false;
@@ -339,18 +450,18 @@ void BaseWindow::handleEvent (const Event& event)
         {
             case EventType::MouseButtonPressed:
             case EventType::MouseButtonReleased:
-                handled = m_capturedComponent->handleMouseClick (
+                handled = m_capturedComponent->handleMouseClick(
                     event.mouseButton.position,
                     event.type == EventType::MouseButtonPressed
                 );
                 break;
                 
             case EventType::MouseMoved:
-                handled = m_capturedComponent->handleMouseMove (event.mouseMove.position);
+                handled = m_capturedComponent->handleMouseMove(event.mouseMove.position);
                 break;
                 
             case EventType::MouseScrolled:
-                handled = m_capturedComponent->handleMouseWheel (
+                handled = m_capturedComponent->handleMouseWheel(
                     event.mouseScroll.delta,
                     event.mouseScroll.position
                 );
@@ -364,24 +475,25 @@ void BaseWindow::handleEvent (const Event& event)
             return;
     }
     
+    // Try to handle event through UI context
     bool handled = false;
     
     switch (event.type)
     {
         case EventType::MouseButtonPressed:
         case EventType::MouseButtonReleased:
-            handled = m_uiContext.handleMouseClick (
+            handled = m_uiContext.handleMouseClick(
                 event.mouseButton.position,
                 event.type == EventType::MouseButtonPressed
             );
             break;
             
         case EventType::MouseMoved:
-            handled = m_uiContext.handleMouseMove (event.mouseMove.position);
+            handled = m_uiContext.handleMouseMove(event.mouseMove.position);
             break;
             
         case EventType::MouseScrolled:
-            handled = m_uiContext.handleMouseWheel (
+            handled = m_uiContext.handleMouseWheel(
                 event.mouseScroll.delta,
                 event.mouseScroll.position
             );
@@ -389,7 +501,7 @@ void BaseWindow::handleEvent (const Event& event)
             
         case EventType::KeyPressed:
         case EventType::KeyReleased:
-            handled = m_uiContext.handleKeyEvent (
+            handled = m_uiContext.handleKeyEvent(
                 event.key.key,
                 event.type == EventType::KeyPressed,
                 event.key.modifiers,
@@ -398,11 +510,11 @@ void BaseWindow::handleEvent (const Event& event)
             break;
             
         case EventType::TextInput:
-            handled = m_uiContext.handleTextInput (event.textInput.codepoint);
+            handled = m_uiContext.handleTextInput(event.textInput.codepoint);
             break;
             
         case EventType::TextComposition:
-            handled = m_uiContext.handleTextComposition (
+            handled = m_uiContext.handleTextComposition(
                 event.textComposition.text,
                 event.textComposition.cursorPosition,
                 event.textComposition.selectionLength
@@ -413,6 +525,7 @@ void BaseWindow::handleEvent (const Event& event)
             break;
     }
     
+    // If UI didn't handle event, process window-level events
     if (handled)
         return;
     
@@ -422,21 +535,24 @@ void BaseWindow::handleEvent (const Event& event)
         {
             m_shouldClose = true;
             WindowManager& wm = WindowManager::getInstance();
-            if (wm.isMainWindow (this))
+            if (wm.isMainWindow(this))
             {
-                wm.closeMainWindow (this);
+                wm.closeMainWindow(this);
             }
             break;
         }
         case EventType::WindowResized:
-            YUCHEN_ASSERT (event.window.isValid());
-            onResize (static_cast<int>(event.window.size.x),
+            YUCHEN_ASSERT(event.window.isValid());
+            onResize(static_cast<int>(event.window.size.x),
                      static_cast<int>(event.window.size.y));
             break;
         default:
             break;
     }
 }
+
+//==========================================================================================
+// Input State Queries
 
 Vec2 BaseWindow::getMousePosition() const
 {
@@ -448,11 +564,14 @@ Vec2 BaseWindow::getMousePosition() const
 bool BaseWindow::isMousePressed() const
 {
     if (m_eventManager)
-        return m_eventManager->isMouseButtonPressed (MouseButton::Left);
+        return m_eventManager->isMouseButtonPressed(MouseButton::Left);
     return false;
 }
 
-void BaseWindow::captureMouse (UIComponent* component)
+//==========================================================================================
+// Mouse Capture
+
+void BaseWindow::captureMouse(UIComponent* component)
 {
     m_capturedComponent = component;
 }
@@ -461,6 +580,9 @@ void BaseWindow::releaseMouse()
 {
     m_capturedComponent = nullptr;
 }
+
+//==========================================================================================
+// Text Input Management
 
 void BaseWindow::enableTextInput()
 {
@@ -478,19 +600,19 @@ void BaseWindow::disableTextInput()
     }
 }
 
-void BaseWindow::setIMEEnabled (bool enabled)
+void BaseWindow::setIMEEnabled(bool enabled)
 {
     if (m_impl)
     {
-        m_impl->setIMEEnabled (enabled);
+        m_impl->setIMEEnabled(enabled);
     }
 }
 
-void BaseWindow::handleMarkedText (const char* text, int cursorPos, int selectionLength)
+void BaseWindow::handleMarkedText(const char* text, int cursorPos, int selectionLength)
 {
     if (m_eventManager)
     {
-        m_eventManager->handleMarkedText (text, cursorPos, selectionLength);
+        m_eventManager->handleMarkedText(text, cursorPos, selectionLength);
     }
 }
 
@@ -507,25 +629,34 @@ Rect BaseWindow::getInputMethodCursorRect() const
     return m_uiContext.getInputMethodCursorRect();
 }
 
-void BaseWindow::transitionToState (WindowState newState)
+//==========================================================================================
+// State Management
+
+void BaseWindow::transitionToState(WindowState newState)
 {
-    YUCHEN_ASSERT_MSG (canTransitionTo (newState), "Invalid state transition");
+    YUCHEN_ASSERT_MSG(canTransitionTo(newState), "Invalid state transition");
     m_state = newState;
 }
 
-bool BaseWindow::canTransitionTo (WindowState newState) const
+bool BaseWindow::canTransitionTo(WindowState newState) const
 {
     return static_cast<int>(newState) == static_cast<int>(m_state) + 1;
 }
 
+//==========================================================================================
+// Window Factory
+
 Window* Window::create()
 {
-    return new BaseWindow (WindowType::Main);
+    return new BaseWindow(WindowType::Main);
 }
+
+//==========================================================================================
+// UI Setup
 
 void BaseWindow::setupUserInterface()
 {
-    // UIContext 内部管理 content，窗口层不需要额外操作
+    // UIContext internally manages content, no additional setup needed at window level
 }
 
-}
+} // namespace YuchenUI
