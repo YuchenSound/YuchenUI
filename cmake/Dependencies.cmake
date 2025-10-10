@@ -1,5 +1,7 @@
 if(APPLE)
-    set(YUCHEN_REQUIRED_FRAMEWORKS Cocoa Metal MetalKit QuartzCore CoreText CoreFoundation)
+    set(YUCHEN_REQUIRED_FRAMEWORKS
+        Cocoa Metal MetalKit QuartzCore CoreText CoreFoundation
+    )
     
     foreach(framework_name ${YUCHEN_REQUIRED_FRAMEWORKS})
         find_library(YUCHEN_${framework_name}_FRAMEWORK ${framework_name} REQUIRED)
@@ -16,5 +18,4 @@ function(yuchen_link_dependencies target_name)
     elseif(WIN32)
         target_link_libraries(${target_name} PUBLIC ${YUCHEN_PLATFORM_LIBS})
     endif()
-    yuchen_log("Linked dependencies to ${target_name}")
 endfunction()

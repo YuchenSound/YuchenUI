@@ -1,4 +1,4 @@
-set(RESOURCE_GENERATOR_DIR "${CMAKE_CURRENT_SOURCE_DIR}/cmake/tools/resource_generator")
+set(RESOURCE_GENERATOR_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../cmake/tools/resource_generator")
 set(RESOURCE_GENERATOR_BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/tools/resource_generator")
 
 if(NOT TARGET resource_generator)
@@ -6,7 +6,7 @@ if(NOT TARGET resource_generator)
 endif()
 
 function(yuchen_generate_resources target_name)
-    set(RESOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/resources")
+    set(RESOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../resources")
     set(OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated")
     
     set(HEADER_FILE "${OUTPUT_DIR}/embedded_resources.h")
