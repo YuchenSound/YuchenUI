@@ -36,7 +36,7 @@
 #include "YuchenUI/windows/BaseWindow.h"
 #include "MacEventManager.h"
 #include "YuchenUI/core/Assert.h"
-#include "YuchenUI/core/Colors.h"
+
 #include <atomic>
 
 namespace YuchenUI { class MacOSWindowImpl; }

@@ -53,7 +53,6 @@
 #include "YuchenUI/platform/PlatformBackend.h"
 #include "YuchenUI/platform/WindowImpl.h"
 #include "YuchenUI/events/EventManager.h"
-#include "YuchenUI/core/Colors.h"
 #include "YuchenUI/theme/ThemeManager.h"
 #include "YuchenUI/widgets/UIComponent.h"
 #include "YuchenUI/core/Config.h"

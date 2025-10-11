@@ -1,3 +1,18 @@
+/*******************************************************************************************
+**
+** YuchenUI - Modern C++ GUI Framework
+**
+** Copyright (C) 2025 Yuchen Wei
+** Contact: https://github.com/YuchenSound/YuchenUI
+**
+** This file is part of the YuchenUI Core module.
+**
+** $YUCHEN_BEGIN_LICENSE:MIT$
+** Licensed under the MIT License
+** $YUCHEN_END_LICENSE$
+**
+********************************************************************************************/
+
 #pragma once
 
 #include "YuchenUI/core/Types.h"
@@ -7,8 +22,18 @@
 
 namespace YuchenUI {
 
+//==========================================================================================
+/** Validation utilities for geometry and rendering parameters.
+    
+    Provides runtime validation functions and debug-mode assertions for ensuring
+    parameters are within valid ranges before use in rendering operations.
+*/
 class Validation {
 public:
+    //======================================================================================
+    // Color validation
+    
+    /** Validates color components are in normalized range [0.0, 1.0] */
     static inline bool ValidateColor(const Vec4& color)
     {
         if (!color.isValid()) return false;
@@ -24,6 +49,10 @@ public:
         YUCHEN_ASSERT(ValidateColor(color));
     }
     
+    //======================================================================================
+    // Rectangle validation
+    
+    /** Validates rectangle has non-negative dimensions */
     static inline bool ValidateRect(const Rect& rect)
     {
         if (!rect.isValid()) return false;
@@ -36,6 +65,9 @@ public:
         YUCHEN_ASSERT(rect.isValid());
     }
     
+    //======================================================================================
+    // Corner radius validation
+    
     static inline bool ValidateCornerRadius(const CornerRadius& cornerRadius)
     {
         return cornerRadius.isValid();
@@ -46,6 +78,7 @@ public:
         YUCHEN_ASSERT(cornerRadius.isValid());
     }
     
+    /** Validates corner radii are appropriate for the given rectangle */
     static inline bool ValidateCornerRadiusForRect(const CornerRadius& cornerRadius, const Rect& rect)
     {
         if (!ValidateCornerRadius(cornerRadius)) return false;
@@ -70,6 +103,10 @@ public:
         cornerRadius.validateForRect(rect);
     }
     
+    //======================================================================================
+    // Border width validation
+    
+    /** Validates border width is within specified range and not larger than rect */
     static inline bool ValidateBorderWidth(float borderWidth, const Rect& rect, float minWidth = 0.0f, float maxWidth = 50.0f)
     {
         if (!std::isfinite(borderWidth) || borderWidth < minWidth) return false;
@@ -85,6 +122,9 @@ public:
         YUCHEN_ASSERT_MSG(borderWidth <= rect.height * 0.5f, "Border width too large for rect height");
     }
     
+    //======================================================================================
+    // Position validation
+    
     static inline bool ValidatePosition(float x, float y)
     {
         return std::isfinite(x) && std::isfinite(y);
@@ -99,4 +139,4 @@ private:
     Validation() = delete;
 };
 
-}
+} // namespace YuchenUI

@@ -1,9 +1,40 @@
+/*******************************************************************************************
+**
+** YuchenUI - Modern C++ GUI Framework
+**
+** Copyright (C) 2025 Yuchen Wei
+** Contact: https://github.com/YuchenSound/YuchenUI
+**
+** This file is part of the YuchenUI Rendering module.
+**
+** $YUCHEN_BEGIN_LICENSE:MIT$
+** Licensed under the MIT License
+** $YUCHEN_END_LICENSE$
+**
+********************************************************************************************/
+
+//==========================================================================================
+/** @file RenderList.cpp
+    
+    Implementation notes:
+    - Commands stored in linear vector for cache-friendly iteration
+    - Validation performed on command parameters before adding
+    - Clip stack maintained separately for hierarchical clipping
+    - Text length capped at Config::Text::MAX_LENGTH
+    - Command count capped at Config::Rendering::MAX_COMMANDS_PER_LIST
+    - Factory methods in RenderCommand handle invalid parameter cases
+    - All geometric parameters validated before command creation
+*/
+
 #include "YuchenUI/rendering/RenderList.h"
 #include "YuchenUI/core/Validation.h"
 #include "YuchenUI/core/Config.h"
 #include <cstring>
 
 namespace YuchenUI {
+
+//==========================================================================================
+// Lifecycle
 
 RenderList::RenderList()
 {
@@ -14,6 +45,9 @@ RenderList::~RenderList()
 {
     reset();
 }
+
+//==========================================================================================
+// Drawing Commands
 
 void RenderList::clear(const Vec4& color)
 {
@@ -63,6 +97,7 @@ void RenderList::drawImage(const char* resourceIdentifier, const Rect& destRect,
     YUCHEN_ASSERT(resourceIdentifier);
     YUCHEN_ASSERT(destRect.isValid());
     
+    // Create image command manually (no factory method for resource-based images)
     RenderCommand cmd;
     cmd.type = RenderCommandType::DrawImage;
     cmd.rect = destRect;
@@ -136,6 +171,31 @@ void RenderList::drawCircle(const Vec2& center, float radius, const Vec4& color,
     addCommand(cmd);
 }
 
+//==========================================================================================
+// Clipping
+
+void RenderList::pushClipRect(const Rect& rect) {
+    YUCHEN_ASSERT(rect.isValid());
+    m_clipStack.push_back(rect);
+    
+    RenderCommand cmd;
+    cmd.type = RenderCommandType::PushClip;
+    cmd.rect = rect;
+    addCommand(cmd);
+}
+
+void RenderList::popClipRect() {
+    YUCHEN_ASSERT(!m_clipStack.empty());
+    m_clipStack.pop_back();
+    
+    RenderCommand cmd;
+    cmd.type = RenderCommandType::PopClip;
+    addCommand(cmd);
+}
+
+//==========================================================================================
+// State Management
+
 void RenderList::reset() {
     m_commands.clear();
     m_clipStack.clear();
@@ -155,6 +215,9 @@ const std::vector<RenderCommand>& RenderList::getCommands() const
 {
     return m_commands;
 }
+
+//==========================================================================================
+// Validation
 
 bool RenderList::validate() const
 {
@@ -229,6 +292,9 @@ bool RenderList::validate() const
     return true;
 }
 
+//==========================================================================================
+// Internal
+
 void RenderList::addCommand(const RenderCommand& cmd)
 {
     YUCHEN_ASSERT(m_commands.size() < Config::Rendering::MAX_COMMANDS_PER_LIST);
@@ -302,23 +368,4 @@ void RenderList::validateCommand(const RenderCommand& cmd) const
     }
 }
 
-void RenderList::pushClipRect(const Rect& rect) {
-    YUCHEN_ASSERT(rect.isValid());
-    m_clipStack.push_back(rect);
-    
-    RenderCommand cmd;
-    cmd.type = RenderCommandType::PushClip;
-    cmd.rect = rect;
-    addCommand(cmd);
-}
-
-void RenderList::popClipRect() {
-    YUCHEN_ASSERT(!m_clipStack.empty());
-    m_clipStack.pop_back();
-    
-    RenderCommand cmd;
-    cmd.type = RenderCommandType::PopClip;
-    addCommand(cmd);
-}
-
-}
+} // namespace YuchenUI

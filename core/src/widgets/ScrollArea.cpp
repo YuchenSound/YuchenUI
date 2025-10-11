@@ -1,7 +1,6 @@
 #include "YuchenUI/widgets/ScrollArea.h"
 #include "YuchenUI/rendering/RenderList.h"
 #include "YuchenUI/theme/ThemeManager.h"
-#include "YuchenUI/core/Colors.h"
 #include "YuchenUI/core/Assert.h"
 #include <algorithm>
 #include <cmath>

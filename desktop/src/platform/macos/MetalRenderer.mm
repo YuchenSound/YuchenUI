@@ -36,7 +36,6 @@
 #include "MetalRenderer.h"
 #include "YuchenUI/core/Validation.h"
 #include "YuchenUI/core/Config.h"
-#include "YuchenUI/core/Colors.h"
 #include "YuchenUI/text/TextRenderer.h"
 #include "YuchenUI/text/FontManager.h"
 #include "YuchenUI/image/TextureCache.h"
@@ -161,7 +160,7 @@ MetalRenderer::MetalRenderer()
     , m_width(0)
     , m_height(0)
     , m_dpiScale(1.0f)
-    , m_clearColor(Colors::DEFAULT_CLEAR_COLOR)
+    , m_clearColor(Config::Rendering::DEFAULT_CLEAR_COLOR)
 {
 }
 

@@ -1,3 +1,18 @@
+/*******************************************************************************************
+**
+** YuchenUI - Modern C++ GUI Framework
+**
+** Copyright (C) 2025 Yuchen Wei
+** Contact: https://github.com/YuchenSound/YuchenUI
+**
+** This file is part of the YuchenUI Core module.
+**
+** $YUCHEN_BEGIN_LICENSE:MIT$
+** Licensed under the MIT License
+** $YUCHEN_END_LICENSE$
+**
+********************************************************************************************/
+
 #pragma once
 
 #include "YuchenUI/core/Assert.h"
@@ -5,597 +20,666 @@
 #include <vector>
 #include <string>
 
-// Platform-specific packing macros
+//==========================================================================================
+// Platform-specific struct packing macros
+
 #ifdef _MSC_VER
-#define YUCHEN_PACK_BEGIN __pragma(pack(push, 1))
-#define YUCHEN_PACK_END __pragma(pack(pop))
-#define YUCHEN_PACKED
+    #define YUCHEN_PACK_BEGIN __pragma(pack(push, 1))
+    #define YUCHEN_PACK_END __pragma(pack(pop))
+    #define YUCHEN_PACKED
 #else
-#define YUCHEN_PACK_BEGIN
-#define YUCHEN_PACK_END
-#define YUCHEN_PACKED __attribute__((packed))
+    #define YUCHEN_PACK_BEGIN
+    #define YUCHEN_PACK_END
+    #define YUCHEN_PACKED __attribute__((packed))
 #endif
 
 namespace YuchenUI {
 
-    struct Vec2
+//==========================================================================================
+/** 2D vector for positions and sizes */
+struct Vec2
+{
+    float x, y;
+
+    Vec2() : x(0.0f), y(0.0f) {}
+    Vec2(float x, float y) : x(x), y(y) {}
+
+    /** Returns true if both components are finite */
+    bool isValid() const
     {
-        float x, y;
+        return std::isfinite(x) && std::isfinite(y);
+    }
+};
 
-        Vec2() : x(0.0f), y(0.0f) {}
-        Vec2(float x, float y) : x(x), y(y) {}
+//==========================================================================================
+/** 4D vector for colors (RGBA) and general purposes */
+struct Vec4
+{
+    float x, y, z, w;
 
-        bool isValid() const
-        {
-            return std::isfinite(x) && std::isfinite(y);
-        }
-    };
+    Vec4() : x(0.0f), y(0.0f), z(0.0f), w(1.0f) {}
+    Vec4(float x, float y, float z, float w = 1.0f) : x(x), y(y), z(z), w(w) {}
 
-    struct Vec4
+    /** Creates a Vec4 from RGBA integer values (0-255).
+        
+        Values are clamped to valid range and normalized to 0.0-1.0.
+    */
+    static Vec4 FromRGBA(int r, int g, int b, int a = 255)
     {
-        float x, y, z, w;
+        r = (r < 0) ? 0 : (r > 255) ? 255 : r;
+        g = (g < 0) ? 0 : (g > 255) ? 255 : g;
+        b = (b < 0) ? 0 : (b > 255) ? 255 : b;
+        a = (a < 0) ? 0 : (a > 255) ? 255 : a;
+        return Vec4(r / 255.0f, g / 255.0f, b / 255.0f, a / 255.0f);
+    }
 
-        Vec4() : x(0.0f), y(0.0f), z(0.0f), w(1.0f) {}
-        Vec4(float x, float y, float z, float w = 1.0f) : x(x), y(y), z(z), w(w) {}
-
-        static Vec4 FromRGBA(int r, int g, int b, int a = 255)
-        {
-            r = (r < 0) ? 0 : (r > 255) ? 255 : r;
-            g = (g < 0) ? 0 : (g > 255) ? 255 : g;
-            b = (b < 0) ? 0 : (b > 255) ? 255 : b;
-            a = (a < 0) ? 0 : (a > 255) ? 255 : a;
-            return Vec4(r / 255.0f, g / 255.0f, b / 255.0f, a / 255.0f);
-        }
-
-        bool isValid() const
-        {
-            return std::isfinite(x) && std::isfinite(y) && std::isfinite(z) && std::isfinite(w);
-        }
-    };
-
-    struct Rect
+    /** Returns true if all components are finite */
+    bool isValid() const
     {
-        float x, y, width, height;
+        return std::isfinite(x) && std::isfinite(y) && std::isfinite(z) && std::isfinite(w);
+    }
+};
 
-        Rect() : x(0.0f), y(0.0f), width(0.0f), height(0.0f) {}
-        Rect(float x, float y, float w, float h) : x(x), y(y), width(w), height(h)
-        {
-            if (w < 0.0f) this->width = 0.0f;
-            if (h < 0.0f) this->height = 0.0f;
-        }
+//==========================================================================================
+/** Rectangle defined by position and size */
+struct Rect
+{
+    float x, y, width, height;
 
-        bool contains(float px, float py) const
-        {
-            return px >= x && px <= (x + width) && py >= y && py <= (y + height);
-        }
-
-        bool contains(const Vec2& point) const
-        {
-            return contains(point.x, point.y);
-        }
-
-        bool isValid() const
-        {
-            return std::isfinite(x) && std::isfinite(y) && std::isfinite(width) && std::isfinite(height) && width >= 0.0f && height >= 0.0f;
-        }
-    };
-
-    struct CornerRadius
+    Rect() : x(0.0f), y(0.0f), width(0.0f), height(0.0f) {}
+    Rect(float x, float y, float w, float h) : x(x), y(y), width(w), height(h)
     {
-        float topLeft, topRight, bottomLeft, bottomRight;
+        if (w < 0.0f) this->width = 0.0f;
+        if (h < 0.0f) this->height = 0.0f;
+    }
 
-        CornerRadius() : topLeft(0.0f), topRight(0.0f), bottomLeft(0.0f), bottomRight(0.0f) {}
-
-        CornerRadius(float radius) : topLeft(radius), topRight(radius), bottomLeft(radius), bottomRight(radius)
-        {
-            if (radius < 0.0f) {
-                topLeft = topRight = bottomLeft = bottomRight = 0.0f;
-            }
-        }
-
-        CornerRadius(float tl, float tr, float bl, float br) : topLeft(tl), topRight(tr), bottomLeft(bl), bottomRight(br)
-        {
-            if (tl < 0.0f) topLeft = 0.0f;
-            if (tr < 0.0f) topRight = 0.0f;
-            if (bl < 0.0f) bottomLeft = 0.0f;
-            if (br < 0.0f) bottomRight = 0.0f;
-        }
-
-        bool isValid() const
-        {
-            return std::isfinite(topLeft) && std::isfinite(topRight) && std::isfinite(bottomLeft) && std::isfinite(bottomRight) &&
-                topLeft >= 0.0f && topRight >= 0.0f && bottomLeft >= 0.0f && bottomRight >= 0.0f;
-        }
-
-        void validateForRect(const Rect& rect) const
-        {
-            YUCHEN_ASSERT(isValid());
-            YUCHEN_ASSERT_MSG(topLeft <= rect.width * 0.5f && topLeft <= rect.height * 0.5f, "Top-left corner radius too large");
-            YUCHEN_ASSERT_MSG(topRight <= rect.width * 0.5f && topRight <= rect.height * 0.5f, "Top-right corner radius too large");
-            YUCHEN_ASSERT_MSG(bottomLeft <= rect.width * 0.5f && bottomLeft <= rect.height * 0.5f, "Bottom-left corner radius too large");
-            YUCHEN_ASSERT_MSG(bottomRight <= rect.width * 0.5f && bottomRight <= rect.height * 0.5f, "Bottom-right corner radius too large");
-            YUCHEN_ASSERT_MSG(topLeft + topRight <= rect.width, "Top corner radii sum too large");
-            YUCHEN_ASSERT_MSG(bottomLeft + bottomRight <= rect.width, "Bottom corner radii sum too large");
-            YUCHEN_ASSERT_MSG(topLeft + bottomLeft <= rect.height, "Left corner radii sum too large");
-            YUCHEN_ASSERT_MSG(topRight + bottomRight <= rect.height, "Right corner radii sum too large");
-        }
-    };
-
-    struct NineSliceMargins
+    /** Tests if a point is inside the rectangle */
+    bool contains(float px, float py) const
     {
-        float left, top, right, bottom;
+        return px >= x && px <= (x + width) && py >= y && py <= (y + height);
+    }
 
-        NineSliceMargins() : left(0.0f), top(0.0f), right(0.0f), bottom(0.0f) {}
-
-        NineSliceMargins(float l, float t, float r, float b) : left(l), top(t), right(r), bottom(b)
-        {
-            YUCHEN_ASSERT(std::isfinite(l) && std::isfinite(t) && std::isfinite(r) && std::isfinite(b));
-            YUCHEN_ASSERT(l >= 0.0f && t >= 0.0f && r >= 0.0f && b >= 0.0f);
-        }
-
-        bool isValid() const
-        {
-            return std::isfinite(left) && std::isfinite(top) && std::isfinite(right) && std::isfinite(bottom) &&
-                left >= 0.0f && top >= 0.0f && right >= 0.0f && bottom >= 0.0f;
-        }
-
-        bool isZero() const
-        {
-            return left == 0.0f && top == 0.0f && right == 0.0f && bottom == 0.0f;
-        }
-    };
-
-    enum class TextAlignment {
-        Left = 0,
-        Center,
-        Right,
-        Justify
-    };
-
-    enum class VerticalAlignment {
-        Top = 0,
-        Middle,
-        Bottom,
-        Baseline
-    };
-
-    enum class ScaleMode {
-        Original,
-        Stretch,
-        Fill,
-        NineSlice
-    };
-
-    YUCHEN_PACK_BEGIN
-        struct RectVertex
+    bool contains(const Vec2& point) const
     {
-        Vec2 position;
-        Vec2 rectOrigin;
-        Vec2 rectSize;
-        Vec4 cornerRadius;
-        Vec4 color;
-        float borderWidth;
+        return contains(point.x, point.y);
+    }
 
-        RectVertex() : position(), rectOrigin(), rectSize(), cornerRadius(), color(), borderWidth(0.0f) {}
-
-        RectVertex(const Vec2& pos, const Rect& rect, const CornerRadius& radius, const Vec4& col, float border = 0.0f)
-            : position(pos), rectOrigin(rect.x, rect.y), rectSize(rect.width, rect.height),
-            cornerRadius(radius.topLeft, radius.topRight, radius.bottomLeft, radius.bottomRight),
-            color(col), borderWidth(border < 0.0f ? 0.0f : border) {
-        }
-
-        bool isValid() const
-        {
-            return position.isValid() && rectOrigin.isValid() && rectSize.isValid() &&
-                cornerRadius.isValid() && color.isValid() && std::isfinite(borderWidth) && borderWidth >= 0.0f;
-        }
-    } YUCHEN_PACKED;
-    YUCHEN_PACK_END
-
-
-        typedef size_t FontHandle;
-    const FontHandle INVALID_FONT_HANDLE = SIZE_MAX;
-
-    struct FontMetrics {
-        float ascender;
-        float descender;
-        float lineHeight;
-        float maxAdvance;
-
-        FontMetrics() : ascender(0.0f), descender(0.0f), lineHeight(0.0f), maxAdvance(0.0f) {}
-
-        bool isValid() const {
-            return std::isfinite(ascender) && std::isfinite(descender) &&
-                std::isfinite(lineHeight) && std::isfinite(maxAdvance) &&
-                lineHeight > 0.0f;
-        }
-    };
-
-    struct GlyphMetrics {
-        uint32_t glyphIndex;
-        Vec2 bearing;
-        Vec2 size;
-        float advance;
-
-        GlyphMetrics() : glyphIndex(0), bearing(), size(), advance(0.0f) {}
-
-        bool isValid() const {
-            return bearing.isValid() && size.isValid() &&
-                std::isfinite(advance) && advance >= 0.0f;
-        }
-    };
-
-    YUCHEN_PACK_BEGIN
-        struct TextVertex {
-        Vec2 position;
-        Vec2 texCoord;
-        Vec4 color;
-
-        TextVertex() : position(), texCoord(), color() {}
-        TextVertex(const Vec2& pos, const Vec2& tex, const Vec4& col)
-            : position(pos), texCoord(tex), color(col) {
-        }
-
-        bool isValid() const {
-            return position.isValid() && texCoord.isValid() && color.isValid();
-        }
-    } YUCHEN_PACKED;
-    YUCHEN_PACK_END
-
-        struct ShapedGlyph {
-        uint32_t glyphIndex;
-        Vec2 position;
-        float advance;
-        uint32_t cluster;
-        FontHandle fontHandle;
-
-        ShapedGlyph() : glyphIndex(0), position(), advance(0.0f), cluster(0), fontHandle(INVALID_FONT_HANDLE) {}
-
-        bool isValid() const {
-            return position.isValid() && std::isfinite(advance) && advance >= 0.0f && fontHandle != INVALID_FONT_HANDLE;
-        }
-    };
-
-    struct ShapedText {
-        std::vector<ShapedGlyph> glyphs;
-        float totalAdvance;
-        Vec2 totalSize;
-
-        ShapedText() : glyphs(), totalAdvance(0.0f), totalSize() {}
-
-        void clear() {
-            glyphs.clear();
-            totalAdvance = 0.0f;
-            totalSize = Vec2();
-        }
-
-        bool isEmpty() const {
-            return glyphs.empty();
-        }
-
-        bool isValid() const {
-            return totalSize.isValid() && std::isfinite(totalAdvance) && totalAdvance >= 0.0f;
-        }
-    };
-
-    struct TextSegment {
-        std::string text;
-        FontHandle fontHandle;
-        size_t originalStartIndex;
-        size_t originalLength;
-    };
-
-    struct GlyphKey
+    /** Returns true if all values are finite and size is non-negative */
+    bool isValid() const
     {
-        FontHandle fontHandle;
-        uint32_t glyphIndex;
-        uint32_t fontSize;
+        return std::isfinite(x) && std::isfinite(y) && std::isfinite(width) && std::isfinite(height) && width >= 0.0f && height >= 0.0f;
+    }
+};
 
-        GlyphKey(FontHandle font, uint32_t glyph, float size)
-            : fontHandle(font), glyphIndex(glyph), fontSize(static_cast<uint32_t>(size * 64.0f)) {
-        }
+//==========================================================================================
+/** Rounded corner radii for rectangles */
+struct CornerRadius
+{
+    float topLeft, topRight, bottomLeft, bottomRight;
 
-        bool operator==(const GlyphKey& other) const
-        {
-            return fontHandle == other.fontHandle &&
-                glyphIndex == other.glyphIndex &&
-                fontSize == other.fontSize;
-        }
-    };
+    CornerRadius() : topLeft(0.0f), topRight(0.0f), bottomLeft(0.0f), bottomRight(0.0f) {}
 
-    struct GlyphKeyHash
+    /** Uniform radius for all corners */
+    CornerRadius(float radius) : topLeft(radius), topRight(radius), bottomLeft(radius), bottomRight(radius)
     {
-        size_t operator()(const GlyphKey& key) const
-        {
-            return ((size_t)key.fontHandle << 32) | ((size_t)key.glyphIndex << 16) | key.fontSize;
+        if (radius < 0.0f) {
+            topLeft = topRight = bottomLeft = bottomRight = 0.0f;
         }
-    };
+    }
 
-    struct GlyphCacheEntry
+    /** Individual corner radii */
+    CornerRadius(float tl, float tr, float bl, float br) : topLeft(tl), topRight(tr), bottomLeft(bl), bottomRight(br)
     {
-        Rect textureRect;
-        Vec2 bearing;
-        float advance;
-        uint32_t lastUsedFrame;
-        bool isValid;
+        if (tl < 0.0f) topLeft = 0.0f;
+        if (tr < 0.0f) topRight = 0.0f;
+        if (bl < 0.0f) bottomLeft = 0.0f;
+        if (br < 0.0f) bottomRight = 0.0f;
+    }
 
-        GlyphCacheEntry() : textureRect(), bearing(), advance(0.0f), lastUsedFrame(0), isValid(false) {}
-
-        void markUsed(uint32_t frame)
-        {
-            lastUsedFrame = frame;
-        }
-
-        bool isExpired(uint32_t currentFrame, uint32_t expireFrames) const
-        {
-            return (currentFrame - lastUsedFrame) > expireFrames;
-        }
-    };
-
-    struct GlyphAtlas
+    bool isValid() const
     {
-        uint32_t width;
-        uint32_t height;
-        uint32_t currentX;
-        uint32_t currentY;
-        uint32_t rowHeight;
-        bool isFull;
-        void* textureHandle;
+        return std::isfinite(topLeft) && std::isfinite(topRight) && std::isfinite(bottomLeft) && std::isfinite(bottomRight) &&
+            topLeft >= 0.0f && topRight >= 0.0f && bottomLeft >= 0.0f && bottomRight >= 0.0f;
+    }
 
-        GlyphAtlas(uint32_t w, uint32_t h)
-            : width(w), height(h), currentX(0), currentY(0), rowHeight(0), isFull(false), textureHandle(nullptr) {
-        }
-
-        void reset()
-        {
-            currentX = 0;
-            currentY = 0;
-            rowHeight = 0;
-            isFull = false;
-        }
-    };
-
-    enum class RenderCommandType {
-        Clear = 0,
-        FillRect,
-        DrawRect,
-        DrawText,
-        DrawImage,
-        DrawLine,
-        FillTriangle,
-        DrawTriangle,
-        FillCircle,
-        DrawCircle,
-        PushClip,
-        PopClip
-    };
-
-    struct RenderCommand
+    /** Validates that corner radii are appropriate for the given rectangle.
+        
+        Ensures no radius exceeds half the rect's dimensions and opposing corners don't overlap.
+    */
+    void validateForRect(const Rect& rect) const
     {
-        RenderCommandType type;
+        YUCHEN_ASSERT(isValid());
+        YUCHEN_ASSERT_MSG(topLeft <= rect.width * 0.5f && topLeft <= rect.height * 0.5f, "Top-left corner radius too large");
+        YUCHEN_ASSERT_MSG(topRight <= rect.width * 0.5f && topRight <= rect.height * 0.5f, "Top-right corner radius too large");
+        YUCHEN_ASSERT_MSG(bottomLeft <= rect.width * 0.5f && bottomLeft <= rect.height * 0.5f, "Bottom-left corner radius too large");
+        YUCHEN_ASSERT_MSG(bottomRight <= rect.width * 0.5f && bottomRight <= rect.height * 0.5f, "Bottom-right corner radius too large");
+        YUCHEN_ASSERT_MSG(topLeft + topRight <= rect.width, "Top corner radii sum too large");
+        YUCHEN_ASSERT_MSG(bottomLeft + bottomRight <= rect.width, "Bottom corner radii sum too large");
+        YUCHEN_ASSERT_MSG(topLeft + bottomLeft <= rect.height, "Left corner radii sum too large");
+        YUCHEN_ASSERT_MSG(topRight + bottomRight <= rect.height, "Right corner radii sum too large");
+    }
+};
 
-        Rect rect;
-        Vec4 color;
-        CornerRadius cornerRadius;
-        float borderWidth;
+//==========================================================================================
+/** Nine-slice scaling margins for images */
+struct NineSliceMargins
+{
+    float left, top, right, bottom;
 
-        Vec2 textPosition;
-        std::string text;
-        FontHandle westernFont;
-        FontHandle chineseFont;
-        float fontSize;
-        Vec4 textColor;
+    NineSliceMargins() : left(0.0f), top(0.0f), right(0.0f), bottom(0.0f) {}
 
-        void* textureHandle;
-        Rect sourceRect;
-        ScaleMode scaleMode;
-        NineSliceMargins nineSliceMargins;
+    NineSliceMargins(float l, float t, float r, float b) : left(l), top(t), right(r), bottom(b)
+    {
+        YUCHEN_ASSERT(std::isfinite(l) && std::isfinite(t) && std::isfinite(r) && std::isfinite(b));
+        YUCHEN_ASSERT(l >= 0.0f && t >= 0.0f && r >= 0.0f && b >= 0.0f);
+    }
 
-        Vec2 lineStart;
-        Vec2 lineEnd;
-        float lineWidth;
+    bool isValid() const
+    {
+        return std::isfinite(left) && std::isfinite(top) && std::isfinite(right) && std::isfinite(bottom) &&
+            left >= 0.0f && top >= 0.0f && right >= 0.0f && bottom >= 0.0f;
+    }
 
-        Vec2 triangleP1;
-        Vec2 triangleP2;
-        Vec2 triangleP3;
+    bool isZero() const
+    {
+        return left == 0.0f && top == 0.0f && right == 0.0f && bottom == 0.0f;
+    }
+};
 
-        Vec2 circleCenter;
-        float circleRadius;
+//==========================================================================================
+// Alignment and scaling enums
 
-        RenderCommand()
-            : type(RenderCommandType::Clear)
-            , rect()
-            , color()
-            , cornerRadius()
-            , borderWidth(0.0f)
-            , textPosition()
-            , text()
-            , westernFont(INVALID_FONT_HANDLE)
-            , chineseFont(INVALID_FONT_HANDLE)
-            , fontSize(11.0f)
-            , textColor()
-            , textureHandle(nullptr)
-            , sourceRect()
-            , scaleMode(ScaleMode::Stretch)
-            , nineSliceMargins()
-            , lineStart()
-            , lineEnd()
-            , lineWidth(1.0f)
-            , triangleP1()
-            , triangleP2()
-            , triangleP3()
-            , circleCenter()
-            , circleRadius(0.0f)
-        {
-        }
+enum class TextAlignment {
+    Left = 0,
+    Center,
+    Right,
+    Justify
+};
 
-        static RenderCommand CreateClear(const Vec4& color)
-        {
+enum class VerticalAlignment {
+    Top = 0,
+    Middle,
+    Bottom,
+    Baseline
+};
+
+enum class ScaleMode {
+    Original,   ///< No scaling, use original size
+    Stretch,    ///< Stretch to fill destination
+    Fill,       ///< Scale to fill while maintaining aspect ratio
+    NineSlice   ///< Nine-slice scaling
+};
+
+//==========================================================================================
+/** Vertex for rounded rectangle rendering.
+    
+    Packed structure sent to GPU. Contains position, rect bounds, corner radii,
+    color, and border width for shader-based rounded rect rendering.
+*/
+YUCHEN_PACK_BEGIN
+struct RectVertex
+{
+    Vec2 position;
+    Vec2 rectOrigin;
+    Vec2 rectSize;
+    Vec4 cornerRadius;
+    Vec4 color;
+    float borderWidth;
+
+    RectVertex() : position(), rectOrigin(), rectSize(), cornerRadius(), color(), borderWidth(0.0f) {}
+
+    RectVertex(const Vec2& pos, const Rect& rect, const CornerRadius& radius, const Vec4& col, float border = 0.0f)
+        : position(pos), rectOrigin(rect.x, rect.y), rectSize(rect.width, rect.height),
+        cornerRadius(radius.topLeft, radius.topRight, radius.bottomLeft, radius.bottomRight),
+        color(col), borderWidth(border < 0.0f ? 0.0f : border) {
+    }
+
+    bool isValid() const
+    {
+        return position.isValid() && rectOrigin.isValid() && rectSize.isValid() &&
+            cornerRadius.isValid() && color.isValid() && std::isfinite(borderWidth) && borderWidth >= 0.0f;
+    }
+} YUCHEN_PACKED;
+YUCHEN_PACK_END
+
+//==========================================================================================
+// Font system types
+
+typedef size_t FontHandle;
+const FontHandle INVALID_FONT_HANDLE = SIZE_MAX;
+
+/** Font-level metrics */
+struct FontMetrics {
+    float ascender;     ///< Height above baseline
+    float descender;    ///< Depth below baseline (negative)
+    float lineHeight;   ///< Recommended line spacing
+    float maxAdvance;   ///< Maximum horizontal advance
+
+    FontMetrics() : ascender(0.0f), descender(0.0f), lineHeight(0.0f), maxAdvance(0.0f) {}
+
+    bool isValid() const {
+        return std::isfinite(ascender) && std::isfinite(descender) &&
+            std::isfinite(lineHeight) && std::isfinite(maxAdvance) &&
+            lineHeight > 0.0f;
+    }
+};
+
+/** Per-glyph metrics */
+struct GlyphMetrics {
+    uint32_t glyphIndex;    ///< Glyph index in font
+    Vec2 bearing;           ///< Offset from cursor to glyph top-left
+    Vec2 size;              ///< Glyph bitmap size
+    float advance;          ///< Horizontal advance to next glyph
+
+    GlyphMetrics() : glyphIndex(0), bearing(), size(), advance(0.0f) {}
+
+    bool isValid() const {
+        return bearing.isValid() && size.isValid() &&
+            std::isfinite(advance) && advance >= 0.0f;
+    }
+};
+
+//==========================================================================================
+/** Vertex for text rendering */
+YUCHEN_PACK_BEGIN
+struct TextVertex {
+    Vec2 position;
+    Vec2 texCoord;
+    Vec4 color;
+
+    TextVertex() : position(), texCoord(), color() {}
+    TextVertex(const Vec2& pos, const Vec2& tex, const Vec4& col)
+        : position(pos), texCoord(tex), color(col) {
+    }
+
+    bool isValid() const {
+        return position.isValid() && texCoord.isValid() && color.isValid();
+    }
+} YUCHEN_PACKED;
+YUCHEN_PACK_END
+
+//==========================================================================================
+/** Shaped glyph with position and metadata */
+struct ShapedGlyph {
+    uint32_t glyphIndex;    ///< Glyph index in font
+    Vec2 position;          ///< Position relative to text origin
+    float advance;          ///< Horizontal advance
+    uint32_t cluster;       ///< Character cluster index
+    FontHandle fontHandle;  ///< Font this glyph belongs to
+
+    ShapedGlyph() : glyphIndex(0), position(), advance(0.0f), cluster(0), fontHandle(INVALID_FONT_HANDLE) {}
+
+    bool isValid() const {
+        return position.isValid() && std::isfinite(advance) && advance >= 0.0f && fontHandle != INVALID_FONT_HANDLE;
+    }
+};
+
+/** Result of text shaping */
+struct ShapedText {
+    std::vector<ShapedGlyph> glyphs;
+    float totalAdvance;     ///< Total horizontal extent
+    Vec2 totalSize;         ///< Bounding box size
+
+    ShapedText() : glyphs(), totalAdvance(0.0f), totalSize() {}
+
+    void clear() {
+        glyphs.clear();
+        totalAdvance = 0.0f;
+        totalSize = Vec2();
+    }
+
+    bool isEmpty() const {
+        return glyphs.empty();
+    }
+
+    bool isValid() const {
+        return totalSize.isValid() && std::isfinite(totalAdvance) && totalAdvance >= 0.0f;
+    }
+};
+
+/** Text segment with font assignment */
+struct TextSegment {
+    std::string text;
+    FontHandle fontHandle;
+    size_t originalStartIndex;
+    size_t originalLength;
+};
+
+//==========================================================================================
+// Glyph cache types
+
+/** Key for glyph cache lookup */
+struct GlyphKey
+{
+    FontHandle fontHandle;
+    uint32_t glyphIndex;
+    uint32_t fontSize;      ///< Fixed-point size (size * 64)
+
+    GlyphKey(FontHandle font, uint32_t glyph, float size)
+        : fontHandle(font), glyphIndex(glyph), fontSize(static_cast<uint32_t>(size * 64.0f)) {
+    }
+
+    bool operator==(const GlyphKey& other) const
+    {
+        return fontHandle == other.fontHandle &&
+            glyphIndex == other.glyphIndex &&
+            fontSize == other.fontSize;
+    }
+};
+
+/** Hash function for GlyphKey */
+struct GlyphKeyHash
+{
+    size_t operator()(const GlyphKey& key) const
+    {
+        return ((size_t)key.fontHandle << 32) | ((size_t)key.glyphIndex << 16) | key.fontSize;
+    }
+};
+
+/** Cached glyph data */
+struct GlyphCacheEntry
+{
+    Rect textureRect;       ///< Location in atlas texture
+    Vec2 bearing;           ///< Glyph bearing
+    float advance;          ///< Horizontal advance
+    uint32_t lastUsedFrame; ///< Last frame this glyph was used
+    bool isValid;           ///< Entry validity flag
+
+    GlyphCacheEntry() : textureRect(), bearing(), advance(0.0f), lastUsedFrame(0), isValid(false) {}
+
+    void markUsed(uint32_t frame)
+    {
+        lastUsedFrame = frame;
+    }
+
+    bool isExpired(uint32_t currentFrame, uint32_t expireFrames) const
+    {
+        return (currentFrame - lastUsedFrame) > expireFrames;
+    }
+};
+
+/** Glyph atlas texture */
+struct GlyphAtlas
+{
+    uint32_t width;
+    uint32_t height;
+    uint32_t currentX;      ///< Current packing position X
+    uint32_t currentY;      ///< Current packing position Y
+    uint32_t rowHeight;     ///< Current row height for packing
+    bool isFull;            ///< Atlas is full, cannot add more glyphs
+    void* textureHandle;    ///< Graphics backend texture handle
+
+    GlyphAtlas(uint32_t w, uint32_t h)
+        : width(w), height(h), currentX(0), currentY(0), rowHeight(0), isFull(false), textureHandle(nullptr) {
+    }
+
+    void reset()
+    {
+        currentX = 0;
+        currentY = 0;
+        rowHeight = 0;
+        isFull = false;
+    }
+};
+
+//==========================================================================================
+// Rendering types
+
+enum class RenderCommandType {
+    Clear = 0,
+    FillRect,
+    DrawRect,
+    DrawText,
+    DrawImage,
+    DrawLine,
+    FillTriangle,
+    DrawTriangle,
+    FillCircle,
+    DrawCircle,
+    PushClip,
+    PopClip
+};
+
+/** Rendering command - describes a single draw operation */
+struct RenderCommand
+{
+    RenderCommandType type;
+
+    // Rectangle commands
+    Rect rect;
+    Vec4 color;
+    CornerRadius cornerRadius;
+    float borderWidth;
+
+    // Text commands
+    Vec2 textPosition;
+    std::string text;
+    FontHandle westernFont;
+    FontHandle chineseFont;
+    float fontSize;
+    Vec4 textColor;
+
+    // Image commands
+    void* textureHandle;
+    Rect sourceRect;
+    ScaleMode scaleMode;
+    NineSliceMargins nineSliceMargins;
+
+    // Line commands
+    Vec2 lineStart;
+    Vec2 lineEnd;
+    float lineWidth;
+
+    // Triangle commands
+    Vec2 triangleP1;
+    Vec2 triangleP2;
+    Vec2 triangleP3;
+
+    // Circle commands
+    Vec2 circleCenter;
+    float circleRadius;
+
+    RenderCommand()
+        : type(RenderCommandType::Clear)
+        , rect()
+        , color()
+        , cornerRadius()
+        , borderWidth(0.0f)
+        , textPosition()
+        , text()
+        , westernFont(INVALID_FONT_HANDLE)
+        , chineseFont(INVALID_FONT_HANDLE)
+        , fontSize(11.0f)
+        , textColor()
+        , textureHandle(nullptr)
+        , sourceRect()
+        , scaleMode(ScaleMode::Stretch)
+        , nineSliceMargins()
+        , lineStart()
+        , lineEnd()
+        , lineWidth(1.0f)
+        , triangleP1()
+        , triangleP2()
+        , triangleP3()
+        , circleCenter()
+        , circleRadius(0.0f)
+    {
+    }
+
+    //==================================================================================
+    // Factory methods for creating render commands
+
+    static RenderCommand CreateClear(const Vec4& color)
+    {
+        RenderCommand cmd;
+        cmd.type = RenderCommandType::Clear;
+        cmd.color = color;
+        return cmd;
+    }
+
+    static RenderCommand CreateFillRect(const Rect& rect, const Vec4& color, const CornerRadius& cornerRadius)
+    {
+        RenderCommand cmd;
+        cmd.type = RenderCommandType::FillRect;
+        cmd.rect = rect;
+        cmd.color = color;
+        cmd.cornerRadius = cornerRadius;
+        cmd.borderWidth = 0.0f;
+        return cmd;
+    }
+
+    static RenderCommand CreateDrawRect(const Rect& rect, const Vec4& color, float borderWidth, const CornerRadius& cornerRadius)
+    {
+        RenderCommand cmd;
+        cmd.type = RenderCommandType::DrawRect;
+        cmd.rect = rect;
+        cmd.color = color;
+        cmd.cornerRadius = cornerRadius;
+        cmd.borderWidth = borderWidth;
+        return cmd;
+    }
+
+    static RenderCommand CreateDrawText(const char* text, const Vec2& position,
+        FontHandle westernFont, FontHandle chineseFont,
+        float fontSize, const Vec4& textColor)
+    {
+        if (!text || !position.isValid() || fontSize <= 0.0f || !textColor.isValid()) {
             RenderCommand cmd;
             cmd.type = RenderCommandType::Clear;
-            cmd.color = color;
             return cmd;
         }
 
-        static RenderCommand CreateFillRect(const Rect& rect, const Vec4& color, const CornerRadius& cornerRadius)
-        {
+        RenderCommand cmd;
+        cmd.type = RenderCommandType::DrawText;
+        cmd.text = text;
+        cmd.textPosition = position;
+        cmd.westernFont = westernFont;
+        cmd.chineseFont = chineseFont;
+        cmd.fontSize = fontSize;
+        cmd.textColor = textColor;
+        return cmd;
+    }
+
+    static RenderCommand CreateDrawImage(void* textureHandle, const Rect& destRect,
+        const Rect& sourceRect, ScaleMode scaleMode,
+        const NineSliceMargins& nineSlice = NineSliceMargins())
+    {
+        if (!textureHandle || !destRect.isValid() || !sourceRect.isValid()) {
             RenderCommand cmd;
-            cmd.type = RenderCommandType::FillRect;
-            cmd.rect = rect;
-            cmd.color = color;
-            cmd.cornerRadius = cornerRadius;
-            cmd.borderWidth = 0.0f;
+            cmd.type = RenderCommandType::Clear;
             return cmd;
         }
 
-        static RenderCommand CreateDrawRect(const Rect& rect, const Vec4& color, float borderWidth, const CornerRadius& cornerRadius)
-        {
+        RenderCommand cmd;
+        cmd.type = RenderCommandType::DrawImage;
+        cmd.textureHandle = textureHandle;
+        cmd.rect = destRect;
+        cmd.sourceRect = sourceRect;
+        cmd.scaleMode = scaleMode;
+        cmd.nineSliceMargins = nineSlice;
+        return cmd;
+    }
+
+    static RenderCommand CreateDrawLine(const Vec2& start, const Vec2& end, const Vec4& color, float width)
+    {
+        if (!start.isValid() || !end.isValid() || !color.isValid() || width <= 0.0f) {
             RenderCommand cmd;
-            cmd.type = RenderCommandType::DrawRect;
-            cmd.rect = rect;
-            cmd.color = color;
-            cmd.cornerRadius = cornerRadius;
-            cmd.borderWidth = borderWidth;
+            cmd.type = RenderCommandType::Clear;
             return cmd;
         }
 
-        static RenderCommand CreateDrawText(const char* text, const Vec2& position,
-            FontHandle westernFont, FontHandle chineseFont,
-            float fontSize, const Vec4& textColor)
-        {
-            if (!text || !position.isValid() || fontSize <= 0.0f || !textColor.isValid()) {
-                RenderCommand cmd;
-                cmd.type = RenderCommandType::Clear;
-                return cmd;
-            }
+        RenderCommand cmd;
+        cmd.type = RenderCommandType::DrawLine;
+        cmd.lineStart = start;
+        cmd.lineEnd = end;
+        cmd.color = color;
+        cmd.lineWidth = width;
+        return cmd;
+    }
 
+    static RenderCommand CreateFillTriangle(const Vec2& p1, const Vec2& p2, const Vec2& p3, const Vec4& color)
+    {
+        if (!p1.isValid() || !p2.isValid() || !p3.isValid() || !color.isValid()) {
             RenderCommand cmd;
-            cmd.type = RenderCommandType::DrawText;
-            cmd.text = text;
-            cmd.textPosition = position;
-            cmd.westernFont = westernFont;
-            cmd.chineseFont = chineseFont;
-            cmd.fontSize = fontSize;
-            cmd.textColor = textColor;
+            cmd.type = RenderCommandType::Clear;
             return cmd;
         }
 
-        static RenderCommand CreateDrawImage(void* textureHandle, const Rect& destRect,
-            const Rect& sourceRect, ScaleMode scaleMode,
-            const NineSliceMargins& nineSlice = NineSliceMargins())
-        {
-            if (!textureHandle || !destRect.isValid() || !sourceRect.isValid()) {
-                RenderCommand cmd;
-                cmd.type = RenderCommandType::Clear;
-                return cmd;
-            }
+        RenderCommand cmd;
+        cmd.type = RenderCommandType::FillTriangle;
+        cmd.triangleP1 = p1;
+        cmd.triangleP2 = p2;
+        cmd.triangleP3 = p3;
+        cmd.color = color;
+        cmd.borderWidth = 0.0f;
+        return cmd;
+    }
 
+    static RenderCommand CreateDrawTriangle(const Vec2& p1, const Vec2& p2, const Vec2& p3, const Vec4& color, float borderWidth)
+    {
+        if (!p1.isValid() || !p2.isValid() || !p3.isValid() || !color.isValid() || borderWidth <= 0.0f) {
             RenderCommand cmd;
-            cmd.type = RenderCommandType::DrawImage;
-            cmd.textureHandle = textureHandle;
-            cmd.rect = destRect;
-            cmd.sourceRect = sourceRect;
-            cmd.scaleMode = scaleMode;
-            cmd.nineSliceMargins = nineSlice;
+            cmd.type = RenderCommandType::Clear;
             return cmd;
         }
 
-        static RenderCommand CreateDrawLine(const Vec2& start, const Vec2& end, const Vec4& color, float width)
-        {
-            if (!start.isValid() || !end.isValid() || !color.isValid() || width <= 0.0f) {
-                RenderCommand cmd;
-                cmd.type = RenderCommandType::Clear;
-                return cmd;
-            }
+        RenderCommand cmd;
+        cmd.type = RenderCommandType::DrawTriangle;
+        cmd.triangleP1 = p1;
+        cmd.triangleP2 = p2;
+        cmd.triangleP3 = p3;
+        cmd.color = color;
+        cmd.borderWidth = borderWidth;
+        return cmd;
+    }
 
+    static RenderCommand CreateFillCircle(const Vec2& center, float radius, const Vec4& color)
+    {
+        if (!center.isValid() || radius <= 0.0f || !color.isValid()) {
             RenderCommand cmd;
-            cmd.type = RenderCommandType::DrawLine;
-            cmd.lineStart = start;
-            cmd.lineEnd = end;
-            cmd.color = color;
-            cmd.lineWidth = width;
+            cmd.type = RenderCommandType::Clear;
             return cmd;
         }
 
-        static RenderCommand CreateFillTriangle(const Vec2& p1, const Vec2& p2, const Vec2& p3, const Vec4& color)
-        {
-            if (!p1.isValid() || !p2.isValid() || !p3.isValid() || !color.isValid()) {
-                RenderCommand cmd;
-                cmd.type = RenderCommandType::Clear;
-                return cmd;
-            }
+        RenderCommand cmd;
+        cmd.type = RenderCommandType::FillCircle;
+        cmd.circleCenter = center;
+        cmd.circleRadius = radius;
+        cmd.color = color;
+        cmd.borderWidth = 0.0f;
+        return cmd;
+    }
 
+    static RenderCommand CreateDrawCircle(const Vec2& center, float radius, const Vec4& color, float borderWidth)
+    {
+        if (!center.isValid() || radius <= 0.0f || !color.isValid() || borderWidth <= 0.0f) {
             RenderCommand cmd;
-            cmd.type = RenderCommandType::FillTriangle;
-            cmd.triangleP1 = p1;
-            cmd.triangleP2 = p2;
-            cmd.triangleP3 = p3;
-            cmd.color = color;
-            cmd.borderWidth = 0.0f;
+            cmd.type = RenderCommandType::Clear;
             return cmd;
         }
 
-        static RenderCommand CreateDrawTriangle(const Vec2& p1, const Vec2& p2, const Vec2& p3, const Vec4& color, float borderWidth)
-        {
-            if (!p1.isValid() || !p2.isValid() || !p3.isValid() || !color.isValid() || borderWidth <= 0.0f) {
-                RenderCommand cmd;
-                cmd.type = RenderCommandType::Clear;
-                return cmd;
-            }
+        RenderCommand cmd;
+        cmd.type = RenderCommandType::DrawCircle;
+        cmd.circleCenter = center;
+        cmd.circleRadius = radius;
+        cmd.color = color;
+        cmd.borderWidth = borderWidth;
+        return cmd;
+    }
+};
 
-            RenderCommand cmd;
-            cmd.type = RenderCommandType::DrawTriangle;
-            cmd.triangleP1 = p1;
-            cmd.triangleP2 = p2;
-            cmd.triangleP3 = p3;
-            cmd.color = color;
-            cmd.borderWidth = borderWidth;
-            return cmd;
-        }
+//==========================================================================================
+// Miscellaneous types
 
-        static RenderCommand CreateFillCircle(const Vec2& center, float radius, const Vec4& color)
-        {
-            if (!center.isValid() || radius <= 0.0f || !color.isValid()) {
-                RenderCommand cmd;
-                cmd.type = RenderCommandType::Clear;
-                return cmd;
-            }
+enum class TextureFormat {
+    R8_Unorm,       ///< Single-channel 8-bit normalized (grayscale)
+    RGBA8_Unorm     ///< Four-channel 8-bit normalized (color with alpha)
+};
 
-            RenderCommand cmd;
-            cmd.type = RenderCommandType::FillCircle;
-            cmd.circleCenter = center;
-            cmd.circleRadius = radius;
-            cmd.color = color;
-            cmd.borderWidth = 0.0f;
-            return cmd;
-        }
+enum class WindowType {
+    Main,           ///< Main application window
+    Dialog,         ///< Modal dialog window
+    ToolWindow      ///< Tool palette window
+};
 
-        static RenderCommand CreateDrawCircle(const Vec2& center, float radius, const Vec4& color, float borderWidth)
-        {
-            if (!center.isValid() || radius <= 0.0f || !color.isValid() || borderWidth <= 0.0f) {
-                RenderCommand cmd;
-                cmd.type = RenderCommandType::Clear;
-                return cmd;
-            }
-
-            RenderCommand cmd;
-            cmd.type = RenderCommandType::DrawCircle;
-            cmd.circleCenter = center;
-            cmd.circleRadius = radius;
-            cmd.color = color;
-            cmd.borderWidth = borderWidth;
-            return cmd;
-        }
-    };
-
-    enum class TextureFormat {
-        R8_Unorm,
-        RGBA8_Unorm
-    };
-
-    enum class WindowType {
-        Main,
-        Dialog,
-        ToolWindow
-    };
-}
+} // namespace YuchenUI

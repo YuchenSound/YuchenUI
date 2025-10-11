@@ -1,3 +1,29 @@
+/*******************************************************************************************
+**
+** YuchenUI - Modern C++ GUI Framework
+**
+** Copyright (C) 2025 Yuchen Wei
+** Contact: https://github.com/YuchenSound/YuchenUI
+**
+** This file is part of the YuchenUI Core module.
+**
+** $YUCHEN_BEGIN_LICENSE:MIT$
+** Licensed under the MIT License
+** $YUCHEN_END_LICENSE$
+**
+********************************************************************************************/
+
+//==========================================================================================
+/** @file UIContext.cpp
+    
+    Implementation notes:
+    - Uses pimpl idiom to hide implementation details
+    - Delta time calculated using high_resolution_clock
+    - Mouse capture routes all events to captured component
+    - Viewport resize triggers content resize
+    - Component registration separate from focus registration
+*/
+
 #include "YuchenUI/core/UIContext.h"
 #include "YuchenUI/core/IUIContent.h"
 #include "YuchenUI/focus/FocusManager.h"
@@ -11,7 +37,11 @@
 
 namespace YuchenUI {
 
-struct UIContext::Impl {
+//==========================================================================================
+// Implementation details
+
+struct UIContext::Impl
+{
     std::unique_ptr<IUIContent> content;
     std::unique_ptr<FocusManager> focusManager;
     std::vector<UIComponent*> components;
@@ -26,94 +56,113 @@ struct UIContext::Impl {
     std::chrono::time_point<std::chrono::high_resolution_clock> lastFrameTime;
     
     Impl()
-        : content(nullptr)
-        , focusManager(nullptr)
-        , viewportSize(800, 600)
-        , dpiScale(1.0f)
-        , capturedComponent(nullptr)
-        , textInputHandler(nullptr)
-        , coordinateMapper(nullptr)
-        , lastFrameTime(std::chrono::high_resolution_clock::now())
+    : content(nullptr)
+    , focusManager(nullptr)
+    , viewportSize(800, 600)
+    , dpiScale(1.0f)
+    , capturedComponent(nullptr)
+    , textInputHandler(nullptr)
+    , coordinateMapper(nullptr)
+    , lastFrameTime(std::chrono::high_resolution_clock::now())
     {}
 };
 
+//==========================================================================================
+// Construction
+
 UIContext::UIContext()
-    : m_impl(std::make_unique<Impl>())
+: m_impl(std::make_unique<Impl>())
 {
     m_impl->focusManager = std::make_unique<FocusManager>();
 }
 
 UIContext::~UIContext() = default;
 
-void UIContext::setContent(std::unique_ptr<IUIContent> content) {
-    if (m_impl->content) {
-        m_impl->content->onDestroy();
-    }
+//==========================================================================================
+// Content management
+
+void UIContext::setContent(std::unique_ptr<IUIContent> content)
+{
+    // Destroy old content
+    if (m_impl->content) m_impl->content->onDestroy();
     
     m_impl->content = std::move(content);
     
-    if (m_impl->content) {
+    // Initialize new content
+    if (m_impl->content)
+    {
         Rect contentArea(0, 0, m_impl->viewportSize.x, m_impl->viewportSize.y);
         m_impl->content->onCreate(this, contentArea);
     }
 }
 
-IUIContent* UIContext::getContent() const {
+IUIContent* UIContext::getContent() const
+{
     return m_impl->content.get();
 }
 
-void UIContext::render(RenderList& outCommandList) {
-    if (m_impl->content) {
-        m_impl->content->render(outCommandList);
-    }
+//==========================================================================================
+// Frame lifecycle
+
+void UIContext::render(RenderList& outCommandList)
+{
+    if (m_impl->content) m_impl->content->render(outCommandList);
 }
 
-void UIContext::beginFrame() {
+void UIContext::beginFrame()
+{
+    // Calculate delta time
     auto now = std::chrono::high_resolution_clock::now();
     float deltaTime = std::chrono::duration<float>(now - m_impl->lastFrameTime).count();
     m_impl->lastFrameTime = now;
     
-    if (m_impl->content) {
-        m_impl->content->onUpdate(deltaTime);
-    }
+    // Update content
+    if (m_impl->content) m_impl->content->onUpdate(deltaTime);
 }
 
-void UIContext::endFrame() {
-}
+void UIContext::endFrame() {}
 
-bool UIContext::handleMouseMove(const Vec2& position) {
-    if (m_impl->capturedComponent) {
+//==========================================================================================
+// Mouse event handling
+
+bool UIContext::handleMouseMove(const Vec2& position)
+{
+    // Route to captured component if any
+    if (m_impl->capturedComponent)
         return m_impl->capturedComponent->handleMouseMove(position);
-    }
     
-    if (m_impl->content) {
+    if (m_impl->content)
         return m_impl->content->handleMouseMove(position);
-    }
     
     return false;
 }
 
-bool UIContext::handleMouseClick(const Vec2& position, bool pressed) {
-    if (m_impl->capturedComponent) {
+bool UIContext::handleMouseClick(const Vec2& position, bool pressed)
+{
+    // Route to captured component if any
+    if (m_impl->capturedComponent)
         return m_impl->capturedComponent->handleMouseClick(position, pressed);
-    }
     
-    if (m_impl->content) {
+    if (m_impl->content)
         return m_impl->content->handleMouseClick(position, pressed);
-    }
     
     return false;
 }
 
-bool UIContext::handleMouseWheel(const Vec2& delta, const Vec2& position) {
-    if (m_impl->content) {
+bool UIContext::handleMouseWheel(const Vec2& delta, const Vec2& position)
+{
+    if (m_impl->content)
         return m_impl->content->handleMouseWheel(delta, position);
-    }
     return false;
 }
 
-bool UIContext::handleKeyEvent(KeyCode key, bool pressed, const KeyModifiers& mods, bool isRepeat) {
-    if (m_impl->content) {
+//==========================================================================================
+// Keyboard event handling
+
+bool UIContext::handleKeyEvent(KeyCode key, bool pressed, const KeyModifiers& mods, bool isRepeat)
+{
+    if (m_impl->content)
+    {
         Event event;
         event.type = pressed ? EventType::KeyPressed : EventType::KeyReleased;
         event.key.key = key;
@@ -125,7 +174,8 @@ bool UIContext::handleKeyEvent(KeyCode key, bool pressed, const KeyModifiers& mo
     return false;
 }
 
-bool UIContext::handleTextInput(uint32_t codepoint) {
+bool UIContext::handleTextInput(uint32_t codepoint)
+{
     if (m_impl->content) {
         Event event;
         event.type = EventType::TextInput;
@@ -136,8 +186,10 @@ bool UIContext::handleTextInput(uint32_t codepoint) {
     return false;
 }
 
-bool UIContext::handleTextComposition(const char* text, int cursorPos, int selectionLength) {
-    if (m_impl->content) {
+bool UIContext::handleTextComposition(const char* text, int cursorPos, int selectionLength)
+{
+    if (m_impl->content)
+    {
         Event event;
         event.type = EventType::TextComposition;
         strncpy(event.textComposition.text, text, 255);
@@ -150,96 +202,134 @@ bool UIContext::handleTextComposition(const char* text, int cursorPos, int selec
     return false;
 }
 
-void UIContext::setViewportSize(const Vec2& size) {
+//==========================================================================================
+// Viewport and scaling
+
+void UIContext::setViewportSize(const Vec2& size)
+{
     m_impl->viewportSize = size;
     
-    if (m_impl->content) {
+    // Notify content of resize
+    if (m_impl->content)
+    {
         Rect newArea(0, 0, size.x, size.y);
         m_impl->content->onResize(newArea);
     }
 }
 
-Vec2 UIContext::getViewportSize() const {
+Vec2 UIContext::getViewportSize() const
+{
     return m_impl->viewportSize;
 }
 
-void UIContext::setDPIScale(float scale) {
+void UIContext::setDPIScale(float scale)
+{
     m_impl->dpiScale = scale;
 }
 
-float UIContext::getDPIScale() const {
+float UIContext::getDPIScale() const
+{
     return m_impl->dpiScale;
 }
 
-FocusManager& UIContext::getFocusManager() {
+//==========================================================================================
+// Focus management
+
+FocusManager& UIContext::getFocusManager()
+{
     return *m_impl->focusManager;
 }
 
-const FocusManager& UIContext::getFocusManager() const {
+const FocusManager& UIContext::getFocusManager() const
+{
     return *m_impl->focusManager;
 }
 
-void UIContext::captureMouse(UIComponent* component) {
+//==========================================================================================
+// Mouse capture
+
+void UIContext::captureMouse(UIComponent* component)
+{
     m_impl->capturedComponent = component;
 }
 
-void UIContext::releaseMouse() {
+void UIContext::releaseMouse()
+{
     m_impl->capturedComponent = nullptr;
 }
 
-UIComponent* UIContext::getCapturedComponent() const {
+UIComponent* UIContext::getCapturedComponent() const
+{
     return m_impl->capturedComponent;
 }
 
-Rect UIContext::getInputMethodCursorRect() const {
-    if (m_impl->content) {
+//==========================================================================================
+// IME support
+
+Rect UIContext::getInputMethodCursorRect() const
+{
+    if (m_impl->content)
         return m_impl->content->getInputMethodCursorRect();
-    }
     return Rect();
 }
 
-void UIContext::addComponent(UIComponent* component) {
+//==========================================================================================
+// Component management
+
+void UIContext::addComponent(UIComponent* component)
+{
     auto it = std::find(m_impl->components.begin(), m_impl->components.end(), component);
-    if (it == m_impl->components.end()) {
+    if (it == m_impl->components.end())
         m_impl->components.push_back(component);
-    }
 }
 
-void UIContext::removeComponent(UIComponent* component) {
+void UIContext::removeComponent(UIComponent* component)
+{
     auto it = std::find(m_impl->components.begin(), m_impl->components.end(), component);
-    if (it != m_impl->components.end()) {
+    if (it != m_impl->components.end())
         m_impl->components.erase(it);
-    }
 }
 
-void UIContext::setTextInputHandler(ITextInputHandler* handler) {
+//==========================================================================================
+// Text input control
+
+void UIContext::setTextInputHandler(ITextInputHandler* handler)
+{
     m_impl->textInputHandler = handler;
 }
 
-void UIContext::requestTextInput(bool enable) {
+void UIContext::requestTextInput(bool enable)
+{
     if (!m_impl->textInputHandler) return;
     
-    if (enable) {
+    if (enable)
+    {
         m_impl->textInputHandler->enableTextInput();
-    } else {
+    }
+    else
+    {
         m_impl->textInputHandler->disableTextInput();
     }
 }
 
-void UIContext::setIMEEnabled(bool enabled) {
-    if (m_impl->textInputHandler) {
+void UIContext::setIMEEnabled(bool enabled)
+{
+    if (m_impl->textInputHandler)
         m_impl->textInputHandler->setIMEEnabled(enabled);
-    }
 }
 
-void UIContext::setCoordinateMapper(ICoordinateMapper* mapper) {
+//==========================================================================================
+// Coordinate mapping
+
+void UIContext::setCoordinateMapper(ICoordinateMapper* mapper)
+{
     m_impl->coordinateMapper = mapper;
 }
 
-Vec2 UIContext::mapToScreen(const Vec2& windowPos) const {
-    if (!m_impl->coordinateMapper) {
-        return windowPos;
-    }
+Vec2 UIContext::mapToScreen(const Vec2& windowPos) const
+{
+    if (!m_impl->coordinateMapper) return windowPos;
     return m_impl->coordinateMapper->mapToScreen(windowPos);
 }
-}
+
+} // namespace YuchenUI

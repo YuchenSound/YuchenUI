@@ -10,9 +10,15 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 include(Platform)
 
 option(YUCHEN_BUILD_DESKTOP "Build desktop platform support" ON)
+option(YUCHEN_BUILD_TESTS "Build unit tests" ON)
 
 add_subdirectory(core)
 
 if(YUCHEN_BUILD_DESKTOP)
     add_subdirectory(desktop)
+endif()
+
+if(YUCHEN_BUILD_TESTS)
+    enable_testing()
+    add_subdirectory(test)
 endif()

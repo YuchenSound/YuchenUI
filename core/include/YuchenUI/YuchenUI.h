@@ -1,7 +1,6 @@
 #pragma once
 
 #include "YuchenUI/rendering/RenderList.h"
-#include "YuchenUI/core/Colors.h"
 #include "YuchenUI/core/Types.h"
 
 #include "YuchenUI/widgets/Button.h"
