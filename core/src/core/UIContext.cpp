@@ -81,31 +81,14 @@ UIContext::~UIContext() = default;
 
 IFontProvider* UIContext::getFontProvider() const
 {
-    // If provider was injected, use it
-    if (m_impl->fontProvider)
-    {
-        return m_impl->fontProvider;
-    }
-    
-    // Fallback to singleton for backward compatibility
-    // Suppress deprecation warnings since this is intentional fallback behavior
-    #pragma GCC diagnostic push
-    #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-    #ifdef _MSC_VER
-    #pragma warning(push)
-    #pragma warning(disable: 4996)
-    #endif
-    
-    return &FontManager::getInstance();
-    
-    #ifdef _MSC_VER
-    #pragma warning(pop)
-    #endif
-    #pragma GCC diagnostic pop
+    YUCHEN_ASSERT_MSG(m_impl->fontProvider != nullptr,
+        "Font provider not set. Call setFontProvider() before using UIContext.");
+    return m_impl->fontProvider;
 }
 
 void UIContext::setFontProvider(IFontProvider* provider)
 {
+    YUCHEN_ASSERT_MSG(provider != nullptr, "Font provider cannot be null");
     m_impl->fontProvider = provider;
 }
 
@@ -114,31 +97,14 @@ void UIContext::setFontProvider(IFontProvider* provider)
 
 IThemeProvider* UIContext::getThemeProvider() const
 {
-    // If provider was injected, use it
-    if (m_impl->themeProvider)
-    {
-        return m_impl->themeProvider;
-    }
-    
-    // Fallback to singleton for backward compatibility
-    // Suppress deprecation warnings since this is intentional fallback behavior
-    #pragma GCC diagnostic push
-    #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-    #ifdef _MSC_VER
-    #pragma warning(push)
-    #pragma warning(disable: 4996)
-    #endif
-    
-    return &ThemeManager::getInstance();
-    
-    #ifdef _MSC_VER
-    #pragma warning(pop)
-    #endif
-    #pragma GCC diagnostic pop
+    YUCHEN_ASSERT_MSG(m_impl->themeProvider != nullptr,
+        "Theme provider not set. Call setThemeProvider() before using UIContext.");
+    return m_impl->themeProvider;
 }
 
 void UIContext::setThemeProvider(IThemeProvider* provider)
 {
+    YUCHEN_ASSERT_MSG(provider != nullptr, "Theme provider cannot be null");
     m_impl->themeProvider = provider;
 }
 

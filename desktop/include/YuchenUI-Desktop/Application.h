@@ -104,6 +104,13 @@ public:
     IFontProvider* getFontProvider() { return &m_fontManager; }
     
     /**
+        Returns theme provider interface.
+        
+        @returns Theme provider interface (implemented by ThemeManager)
+    */
+    IThemeProvider* getThemeProvider() { return &m_themeManager; }
+    
+    /**
         Returns font manager instance.
         
         @returns Font manager reference
@@ -138,17 +145,10 @@ public:
     {
         WindowManager& windowManager = getWindowManager();
         
-        BaseWindow* window = windowManager.createMainWindow<ContentType>(
+        // WindowManager now handles font provider injection automatically
+        return windowManager.createMainWindow<ContentType>(
             width, height, title, std::forward<Args>(args)...
         );
-        
-        if (window)
-        {
-            // Inject font provider into window's context
-            window->setFontProvider(&m_fontManager);
-        }
-        
-        return window;
     }
 
 private:

@@ -23,6 +23,8 @@
 namespace YuchenUI {
 
 class Window;
+class IFontProvider;
+class IThemeProvider;
 
 //==========================================================================================
 /**
@@ -37,6 +39,8 @@ class Window;
     @code
     WindowManager& wm = WindowManager::getInstance();
     wm.initialize();
+    wm.setFontProvider(fontProvider);
+    wm.setThemeProvider(themeProvider);
     
     auto* mainWindow = wm.createMainWindow<MyContent>(800, 600, "My App");
     mainWindow->show();
@@ -69,6 +73,31 @@ public:
     bool isInitialized() const { return m_isInitialized; }
     
     //======================================================================================
+    /** Sets the font provider for all windows.
+        
+        This font provider will be injected into all newly created windows.
+        Must be called after initialize() and before creating any windows.
+        
+        @param provider  Font provider interface (must not be null)
+    */
+    void setFontProvider(IFontProvider* provider);
+    
+    /** Returns the font provider for this manager. */
+    IFontProvider* getFontProvider() const { return m_fontProvider; }
+    
+    /** Sets the theme provider for all windows.
+        
+        This theme provider will be injected into all newly created windows.
+        Must be called after initialize() and before creating any windows.
+        
+        @param provider  Theme provider interface (must not be null)
+    */
+    void setThemeProvider(IThemeProvider* provider);
+    
+    /** Returns the theme provider for this manager. */
+    IThemeProvider* getThemeProvider() const { return m_themeProvider; }
+    
+    //======================================================================================
     /** Starts the application event loop.
         
         This method blocks until quit() is called or all main windows are closed.
@@ -87,6 +116,12 @@ public:
         Main windows keep the application running. When all main windows close,
         the application quits.
         
+        Correct initialization order:
+        1. Create window
+        2. Inject font provider (initializes renderer)
+        3. Inject theme provider (into UIContext)
+        4. Set content (calls onCreate with initialized context)
+        
         @tparam ContentType  The IWindowContent-derived class to create
         @param width         Window width in pixels
         @param height        Window height in pixels
@@ -96,7 +131,7 @@ public:
         @returns Pointer to the created window, or nullptr on failure
     */
     template<typename ContentType, typename... Args>
-    BaseWindow* createMainWindow (int width, int height, const char* title, Args&&... args)
+    BaseWindow* createMainWindow(int width, int height, const char* title, Args&&... args)
     {
         if (!m_isInitialized)
         {
@@ -104,15 +139,33 @@ public:
             return nullptr;
         }
         
-        auto mainWindow = std::make_unique<BaseWindow> (WindowType::Main);
-        if (!mainWindow->createWithContent<ContentType> (width, height, title, nullptr, std::forward<Args>(args)...))
+        // Step 1: Create window
+        auto mainWindow = std::make_unique<BaseWindow>(WindowType::Main);
+        if (!mainWindow->create(width, height, title, nullptr))
         {
             return nullptr;
         }
         
         BaseWindow* mainWindowPtr = mainWindow.get();
-        m_mainWindows.push_back (std::move (mainWindow));
-        registerWindow (mainWindowPtr);
+        
+        // Step 2: Inject font provider (initializes renderer and UIContext font)
+        if (m_fontProvider)
+        {
+            mainWindowPtr->setFontProvider(m_fontProvider);
+        }
+        
+        // Step 3: Inject theme provider (into UIContext)
+        if (m_themeProvider)
+        {
+            mainWindowPtr->getUIContext().setThemeProvider(m_themeProvider);
+        }
+        
+        // Step 4: Set content (onCreate called with fully initialized context)
+        auto content = std::make_unique<ContentType>(std::forward<Args>(args)...);
+        mainWindowPtr->setContent(std::move(content));
+        
+        m_mainWindows.push_back(std::move(mainWindow));
+        registerWindow(mainWindowPtr);
         
         return mainWindowPtr;
     }
@@ -126,15 +179,21 @@ public:
         
         @param mainWindow  The window to close
     */
-    void closeMainWindow (BaseWindow* mainWindow);
+    void closeMainWindow(BaseWindow* mainWindow);
     
     /** Returns true if the specified window is a main window. */
-    bool isMainWindow (const BaseWindow* window) const;
+    bool isMainWindow(const BaseWindow* window) const;
     
     //======================================================================================
     /** Creates a modal dialog window with content.
         
         Dialogs are temporary windows typically used for user interaction.
+        
+        Correct initialization order:
+        1. Create window
+        2. Inject font provider (initializes renderer)
+        3. Inject theme provider (into UIContext)
+        4. Set content (calls onCreate with initialized context)
         
         @tparam ContentType  The IWindowContent-derived class to create
         @param width         Window width in pixels
@@ -146,7 +205,7 @@ public:
         @returns Pointer to the created dialog, or nullptr on failure
     */
     template<typename ContentType, typename... Args>
-    BaseWindow* createDialog (int width, int height, const char* title, Window* parent, Args&&... args)
+    BaseWindow* createDialog(int width, int height, const char* title, Window* parent, Args&&... args)
     {
         if (!m_isInitialized)
         {
@@ -154,15 +213,33 @@ public:
             return nullptr;
         }
         
-        auto dialog = std::make_unique<BaseWindow> (WindowType::Dialog);
-        if (!dialog->createWithContent<ContentType> (width, height, title, parent, std::forward<Args>(args)...))
+        // Step 1: Create window
+        auto dialog = std::make_unique<BaseWindow>(WindowType::Dialog);
+        if (!dialog->create(width, height, title, parent))
         {
             return nullptr;
         }
         
         BaseWindow* dialogPtr = dialog.get();
-        m_dialogs.push_back (std::move (dialog));
-        registerWindow (dialogPtr);
+        
+        // Step 2: Inject font provider (initializes renderer and UIContext font)
+        if (m_fontProvider)
+        {
+            dialogPtr->setFontProvider(m_fontProvider);
+        }
+        
+        // Step 3: Inject theme provider (into UIContext)
+        if (m_themeProvider)
+        {
+            dialogPtr->getUIContext().setThemeProvider(m_themeProvider);
+        }
+        
+        // Step 4: Set content (onCreate called with fully initialized context)
+        auto content = std::make_unique<ContentType>(std::forward<Args>(args)...);
+        dialogPtr->setContent(std::move(content));
+        
+        m_dialogs.push_back(std::move(dialog));
+        registerWindow(dialogPtr);
         
         return dialogPtr;
     }
@@ -170,6 +247,12 @@ public:
     /** Creates a tool window with content.
         
         Tool windows are typically used for auxiliary UI such as palettes or inspectors.
+        
+        Correct initialization order:
+        1. Create window
+        2. Inject font provider (initializes renderer)
+        3. Inject theme provider (into UIContext)
+        4. Set content (calls onCreate with initialized context)
         
         @tparam ContentType  The IWindowContent-derived class to create
         @param width         Window width in pixels
@@ -181,7 +264,7 @@ public:
         @returns Pointer to the created tool window, or nullptr on failure
     */
     template<typename ContentType, typename... Args>
-    BaseWindow* createToolWindow (int width, int height, const char* title, Window* parent, Args&&... args)
+    BaseWindow* createToolWindow(int width, int height, const char* title, Window* parent, Args&&... args)
     {
         if (!m_isInitialized)
         {
@@ -189,15 +272,33 @@ public:
             return nullptr;
         }
         
-        auto toolWindow = std::make_unique<BaseWindow> (WindowType::ToolWindow);
-        if (!toolWindow->createWithContent<ContentType> (width, height, title, parent, std::forward<Args>(args)...))
+        // Step 1: Create window
+        auto toolWindow = std::make_unique<BaseWindow>(WindowType::ToolWindow);
+        if (!toolWindow->create(width, height, title, parent))
         {
             return nullptr;
         }
         
         BaseWindow* toolWindowPtr = toolWindow.get();
-        m_toolWindows.push_back (std::move (toolWindow));
-        registerWindow (toolWindowPtr);
+        
+        // Step 2: Inject font provider (initializes renderer and UIContext font)
+        if (m_fontProvider)
+        {
+            toolWindowPtr->setFontProvider(m_fontProvider);
+        }
+        
+        // Step 3: Inject theme provider (into UIContext)
+        if (m_themeProvider)
+        {
+            toolWindowPtr->getUIContext().setThemeProvider(m_themeProvider);
+        }
+        
+        // Step 4: Set content (onCreate called with fully initialized context)
+        auto content = std::make_unique<ContentType>(std::forward<Args>(args)...);
+        toolWindowPtr->setContent(std::move(content));
+        
+        m_toolWindows.push_back(std::move(toolWindow));
+        registerWindow(toolWindowPtr);
         
         return toolWindowPtr;
     }
@@ -206,13 +307,13 @@ public:
         
         @param dialog  The dialog to close
     */
-    void closeDialog (BaseWindow* dialog);
+    void closeDialog(BaseWindow* dialog);
     
     /** Closes a tool window.
         
         @param toolWindow  The tool window to close
     */
-    void closeToolWindow (BaseWindow* toolWindow);
+    void closeToolWindow(BaseWindow* toolWindow);
     
     /** Closes all windows (main, dialog, and tool windows). */
     void closeAllWindows();
@@ -225,10 +326,10 @@ public:
     void* getSharedRenderDevice() const { return m_sharedRenderDevice; }
     
     /** Registers a window with the manager. */
-    void registerWindow (Window* window);
+    void registerWindow(Window* window);
     
     /** Unregisters a window from the manager. */
-    void unregisterWindow (Window* window);
+    void unregisterWindow(Window* window);
     
     /** Schedules a dialog for destruction after the current event loop iteration.
         
@@ -236,7 +337,7 @@ public:
         
         @param dialog  The dialog to destroy
     */
-    void scheduleDialogDestruction (BaseWindow* dialog);
+    void scheduleDialogDestruction(BaseWindow* dialog);
     
     //======================================================================================
     /**
@@ -286,6 +387,9 @@ private:
     bool m_isInitialized;
     bool m_isRunning;
     
+    IFontProvider* m_fontProvider;
+    IThemeProvider* m_themeProvider;
+    
     std::vector<std::unique_ptr<BaseWindow>> m_mainWindows;
     
     void* m_sharedRenderDevice;
@@ -294,8 +398,8 @@ private:
     std::vector<std::unique_ptr<BaseWindow>> m_dialogs;
     std::vector<std::unique_ptr<BaseWindow>> m_toolWindows;
     
-    WindowManager (const WindowManager&) = delete;
-    WindowManager& operator= (const WindowManager&) = delete;
+    WindowManager(const WindowManager&) = delete;
+    WindowManager& operator=(const WindowManager&) = delete;
 };
 
 } // namespace YuchenUI

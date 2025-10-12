@@ -109,9 +109,8 @@ bool BaseWindow::create(int width, int height, const char* title, Window* parent
     YUCHEN_ASSERT_MSG(m_impl->create(config), "Failed to create window implementation");
     m_impl->setBaseWindow(this);
 
-    // Initialize rendering subsystem
+    // Detect DPI scale for this window
     detectDPIScale();
-    YUCHEN_ASSERT_MSG(initializeRenderer(), "Failed to initialize renderer");
 
     // Create and initialize event manager for this window
     m_eventManager.reset(PlatformBackend::createEventManager(m_impl->getNativeHandle()));
@@ -126,15 +125,9 @@ bool BaseWindow::create(int width, int height, const char* title, Window* parent
     // Set up UI layer (content may be set later by user)
     setupUserInterface();
 
-    // Transition through creation states
+    // Transition to Created state
+    // Note: RendererReady transition happens in setFontProvider()
     transitionToState(WindowState::Created);
-    transitionToState(WindowState::RendererReady);
-
-    // Show main windows immediately, dialogs shown via showModal()
-    if (m_windowType == WindowType::Main)
-    {
-        show();
-    }
 
     return true;
 }
@@ -358,7 +351,7 @@ Rect BaseWindow::calculateContentArea() const
 
 Vec4 BaseWindow::getBackgroundColor() const
 {
-    return ThemeManager::getInstance().getCurrentStyle()->getWindowBackground(m_windowType);
+    return m_uiContext.getCurrentStyle()->getWindowBackground(m_windowType);
 }
 
 void BaseWindow::renderContent()
@@ -386,8 +379,11 @@ void BaseWindow::renderContent()
 //==========================================================================================
 // Renderer Initialization
 
-bool BaseWindow::initializeRenderer()
+bool BaseWindow::initializeRenderer(IFontProvider* fontProvider)
 {
+    YUCHEN_ASSERT_MSG(fontProvider, "Font provider cannot be null");
+    YUCHEN_ASSERT_MSG(!m_backend, "Renderer already initialized");
+    
     // Create platform-specific graphics backend
     m_backend.reset(PlatformBackend::createGraphicsBackend());
     YUCHEN_ASSERT_MSG(m_backend, "createGraphicsBackend returned null");
@@ -396,8 +392,8 @@ bool BaseWindow::initializeRenderer()
     void* surface = m_impl->getRenderSurface();
     YUCHEN_ASSERT_MSG(surface, "Surface is null");
 
-    // Initialize backend with window surface and DPI
-    bool success = m_backend->initialize(surface, m_width, m_height, m_dpiScale);
+    // Initialize backend with window surface, DPI, and font provider
+    bool success = m_backend->initialize(surface, m_width, m_height, m_dpiScale, fontProvider);
     YUCHEN_ASSERT_MSG(success, "Backend initialize failed");
     
     // Configure UI context
@@ -629,6 +625,35 @@ Rect BaseWindow::getInputMethodCursorRect() const
 }
 
 //==========================================================================================
+// Font Provider Injection
+
+void BaseWindow::setFontProvider(IFontProvider* provider)
+{
+    YUCHEN_ASSERT_MSG(provider, "Font provider cannot be null");
+    YUCHEN_ASSERT_MSG(isInState(WindowState::Created), "Window must be in Created state");
+    YUCHEN_ASSERT_MSG(!m_backend, "Renderer already initialized");
+    
+    // Initialize renderer with font provider
+    if (!initializeRenderer(provider))
+    {
+        YUCHEN_ASSERT_MSG(false, "Failed to initialize renderer with font provider");
+        return;
+    }
+    
+    // Inject font provider into UI context
+    m_uiContext.setFontProvider(provider);
+    
+    // Transition to RendererReady state
+    transitionToState(WindowState::RendererReady);
+    
+    // Show main windows immediately after renderer is ready
+    if (m_windowType == WindowType::Main)
+    {
+        show();
+    }
+}
+
+//==========================================================================================
 // State Management
 
 void BaseWindow::transitionToState(WindowState newState)
@@ -658,14 +683,4 @@ void BaseWindow::setupUserInterface()
     // UIContext internally manages content, no additional setup needed at window level
 }
 
-void BaseWindow::setFontProvider(IFontProvider* provider)
-{
-    // This is a bridge method for now. In the future, UIContext should
-    // be constructed with the provider directly.
-    // For now, we'll need to reconstruct UIContext or add a setter.
-    // Since UIContext doesn't have a setter yet, we document this limitation.
-    
-    // TODO: This needs UIContext to support setFontProvider()
-    // For Phase 1 migration, windows will continue using singleton fallback.
-}
 } // namespace YuchenUI

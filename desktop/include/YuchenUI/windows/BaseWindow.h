@@ -16,6 +16,7 @@ namespace YuchenUI {
 
 class IGraphicsBackend;
 class UIComponent;
+class IFontProvider;
 
 using DialogResultCallback = std::function<void(WindowContentResult result, void* userData)>;
 
@@ -26,7 +27,6 @@ enum class WindowState {
     Shown
 };
 
-// ✅ 同时实现 ITextInputHandler 和 ICoordinateMapper
 class BaseWindow : public Window, public ITextInputHandler, public ICoordinateMapper
 {
 public:
@@ -61,19 +61,6 @@ public:
     
     void onResize (int width, int height);
     
-    template<typename ContentType, typename... Args>
-    bool createWithContent (int width, int height, const char* title, Window* parent, Args&&... args)
-    {
-        if (!create (width, height, title, parent))
-        {
-            return false;
-        }
-        
-        auto content = std::make_unique<ContentType> (std::forward<Args>(args)...);
-        setContent (std::move (content));
-        return true;
-    }
-    
     void setContent (std::unique_ptr<IUIContent> content);
     IUIContent* getContent() const;
     
@@ -88,6 +75,7 @@ public:
     UIContext& getUIContext() { return m_uiContext; }
     const UIContext& getUIContext() const { return m_uiContext; }
     void setFontProvider(IFontProvider* provider);
+
 protected:
     IGraphicsBackend* getGraphicsBackend() { return m_backend.get(); }
     virtual void onWindowReady() {}
@@ -118,7 +106,7 @@ protected:
     UIComponent* m_capturedComponent;
 
 private:
-    bool initializeRenderer();
+    bool initializeRenderer(IFontProvider* fontProvider);
     void detectDPIScale();
     void releaseResources();
     void transitionToState (WindowState newState);

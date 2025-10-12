@@ -11,22 +11,6 @@
 namespace YuchenUI {
 
 //==========================================================================================
-// UIStyle Base Implementation
-
-IFontProvider* UIStyle::getFontProvider() const {
-    if (m_fontProvider) {
-        return m_fontProvider;
-    }
-    
-    // Fallback to singleton for backward compatibility
-    // This allows existing code to work without modifications
-    #pragma GCC diagnostic push
-    #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-    return &FontManager::getInstance();
-    #pragma GCC diagnostic pop
-}
-
-//==========================================================================================
 // ProtoolsClassicStyle Implementation
 
 ProtoolsClassicStyle::ProtoolsClassicStyle()

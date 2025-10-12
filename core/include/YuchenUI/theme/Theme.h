@@ -243,10 +243,10 @@ public:
     /**
         Returns the font provider for this style.
         
-        Falls back to FontManager::getInstance() if no provider was injected.
-        This ensures backward compatibility with existing code.
+        Returns the injected font provider. If no provider was set, this will trigger
+        an assertion failure in debug builds.
         
-        @returns Font provider interface (never null)
+        @returns Font provider interface (never null if setFontProvider was called)
     */
     virtual IFontProvider* getFontProvider() const;
     

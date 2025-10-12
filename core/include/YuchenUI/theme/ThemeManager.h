@@ -27,55 +27,33 @@ class IFontProvider;
     Theme manager with style management.
     
     ThemeManager implements the IThemeProvider interface and manages UI styles for the
-    application. It provides both a deprecated singleton interface (for backward compatibility)
-    and a modern instance-based interface (recommended).
+    application. It provides instance-based API for managing themes.
     
-    **Migration Guide:**
-    Old Code (Deprecated):
-        ThemeManager::getInstance().getCurrentStyle()
+    The ThemeManager automatically maintains the FontProvider reference and injects it
+    into any newly set UIStyle. This ensures that styles always have access to fonts
+    even after theme switching.
     
-    New Code (Recommended):
+    Usage:
         // In Application class:
         ThemeManager themeManager;
-        themeManager.setStyle(...);
+        themeManager.setStyle(std::make_unique<ProtoolsDarkStyle>());
+        themeManager.setFontProvider(&fontManager);
         
         // Inject into UIContext:
         uiContext.setThemeProvider(&themeManager);
         
+        // Switch themes (FontProvider automatically injected):
+        themeManager.setStyle(std::make_unique<ProtoolsClassicStyle>());
+        
         // In widgets:
         UIStyle* style = m_ownerContext->getCurrentStyle();
-    
-    The singleton pattern is deprecated because it:
-    - Makes dependency injection difficult
-    - Complicates unit testing
-    - Creates hidden global state
-    - Prevents multiple theme contexts in the same application
     
     @see IThemeProvider, UIContext, Application
 */
 class ThemeManager : public IThemeProvider {
 public:
     //======================================================================================
-    // Singleton Access (DEPRECATED)
-    
-    /**
-        Returns singleton instance.
-        
-        @deprecated Singleton pattern is deprecated. Use instance-based API instead:
-                    Create a ThemeManager instance in your Application class and inject
-                    it via UIContext::setThemeProvider(). This enables proper dependency
-                    injection, improves testability, and allows multiple theme contexts.
-                    
-                    Migration: Replace ThemeManager::getInstance() with a ThemeManager
-                    instance owned by your Application, then inject via setThemeProvider().
-        
-        @returns Reference to singleton instance
-    */
-    [[deprecated("Singleton pattern is deprecated. Use instance-based API: create ThemeManager in Application and inject via UIContext::setThemeProvider()")]]
-    static ThemeManager& getInstance();
-    
-    //======================================================================================
-    // Instance-based API (RECOMMENDED)
+    // Instance-based API
     
     /**
         Creates theme manager instance.
@@ -103,14 +81,19 @@ public:
         Sets the current UI style.
         
         Transfers ownership of the style to this manager. Any previous style will be
-        destroyed.
+        destroyed. If a FontProvider was previously set via setFontProvider(), it will
+        be automatically injected into the new style.
         
         @param style  New style instance (ownership transferred, must not be null)
     */
     void setStyle(std::unique_ptr<UIStyle> style) override;
     
     /**
-        Sets font provider for the current style.
+        Sets font provider for the current and future styles.
+        
+        The FontProvider reference is saved and will be automatically injected into
+        any style set via setStyle() in the future. This ensures themes can be switched
+        without losing font access.
         
         Call this after setStyle() or when the font provider changes. The current style
         will be notified of the font provider change.
@@ -120,9 +103,8 @@ public:
     void setFontProvider(IFontProvider* provider) override;
 
 private:
-    static ThemeManager* s_instance;
-    
     std::unique_ptr<UIStyle> m_currentStyle;
+    IFontProvider* m_fontProvider;  // Saved reference for auto-injection
     
     ThemeManager(const ThemeManager&) = delete;
     ThemeManager& operator=(const ThemeManager&) = delete;

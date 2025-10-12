@@ -28,10 +28,16 @@
 */
 
 #include "YuchenUI/text/TextRenderer.h"
-#include "YuchenUI/text/FontManager.h"
+#include "YuchenUI/text/IFontProvider.h"
 #include "YuchenUI/text/TextUtils.h"
 #include "YuchenUI/core/Validation.h"
 #include "YuchenUI/core/Config.h"
+
+#include <ft2build.h>
+#include FT_FREETYPE_H
+#include <stdexcept>
+#include <functional>
+
 #include <stdexcept>
 #include <functional>
 
@@ -57,8 +63,9 @@ TextCacheKey::TextCacheKey(const char* text, FontHandle westernFont, FontHandle 
 //==========================================================================================
 // Lifecycle
 
-TextRenderer::TextRenderer(IGraphicsBackend* backend)
+TextRenderer::TextRenderer(IGraphicsBackend* backend, IFontProvider* fontProvider)
     : m_backend(backend)
+    , m_fontProvider(fontProvider)
     , m_glyphCache(nullptr)
     , m_isInitialized(false)
     , m_dpiScale(1.0f)
@@ -66,6 +73,7 @@ TextRenderer::TextRenderer(IGraphicsBackend* backend)
     , m_shapedTextCache()
 {
     YUCHEN_ASSERT_MSG(backend != nullptr, "IGraphicsBackend cannot be null");
+    YUCHEN_ASSERT_MSG(fontProvider != nullptr, "IFontProvider cannot be null");
 }
 
 TextRenderer::~TextRenderer()
@@ -78,6 +86,7 @@ bool TextRenderer::initialize(float dpiScale)
     YUCHEN_ASSERT_MSG(!m_isInitialized, "Already initialized");
     YUCHEN_ASSERT_MSG(dpiScale > 0.0f, "DPI scale must be positive");
     YUCHEN_ASSERT_MSG(m_backend != nullptr, "GraphicsContext is null");
+    YUCHEN_ASSERT_MSG(m_fontProvider != nullptr, "Font provider is null");
     
     m_dpiScale = dpiScale;
 
@@ -201,7 +210,7 @@ bool TextRenderer::shapeTextWithHarfBuzz(const char* text, FontHandle fontHandle
     
     // Get HarfBuzz font scaled for DPI
     float scaledFontSize = fontSize * m_dpiScale;
-    hb_font_t* hbFont = static_cast<hb_font_t*>(FontManager::getInstance().getHarfBuzzFont(fontHandle, scaledFontSize, 1.0f));
+    hb_font_t* hbFont = static_cast<hb_font_t*>(m_fontProvider->getHarfBuzzFont(fontHandle, scaledFontSize, 1.0f));
     YUCHEN_ASSERT_MSG(hbFont != nullptr, "Failed to get HarfBuzz font");
     
     // Prepare HarfBuzz buffer
@@ -348,8 +357,8 @@ void TextRenderer::generateTextVertices(const ShapedText& shapedText, const Vec2
 void TextRenderer::renderGlyph(FontHandle fontHandle, uint32_t glyphIndex, float scaledFontSize,
                               const void*& outBitmapData, Vec2& outSize, Vec2& outBearing, float& outAdvance)
 {
-    // Get FreeType face from FontManager
-    void* face = FontManager::getInstance().getFontFace(fontHandle);
+    // Get FreeType face from font provider
+    void* face = m_fontProvider->getFontFace(fontHandle);
     rasterizeGlyphWithFreeType(face, glyphIndex, scaledFontSize, outBitmapData, outSize, outBearing, outAdvance);
 }
 

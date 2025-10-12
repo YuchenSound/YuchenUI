@@ -57,10 +57,11 @@ struct FontEntry {
     - getDefaultCJKFont() -> PingFang SC (macOS) / Microsoft YaHei (Windows)
     
     Lifecycle:
-    - New API (Recommended): Create instance via constructor, inject into Application
-    - Old API (Deprecated): Access via getInstance() singleton for backward compatibility
+    - Create instance via constructor
+    - Call initialize() to load fonts
+    - Inject into Application/UIContext as IFontProvider
     
-    Usage Example (New API):
+    Usage Example:
     @code
     // In Application
     FontManager fontManager;
@@ -78,26 +79,7 @@ struct FontEntry {
 class FontManager : public IFontProvider {
 public:
     //======================================================================================
-    // Singleton Access (DEPRECATED - for backward compatibility only)
-    
-    /**
-        Returns singleton instance.
-        
-        @deprecated Use instance-based API instead. This method exists only for backward
-                   compatibility with existing code. New code should create FontManager
-                   instances and inject them via UIContext.
-                   
-                   Migration path:
-                   Old: FontManager::getInstance().getArialBold()
-                   New: context->getFontProvider()->getDefaultBoldFont()
-        
-        @returns Reference to singleton instance
-    */
-    [[deprecated("Use instance-based API. Create FontManager and inject via Application.")]]
-    static FontManager& getInstance();
-    
-    //======================================================================================
-    // Instance-based API (NEW - preferred method)
+    // Instance-based API
     
     /**
         Creates font manager without initialization.
@@ -351,10 +333,6 @@ private:
     FontHandle generateFontHandle();
     FontEntry* getFontEntry(FontHandle handle);
     const FontEntry* getFontEntry(FontHandle handle) const;
-    
-    //======================================================================================
-    // Singleton support (DEPRECATED)
-    static FontManager* s_instance;
     
     //======================================================================================
     bool m_isInitialized;

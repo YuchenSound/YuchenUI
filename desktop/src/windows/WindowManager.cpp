@@ -65,6 +65,8 @@ WindowManager& WindowManager::getInstance()
 WindowManager::WindowManager()
     : m_isInitialized(false)
     , m_isRunning(false)
+    , m_fontProvider(nullptr)
+    , m_themeProvider(nullptr)
     , m_mainWindows()
     , m_sharedRenderDevice(nullptr)
 {
@@ -105,6 +107,18 @@ void WindowManager::destroy()
     closeAllWindows();
     cleanupResources();
     m_isInitialized = false;
+}
+
+void WindowManager::setFontProvider(IFontProvider* provider)
+{
+    YUCHEN_ASSERT_MSG(provider, "Font provider cannot be null");
+    m_fontProvider = provider;
+}
+
+void WindowManager::setThemeProvider(IThemeProvider* provider)
+{
+    YUCHEN_ASSERT_MSG(provider, "Theme provider cannot be null");
+    m_themeProvider = provider;
 }
 
 bool WindowManager::createSharedRenderDevice()

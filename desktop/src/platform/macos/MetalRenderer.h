@@ -52,6 +52,7 @@ namespace YuchenUI {
 
 class TextRenderer;
 class TextureCache;
+class IFontProvider;
 
 //==========================================================================================
 /**
@@ -149,17 +150,15 @@ public:
         Must be called before any rendering operations. The metalLayer parameter must be
         a valid CAMetalLayer from the window's content view.
         
-        @param metalLayer  Pointer to CAMetalLayer for rendering target
-        @param width       Viewport width in points (not pixels)
-        @param height      Viewport height in points (not pixels)
-        @param dpiScale    Display scale factor (typically 1.0 or 2.0 on macOS)
+        @param metalLayer    Pointer to CAMetalLayer for rendering target
+        @param width         Viewport width in points (not pixels)
+        @param height        Viewport height in points (not pixels)
+        @param dpiScale      Display scale factor (typically 1.0 or 2.0 on macOS)
+        @param fontProvider  Font provider for text rendering (not owned)
         
         @returns True if initialization succeeded, false on failure
-        
-        @note This method combines the functionality of the old initialize(), setSurface(),
-              and setSharedDevice() methods into a single initialization call.
     */
-    bool initialize(void* platformSurface, int width, int height, float dpiScale) override;
+    bool initialize(void* platformSurface, int width, int height, float dpiScale, IFontProvider* fontProvider) override;
 
     /** Begins a new render frame.
         
@@ -480,6 +479,7 @@ private:
 #endif
 
     ActivePipeline m_currentPipeline;              ///< Current active pipeline
+    IFontProvider* m_fontProvider;                 ///< Font provider (not owned)
     std::unique_ptr<TextRenderer> m_textRenderer;  ///< Text rendering system
     std::unique_ptr<TextureCache> m_textureCache;  ///< Image texture cache
     size_t m_maxTextVertices;                      ///< Maximum text vertices per frame

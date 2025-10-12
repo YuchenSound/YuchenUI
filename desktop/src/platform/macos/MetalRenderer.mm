@@ -169,16 +169,19 @@ MetalRenderer::~MetalRenderer()
     releaseMetalObjects();
 }
 
-bool MetalRenderer::initialize(void* platformSurface, int width, int height, float dpiScale)
+bool MetalRenderer::initialize(void* platformSurface, int width, int height,
+                               float dpiScale, IFontProvider* fontProvider)
 {
     YUCHEN_ASSERT_MSG(!m_isInitialized, "Already initialized");
     YUCHEN_ASSERT_MSG(width >= Config::Window::MIN_SIZE && width <= Config::Window::MAX_SIZE, "Invalid width");
     YUCHEN_ASSERT_MSG(height >= Config::Window::MIN_SIZE && height <= Config::Window::MAX_SIZE, "Invalid height");
     YUCHEN_ASSERT_MSG(dpiScale > 0.0f && dpiScale <= 3.0f, "Invalid DPI scale");
+    YUCHEN_ASSERT_MSG(fontProvider != nullptr, "Font provider cannot be null");
     
     m_width = width;
     m_height = height;
     m_dpiScale = dpiScale;
+    m_fontProvider = fontProvider;
     
     // Configure Metal layer as rendering target
     m_metalLayer = (__bridge CAMetalLayer*)platformSurface;
@@ -222,13 +225,10 @@ bool MetalRenderer::initialize(void* platformSurface, int width, int height, flo
     if (!setupShapePipeline()) return false;
     if (!setupCirclePipeline()) return false;
     
-    // Initialize font manager singleton
-    FontManager::getInstance();
-    
     m_isInitialized = true;
 
-    // Create text rendering system with glyph atlas
-    m_textRenderer = std::make_unique<TextRenderer>(this);
+    // Create text rendering system with font provider
+    m_textRenderer = std::make_unique<TextRenderer>(this, m_fontProvider);
     if (!m_textRenderer->initialize(m_dpiScale)) return false;
     
     // Create texture cache for DPI-aware image loading

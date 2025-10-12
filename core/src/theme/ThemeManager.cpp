@@ -18,26 +18,12 @@
 #include "YuchenUI/core/Assert.h"
 
 namespace YuchenUI {
-
-ThemeManager* ThemeManager::s_instance = nullptr;
-
-//==========================================================================================
-// Singleton Access (DEPRECATED)
-
-ThemeManager& ThemeManager::getInstance()
-{
-    if (!s_instance)
-    {
-        s_instance = new ThemeManager();
-    }
-    return *s_instance;
-}
-
 //==========================================================================================
 // Construction
 
 ThemeManager::ThemeManager()
     : m_currentStyle(nullptr)
+    , m_fontProvider(nullptr)
 {
     // Create default style
     m_currentStyle = std::make_unique<ProtoolsDarkStyle>();
@@ -45,11 +31,6 @@ ThemeManager::ThemeManager()
 
 ThemeManager::~ThemeManager()
 {
-    // Clean up singleton instance if this is the singleton
-    if (s_instance == this)
-    {
-        s_instance = nullptr;
-    }
 }
 
 //==========================================================================================
@@ -59,12 +40,22 @@ void ThemeManager::setStyle(std::unique_ptr<UIStyle> style)
 {
     YUCHEN_ASSERT_MSG(style != nullptr, "Cannot set null style");
     m_currentStyle = std::move(style);
+    
+    // Auto-inject FontProvider if it was previously set
+    if (m_fontProvider && m_currentStyle)
+    {
+        m_currentStyle->setFontProvider(m_fontProvider);
+    }
 }
 
 void ThemeManager::setFontProvider(IFontProvider* provider)
 {
     YUCHEN_ASSERT_MSG(provider != nullptr, "Cannot set null font provider");
     
+    // Save the font provider reference
+    m_fontProvider = provider;
+    
+    // Inject into current style if it exists
     if (m_currentStyle)
     {
         m_currentStyle->setFontProvider(provider);

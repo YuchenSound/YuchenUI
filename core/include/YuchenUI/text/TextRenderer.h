@@ -48,7 +48,7 @@
 namespace YuchenUI {
 
 class IGraphicsBackend;
-class FontManager;
+class IFontProvider;
 
 //==========================================================================================
 /** Cache key for shaped text results.
@@ -93,16 +93,17 @@ struct TextCacheKeyHash {
     
     Thread safety: Not thread-safe. Use from single thread.
     
-    @see GlyphCache, FontManager, TextUtils
+    @see GlyphCache, IFontProvider, TextUtils
 */
 class TextRenderer {
 public:
     //======================================================================================
-    /** Creates text renderer with graphics backend.
+    /** Creates text renderer with graphics backend and font provider.
         
-        @param backend  Graphics backend for texture operations (not owned)
+        @param backend        Graphics backend for texture operations (not owned)
+        @param fontProvider   Font provider for font access (not owned)
     */
-    explicit TextRenderer(IGraphicsBackend* backend);
+    TextRenderer(IGraphicsBackend* backend, IFontProvider* fontProvider);
     
     /** Destructor. Destroys glyph cache and HarfBuzz buffer. */
     ~TextRenderer();
@@ -110,8 +111,8 @@ public:
     //======================================================================================
     /** Initializes text renderer with DPI scale.
         
-        Creates glyph cache and HarfBuzz buffer. Requires FontManager already
-        initialized.
+        Creates glyph cache and HarfBuzz buffer. Font provider must be set before
+        calling this method.
         
         @param dpiScale  DPI scale factor for glyph rendering
         @returns True if initialization succeeded
@@ -244,6 +245,7 @@ private:
     
     //======================================================================================
     IGraphicsBackend* m_backend;                                                    ///< Graphics backend (not owned)
+    IFontProvider* m_fontProvider;                                                  ///< Font provider (not owned)
     std::unique_ptr<GlyphCache> m_glyphCache;                                       ///< Glyph atlas cache
     bool m_isInitialized;                                                           ///< Initialization state
     float m_dpiScale;                                                               ///< DPI scale factor

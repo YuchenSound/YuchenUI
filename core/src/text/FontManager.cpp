@@ -110,24 +110,6 @@ static std::unordered_map<MeasureTextKey, Vec2, MeasureTextKeyHash> s_measureTex
 static std::unordered_map<FontMetricsKey, FontMetrics, FontMetricsKeyHash> s_fontMetricsCache;
 
 //==========================================================================================
-// FontManager Singleton
-
-FontManager* FontManager::s_instance = nullptr;
-
-FontManager& FontManager::getInstance()
-{
-    if (!s_instance)
-    {
-        s_instance = new FontManager();
-        if (!s_instance->isInitialized())
-        {
-            s_instance->initialize();
-        }
-    }
-    return *s_instance;
-}
-
-//==========================================================================================
 // Lifecycle
 
 FontManager::FontManager()
@@ -147,7 +129,6 @@ FontManager::FontManager()
 FontManager::~FontManager()
 {
     destroy();
-    if (s_instance == this) s_instance = nullptr;
 }
 
 bool FontManager::initialize()

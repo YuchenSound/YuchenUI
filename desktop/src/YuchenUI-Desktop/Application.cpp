@@ -39,32 +39,28 @@ Application::~Application()
 
 bool Application::initialize()
 {
-    if (m_isInitialized)
-    {
-        std::cerr << "[Application] Already initialized" << std::endl;
-        return false;
-    }
-    
-    // Initialize services in dependency order
-    
-    // 1. Font Manager (no dependencies)
+    // Initialize font manager first
     if (!m_fontManager.initialize())
     {
         std::cerr << "[Application] Failed to initialize FontManager" << std::endl;
         return false;
     }
     
-    // 2. Theme Manager (depends on FontManager)
-    m_themeManager.setFontProvider(&m_fontManager);
-    
-    // 3. Window Manager (depends on FontManager for text rendering)
+    // Get window manager singleton and initialize
     WindowManager& windowManager = WindowManager::getInstance();
     if (!windowManager.initialize())
     {
         std::cerr << "[Application] Failed to initialize WindowManager" << std::endl;
-        m_fontManager.destroy();
         return false;
     }
+    
+    // Always inject font provider into theme manager
+    m_themeManager.setFontProvider(&m_fontManager);
+    
+    // Inject both providers into window manager
+    // All windows created by WindowManager will receive these providers
+    windowManager.setFontProvider(&m_fontManager);
+    windowManager.setThemeProvider(&m_themeManager);
     
     m_isInitialized = true;
     return true;
