@@ -1,7 +1,10 @@
+// ScrollArea.cpp
 #include "YuchenUI/widgets/ScrollArea.h"
 #include "YuchenUI/rendering/RenderList.h"
 #include "YuchenUI/theme/ThemeManager.h"
 #include "YuchenUI/core/Assert.h"
+#include "YuchenUI/core/UIContext.h"
+
 #include <algorithm>
 #include <cmath>
 
@@ -237,7 +240,9 @@ void ScrollArea::addDrawCommands(RenderList& commandList, const Vec2& offset) co
     Vec2 absPos(m_bounds.x + offset.x, m_bounds.y + offset.y);
     Rect contentArea = getContentArea();
     
-    UIStyle* style = ThemeManager::getInstance().getCurrentStyle();
+    // Get style via UIContext instead of deprecated singleton
+    UIStyle* style = m_ownerContext ? m_ownerContext->getCurrentStyle() : nullptr;
+    YUCHEN_ASSERT(style);
     Vec4 backgroundColor = style->getDefaultScrollAreaBackground();
     
     Rect bgRect(absPos.x, absPos.y, m_bounds.width, m_bounds.height);
@@ -267,7 +272,9 @@ void ScrollArea::renderScrollbars(RenderList& commandList, const Vec2& absPos) c
 }
 
 void ScrollArea::renderVerticalScrollbar(RenderList& commandList, const Vec2& absPos) const {
-    UIStyle* style = ThemeManager::getInstance().getCurrentStyle();
+    // Get style via UIContext instead of deprecated singleton
+    UIStyle* style = m_ownerContext ? m_ownerContext->getCurrentStyle() : nullptr;
+    YUCHEN_ASSERT(style);
     
     Rect scrollbarRect = getVerticalScrollbarRect(absPos);
     ScrollbarTrackDrawInfo trackInfo;
@@ -305,7 +312,9 @@ void ScrollArea::renderVerticalScrollbar(RenderList& commandList, const Vec2& ab
 }
 
 void ScrollArea::renderHorizontalScrollbar(RenderList& commandList, const Vec2& absPos) const {
-    UIStyle* style = ThemeManager::getInstance().getCurrentStyle();
+    // Get style via UIContext instead of deprecated singleton
+    UIStyle* style = m_ownerContext ? m_ownerContext->getCurrentStyle() : nullptr;
+    YUCHEN_ASSERT(style);
     
     Rect scrollbarRect = getHorizontalScrollbarRect(absPos);
     ScrollbarTrackDrawInfo trackInfo;

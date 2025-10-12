@@ -1,7 +1,9 @@
 #include "YuchenUI/widgets/TextLabel.h"
-#include "YuchenUI/text/FontManager.h"
-#include "YuchenUI/theme/ThemeManager.h"
+#include "YuchenUI/text/IFontProvider.h"
+#include "YuchenUI/theme/IThemeProvider.h"
+#include "YuchenUI/theme/Theme.h"
 #include "YuchenUI/rendering/RenderList.h"
+#include "YuchenUI/core/UIContext.h"
 #include "YuchenUI/core/Validation.h"
 
 namespace YuchenUI {
@@ -33,15 +35,18 @@ TextLabel::~TextLabel() {
 void TextLabel::addDrawCommands(RenderList& commandList, const Vec2& offset) const {
     if (!isVisible() || m_text.empty()) return;
     
-    UIStyle* style = ThemeManager::getInstance().getCurrentStyle();
-    FontManager& fontManager = FontManager::getInstance();
+    // Get style and font provider via UIContext instead of deprecated singletons
+    UIStyle* style = m_ownerContext ? m_ownerContext->getCurrentStyle() : nullptr;
+    IFontProvider* fontProvider = m_ownerContext ? m_ownerContext->getFontProvider() : nullptr;
+    YUCHEN_ASSERT(style);
+    YUCHEN_ASSERT(fontProvider);
     
     FontHandle westernFont = m_hasCustomWesternFont ? m_westernFontHandle : style->getDefaultLabelFont();
-    FontHandle chineseFont = m_hasCustomChineseFont ? m_chineseFontHandle : fontManager.getPingFangFont();
+    FontHandle chineseFont = m_hasCustomChineseFont ? m_chineseFontHandle : fontProvider->getDefaultCJKFont();
     Vec4 textColor = m_hasCustomTextColor ? m_textColor : style->getDefaultTextColor();
     
-    Vec2 textSize = fontManager.measureText(m_text.c_str(), m_fontSize);
-    FontMetrics metrics = fontManager.getFontMetrics(westernFont, m_fontSize);
+    Vec2 textSize = fontProvider->measureText(m_text.c_str(), m_fontSize);
+    FontMetrics metrics = fontProvider->getFontMetrics(westernFont, m_fontSize);
     
     Rect contentRect(
         m_paddingLeft,
@@ -103,7 +108,8 @@ void TextLabel::setText(const char* text) {
 }
 
 void TextLabel::setWesternFont(FontHandle fontHandle) {
-    if (FontManager::getInstance().isValidFont(fontHandle)) {
+    IFontProvider* fontProvider = m_ownerContext ? m_ownerContext->getFontProvider() : nullptr;
+    if (fontProvider && fontProvider->isValidFont(fontHandle)) {
         m_westernFontHandle = fontHandle;
         m_hasCustomWesternFont = true;
     }
@@ -113,7 +119,9 @@ FontHandle TextLabel::getWesternFont() const {
     if (m_hasCustomWesternFont) {
         return m_westernFontHandle;
     }
-    return ThemeManager::getInstance().getCurrentStyle()->getDefaultLabelFont();
+    // Get default font via UIContext instead of deprecated singleton
+    UIStyle* style = m_ownerContext ? m_ownerContext->getCurrentStyle() : nullptr;
+    return style ? style->getDefaultLabelFont() : INVALID_FONT_HANDLE;
 }
 
 void TextLabel::resetWesternFont() {
@@ -122,7 +130,8 @@ void TextLabel::resetWesternFont() {
 }
 
 void TextLabel::setChineseFont(FontHandle fontHandle) {
-    if (FontManager::getInstance().isValidFont(fontHandle)) {
+    IFontProvider* fontProvider = m_ownerContext ? m_ownerContext->getFontProvider() : nullptr;
+    if (fontProvider && fontProvider->isValidFont(fontHandle)) {
         m_chineseFontHandle = fontHandle;
         m_hasCustomChineseFont = true;
     }
@@ -132,7 +141,9 @@ FontHandle TextLabel::getChineseFont() const {
     if (m_hasCustomChineseFont) {
         return m_chineseFontHandle;
     }
-    return FontManager::getInstance().getPingFangFont();
+    // Get default font via UIContext instead of deprecated singleton
+    IFontProvider* fontProvider = m_ownerContext ? m_ownerContext->getFontProvider() : nullptr;
+    return fontProvider ? fontProvider->getDefaultCJKFont() : INVALID_FONT_HANDLE;
 }
 
 void TextLabel::resetChineseFont() {
@@ -156,7 +167,9 @@ Vec4 TextLabel::getTextColor() const {
     if (m_hasCustomTextColor) {
         return m_textColor;
     }
-    return ThemeManager::getInstance().getCurrentStyle()->getDefaultTextColor();
+    // Get default color via UIContext instead of deprecated singleton
+    UIStyle* style = m_ownerContext ? m_ownerContext->getCurrentStyle() : nullptr;
+    return style ? style->getDefaultTextColor() : Vec4();
 }
 
 void TextLabel::resetTextColor() {
@@ -204,10 +217,10 @@ void TextLabel::getPadding(float& left, float& top, float& right, float& bottom)
 Vec2 TextLabel::measureText() const {
     if (m_text.empty()) return Vec2();
     
-    FontManager& fontManager = FontManager::getInstance();
-    if (!fontManager.isInitialized()) return Vec2();
+    // Get font provider via UIContext instead of deprecated singleton
+    IFontProvider* fontProvider = m_ownerContext ? m_ownerContext->getFontProvider() : nullptr;
     
-    return fontManager.measureText(m_text.c_str(), m_fontSize);
+    return fontProvider->measureText(m_text.c_str(), m_fontSize);
 }
 
 bool TextLabel::isValid() const {

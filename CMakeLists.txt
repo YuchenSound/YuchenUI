@@ -11,6 +11,7 @@ include(Platform)
 
 option(YUCHEN_BUILD_DESKTOP "Build desktop platform support" ON)
 option(YUCHEN_BUILD_TESTS "Build unit tests" ON)
+option(YUCHEN_WARNINGS_AS_ERRORS "Treat warnings as errors" OFF)
 
 add_subdirectory(core)
 

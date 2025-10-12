@@ -658,4 +658,14 @@ void BaseWindow::setupUserInterface()
     // UIContext internally manages content, no additional setup needed at window level
 }
 
+void BaseWindow::setFontProvider(IFontProvider* provider)
+{
+    // This is a bridge method for now. In the future, UIContext should
+    // be constructed with the provider directly.
+    // For now, we'll need to reconstruct UIContext or add a setter.
+    // Since UIContext doesn't have a setter yet, we document this limitation.
+    
+    // TODO: This needs UIContext to support setFontProvider()
+    // For Phase 1 migration, windows will continue using singleton fallback.
+}
 } // namespace YuchenUI

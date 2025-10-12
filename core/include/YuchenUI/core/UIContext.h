@@ -28,117 +28,91 @@ class UIComponent;
 class ITextInputHandler;
 class ICoordinateMapper;
 class RenderList;
+class IFontProvider;
+class IThemeProvider;
+class UIStyle;
 
 //==========================================================================================
-/** Central UI management context.
+/**
+    Central UI management context.
     
-    Manages UI content lifecycle, input event distribution, focus management, and
-    coordinate mapping. Acts as the bridge between platform layer and UI content.
+    UIContext manages the UI subsystem for a window or UI container. It provides
+    dependency injection support for both font and theme services.
     
-    Responsibilities:
-    - Content lifecycle (create, update, render, destroy)
-    - Event routing (mouse, keyboard, text input)
-    - Focus management and navigation
-    - Viewport and DPI scaling
-    - Component registration
-    - Input method (IME) coordination
+    **Dependency Injection Pattern:**
+    UIContext accepts optional IFontProvider and IThemeProvider interfaces during
+    construction or via setter methods. This allows the Desktop layer to inject
+    concrete implementations (FontManager, ThemeManager) into the Core layer
+    without creating tight coupling.
     
-    Usage:
-    1. Create UIContext
-    2. Set content with setContent()
-    3. Each frame: beginFrame() -> render() -> endFrame()
-    4. Handle events with handleMouseMove(), handleKeyEvent(), etc.
+    **Usage Patterns:**
     
-    @see IUIContent, FocusManager, UIComponent
+    New Usage (Recommended - Full Dependency Injection):
+        IFontProvider* fontProvider = ...;      // from Application
+        IThemeProvider* themeProvider = ...;    // from Application
+        UIContext context(fontProvider, themeProvider);
+    
+    Alternative (Setter-based Injection):
+        UIContext context();
+        context.setFontProvider(&myFontProvider);
+        context.setThemeProvider(&myThemeProvider);
+    
+    Legacy Usage (Deprecated - Singleton Fallback):
+        UIContext context();  // Falls back to FontManager/ThemeManager singletons
+    
+    **Why Dependency Injection?**
+    - Enables unit testing with mock providers
+    - Allows multiple independent UI contexts
+    - Follows SOLID principles (dependency inversion)
+    - Avoids global state and singleton problems
+    
+    @see IFontProvider, IThemeProvider, Application
 */
 class UIContext {
 public:
-    UIContext();
+    //======================================================================================
+    // Construction
+    
+    /**
+        Creates UI context with optional providers.
+        
+        If providers are not specified (nullptr), the context will fall back to using
+        FontManager::getInstance() and ThemeManager::getInstance() for backward
+        compatibility. However, this is deprecated - new code should always inject
+        providers explicitly.
+        
+        @param fontProvider   Font provider interface (nullptr = use FontManager singleton)
+        @param themeProvider  Theme provider interface (nullptr = use ThemeManager singleton)
+    */
+    UIContext(IFontProvider* fontProvider = nullptr, IThemeProvider* themeProvider = nullptr);
+    
     ~UIContext();
     
     //======================================================================================
     // Content management
     
-    /** Sets the UI content to be displayed and managed.
-        
-        Destroys previous content if any, then creates the new content.
-        
-        @param content  New content (ownership transferred)
-    */
     void setContent(std::unique_ptr<IUIContent> content);
-    
     IUIContent* getContent() const;
     
     //======================================================================================
     // Frame lifecycle
     
-    /** Begins a new frame - updates content and calculates delta time */
     void beginFrame();
-    
-    /** Renders current content into the render command list.
-        
-        @param outCommandList  Command list to populate
-    */
     void render(RenderList& outCommandList);
-    
-    /** Ends the current frame */
     void endFrame();
     
     //======================================================================================
     // Mouse event handling
     
-    /** Handles mouse movement.
-        
-        Routes to captured component or active content.
-        
-        @param position  Mouse position in window coordinates
-        @returns True if event was handled
-    */
     bool handleMouseMove(const Vec2& position);
-    
-    /** Handles mouse button press/release.
-        
-        @param position  Mouse position in window coordinates
-        @param pressed   True for press, false for release
-        @returns True if event was handled
-    */
     bool handleMouseClick(const Vec2& position, bool pressed);
-    
-    /** Handles mouse wheel scrolling.
-        
-        @param delta     Scroll delta (positive = up/right)
-        @param position  Mouse position in window coordinates
-        @returns True if event was handled
-    */
     bool handleMouseWheel(const Vec2& delta, const Vec2& position);
     
     //======================================================================================
     // Keyboard event handling
     
-    /** Handles keyboard key press/release.
-        
-        @param key       Key code
-        @param pressed   True for press, false for release
-        @param mods      Active keyboard modifiers
-        @param isRepeat  True if this is a key repeat event
-        @returns True if event was handled
-    */
     bool handleKeyEvent(KeyCode key, bool pressed, const KeyModifiers& mods, bool isRepeat);
-    
-    /** Handles text input from keyboard.
-        
-        @param codepoint  Unicode codepoint of entered character
-        @returns True if event was handled
-    */
     bool handleTextInput(uint32_t codepoint);
-    
-    /** Handles IME composition updates.
-        
-        @param text             Composition text (UTF-8)
-        @param cursorPos        Cursor position within composition
-        @param selectionLength  Selection length (if any)
-        @returns True if event was handled
-    */
     bool handleTextComposition(const char* text, int cursorPos, int selectionLength);
     
     //======================================================================================
@@ -158,26 +132,13 @@ public:
     //======================================================================================
     // Mouse capture
     
-    /** Captures mouse input to a specific component.
-        
-        All mouse events will be routed to this component until released.
-        
-        @param component  Component to capture mouse, or nullptr to release
-    */
     void captureMouse(UIComponent* component);
-    
-    /** Releases mouse capture */
     void releaseMouse();
-    
     UIComponent* getCapturedComponent() const;
     
     //======================================================================================
     // IME support
     
-    /** Returns cursor rectangle for IME candidate window positioning.
-        
-        @returns Cursor rect in window coordinates, or empty if no active input
-    */
     Rect getInputMethodCursorRect() const;
     
     //======================================================================================
@@ -198,6 +159,62 @@ public:
     
     void setCoordinateMapper(ICoordinateMapper* mapper);
     Vec2 mapToScreen(const Vec2& windowPos) const;
+    
+    //======================================================================================
+    // Font Provider Access
+    
+    /**
+        Returns the font provider for this context.
+        
+        If no provider was injected during construction or via setFontProvider(),
+        falls back to FontManager::getInstance() for backward compatibility.
+        
+        @returns Font provider interface (never null)
+    */
+    IFontProvider* getFontProvider() const;
+    
+    /**
+        Sets the font provider for this context.
+        
+        Can be called after construction to inject or change the font provider.
+        This is the recommended approach for setter-based dependency injection.
+        
+        @param provider  Font provider interface (must not be null)
+    */
+    void setFontProvider(IFontProvider* provider);
+    
+    //======================================================================================
+    // Theme Provider Access
+    
+    /**
+        Returns the theme provider for this context.
+        
+        If no provider was injected during construction or via setThemeProvider(),
+        falls back to ThemeManager::getInstance() for backward compatibility.
+        
+        @returns Theme provider interface (never null)
+    */
+    IThemeProvider* getThemeProvider() const;
+    
+    /**
+        Sets the theme provider for this context.
+        
+        Can be called after construction to inject or change the theme provider.
+        This is the recommended approach for setter-based dependency injection.
+        
+        @param provider  Theme provider interface (must not be null)
+    */
+    void setThemeProvider(IThemeProvider* provider);
+    
+    /**
+        Returns the current UI style from the theme provider.
+        
+        Convenience method equivalent to getThemeProvider()->getCurrentStyle().
+        Useful for widgets that need quick access to style information.
+        
+        @returns Current style pointer (never null)
+    */
+    UIStyle* getCurrentStyle() const;
 
 private:
     struct Impl;
@@ -208,4 +225,3 @@ private:
 };
 
 } // namespace YuchenUI
-

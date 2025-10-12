@@ -1,7 +1,9 @@
 #include "YuchenUI/widgets/TextBlock.h"
-#include "YuchenUI/text/FontManager.h"
-#include "YuchenUI/theme/ThemeManager.h"
+#include "YuchenUI/text/IFontProvider.h"
+#include "YuchenUI/theme/IThemeProvider.h"
+#include "YuchenUI/theme/Theme.h"
 #include "YuchenUI/rendering/RenderList.h"
+#include "YuchenUI/core/UIContext.h"
 #include "YuchenUI/core/Validation.h"
 #include "YuchenUI/core/Assert.h"
 
@@ -43,11 +45,14 @@ void TextBlock::addDrawCommands(RenderList& commandList, const Vec2& offset) con
         m_needsLayout = false;
     }
     
-    UIStyle* style = ThemeManager::getInstance().getCurrentStyle();
-    FontManager& fontManager = FontManager::getInstance();
+    // Get style and font provider via UIContext instead of deprecated singletons
+    UIStyle* style = m_ownerContext ? m_ownerContext->getCurrentStyle() : nullptr;
+    IFontProvider* fontProvider = m_ownerContext ? m_ownerContext->getFontProvider() : nullptr;
+    YUCHEN_ASSERT(style);
+    YUCHEN_ASSERT(fontProvider);
     
     FontHandle westernFont = m_hasCustomWesternFont ? m_westernFontHandle : style->getDefaultLabelFont();
-    FontHandle chineseFont = m_hasCustomChineseFont ? m_chineseFontHandle : fontManager.getPingFangFont();
+    FontHandle chineseFont = m_hasCustomChineseFont ? m_chineseFontHandle : fontProvider->getDefaultCJKFont();
     Vec4 textColor = m_hasCustomTextColor ? m_textColor : style->getDefaultTextColor();
     
     Rect absoluteBounds(
@@ -84,7 +89,8 @@ void TextBlock::setText(const char* text) {
 }
 
 void TextBlock::setWesternFont(FontHandle fontHandle) {
-    if (FontManager::getInstance().isValidFont(fontHandle)) {
+    IFontProvider* fontProvider = m_ownerContext ? m_ownerContext->getFontProvider() : nullptr;
+    if (fontProvider && fontProvider->isValidFont(fontHandle)) {
         m_westernFontHandle = fontHandle;
         m_hasCustomWesternFont = true;
         m_needsLayout = true;
@@ -95,7 +101,9 @@ FontHandle TextBlock::getWesternFont() const {
     if (m_hasCustomWesternFont) {
         return m_westernFontHandle;
     }
-    return ThemeManager::getInstance().getCurrentStyle()->getDefaultLabelFont();
+    // Get default font via UIContext instead of deprecated singleton
+    UIStyle* style = m_ownerContext ? m_ownerContext->getCurrentStyle() : nullptr;
+    return style ? style->getDefaultLabelFont() : INVALID_FONT_HANDLE;
 }
 
 void TextBlock::resetWesternFont() {
@@ -105,7 +113,8 @@ void TextBlock::resetWesternFont() {
 }
 
 void TextBlock::setChineseFont(FontHandle fontHandle) {
-    if (FontManager::getInstance().isValidFont(fontHandle)) {
+    IFontProvider* fontProvider = m_ownerContext ? m_ownerContext->getFontProvider() : nullptr;
+    if (fontProvider && fontProvider->isValidFont(fontHandle)) {
         m_chineseFontHandle = fontHandle;
         m_hasCustomChineseFont = true;
         m_needsLayout = true;
@@ -116,7 +125,9 @@ FontHandle TextBlock::getChineseFont() const {
     if (m_hasCustomChineseFont) {
         return m_chineseFontHandle;
     }
-    return FontManager::getInstance().getPingFangFont();
+    // Get default font via UIContext instead of deprecated singleton
+    IFontProvider* fontProvider = m_ownerContext ? m_ownerContext->getFontProvider() : nullptr;
+    return fontProvider ? fontProvider->getDefaultCJKFont() : INVALID_FONT_HANDLE;
 }
 
 void TextBlock::resetChineseFont() {
@@ -144,7 +155,9 @@ Vec4 TextBlock::getTextColor() const {
     if (m_hasCustomTextColor) {
         return m_textColor;
     }
-    return ThemeManager::getInstance().getCurrentStyle()->getDefaultTextColor();
+    // Get default color via UIContext instead of deprecated singleton
+    UIStyle* style = m_ownerContext ? m_ownerContext->getCurrentStyle() : nullptr;
+    return style ? style->getDefaultTextColor() : Vec4();
 }
 
 void TextBlock::resetTextColor() {
@@ -256,11 +269,14 @@ void TextBlock::layoutText() const {
     
     if (m_text.empty()) return;
     
-    FontManager& fontManager = FontManager::getInstance();
-    UIStyle* style = ThemeManager::getInstance().getCurrentStyle();
+    // Get font provider and style via UIContext instead of deprecated singletons
+    IFontProvider* fontProvider = m_ownerContext ? m_ownerContext->getFontProvider() : nullptr;
+    UIStyle* style = m_ownerContext ? m_ownerContext->getCurrentStyle() : nullptr;
+    YUCHEN_ASSERT(fontProvider);
+    YUCHEN_ASSERT(style);
     
     FontHandle westernFont = m_hasCustomWesternFont ? m_westernFontHandle : style->getDefaultLabelFont();
-    FontMetrics metrics = fontManager.getFontMetrics(westernFont, m_fontSize);
+    FontMetrics metrics = fontProvider->getFontMetrics(westernFont, m_fontSize);
     
     float lineHeight[[maybe_unused]] = metrics.lineHeight * m_lineHeightMultiplier;
     float contentWidth = m_bounds.width - m_paddingLeft - m_paddingRight;
@@ -332,11 +348,15 @@ std::vector<std::string> TextBlock::splitIntoParagraphs(const std::string& text)
 }
 
 void TextBlock::layoutParagraph(const std::string& paragraph, float startY, std::vector<TextLine>& lines) const {
+    // Get font provider and style via UIContext
+    IFontProvider* fontProvider = m_ownerContext ? m_ownerContext->getFontProvider() : nullptr;
+    UIStyle* style = m_ownerContext ? m_ownerContext->getCurrentStyle() : nullptr;
+    YUCHEN_ASSERT(fontProvider);
+    YUCHEN_ASSERT(style);
+    
     if (paragraph.empty()) {
-        FontManager& fontManager = FontManager::getInstance();
-        UIStyle* style = ThemeManager::getInstance().getCurrentStyle();
         FontHandle westernFont = m_hasCustomWesternFont ? m_westernFontHandle : style->getDefaultLabelFont();
-        FontMetrics metrics = fontManager.getFontMetrics(westernFont, m_fontSize);
+        FontMetrics metrics = fontProvider->getFontMetrics(westernFont, m_fontSize);
         float lineHeight = metrics.lineHeight * m_lineHeightMultiplier;
         
         TextLine emptyLine;
@@ -348,10 +368,8 @@ void TextBlock::layoutParagraph(const std::string& paragraph, float startY, std:
         return;
     }
     
-    FontManager& fontManager = FontManager::getInstance();
-    UIStyle* style = ThemeManager::getInstance().getCurrentStyle();
     FontHandle westernFont = m_hasCustomWesternFont ? m_westernFontHandle : style->getDefaultLabelFont();
-    FontMetrics metrics = fontManager.getFontMetrics(westernFont, m_fontSize);
+    FontMetrics metrics = fontProvider->getFontMetrics(westernFont, m_fontSize);
     
     float lineHeight = metrics.lineHeight * m_lineHeightMultiplier;
     float contentWidth = m_bounds.width - m_paddingLeft - m_paddingRight;
@@ -454,8 +472,11 @@ std::string TextBlock::wrapLine(const std::string& text, float maxWidth, size_t&
 float TextBlock::measureTextWidth(const std::string& text) const {
     if (text.empty()) return 0.0f;
     
-    FontManager& fontManager = FontManager::getInstance();
-    Vec2 size = fontManager.measureText(text.c_str(), m_fontSize);
+    // Get font provider via UIContext instead of deprecated singleton
+    IFontProvider* fontProvider = m_ownerContext ? m_ownerContext->getFontProvider() : nullptr;
+    if (!fontProvider) return 0.0f;
+    
+    Vec2 size = fontProvider->measureText(text.c_str(), m_fontSize);
     return size.x;
 }
 

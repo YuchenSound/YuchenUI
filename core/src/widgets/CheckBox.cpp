@@ -1,10 +1,12 @@
+// CheckBox.cpp
 #include "YuchenUI/widgets/CheckBox.h"
 #include "YuchenUI/rendering/RenderList.h"
-#include "YuchenUI/text/FontManager.h"
+#include "YuchenUI/text/IFontProvider.h"
 #include "YuchenUI/theme/ThemeManager.h"
 #include "YuchenUI/core/Validation.h"
 #include "YuchenUI/core/Config.h"
 #include "YuchenUI/core/Assert.h"
+#include "YuchenUI/core/UIContext.h"
 
 namespace YuchenUI {
 
@@ -30,7 +32,10 @@ void CheckBox::addDrawCommands(RenderList& commandList, const Vec2& offset) cons
     if (!m_isVisible) return;
     
     Vec2 absPos(m_bounds.x + offset.x, m_bounds.y + offset.y);
-    UIStyle* style = ThemeManager::getInstance().getCurrentStyle();
+    
+    // Get style via UIContext instead of deprecated singleton
+    UIStyle* style = m_ownerContext ? m_ownerContext->getCurrentStyle() : nullptr;
+    YUCHEN_ASSERT(style);
     
     CheckBoxDrawInfo info;
     info.bounds = Rect(absPos.x, absPos.y, CHECKBOX_SIZE, CHECKBOX_SIZE);
@@ -41,16 +46,18 @@ void CheckBox::addDrawCommands(RenderList& commandList, const Vec2& offset) cons
     style->drawCheckBox(info, commandList);
     
     if (!m_text.empty()) {
-        FontManager& fontManager = FontManager::getInstance();
+        IFontProvider* fontProvider = m_ownerContext ? m_ownerContext->getFontProvider() : nullptr;
+        YUCHEN_ASSERT(fontProvider);
+        
         FontHandle westernFont = style->getDefaultLabelFont();
-        FontHandle chineseFont = fontManager.getPingFangFont();
+        FontHandle chineseFont = fontProvider->getDefaultCJKFont();
         Vec4 textColor = m_hasCustomTextColor ? m_textColor : style->getDefaultTextColor();
         
         if (!m_isEnabled) {
             textColor = Vec4::FromRGBA(255,255,255,255);
         }
         
-        FontMetrics metrics = fontManager.getFontMetrics(westernFont, m_fontSize);
+        FontMetrics metrics = fontProvider->getFontMetrics(westernFont, m_fontSize);
         float textX = absPos.x + CHECKBOX_SIZE + TEXT_SPACING;
         float textY = absPos.y + (CHECKBOX_SIZE - metrics.lineHeight) * 0.5f + metrics.ascender;
         
@@ -150,7 +157,8 @@ Vec4 CheckBox::getTextColor() const {
     if (m_hasCustomTextColor) {
         return m_textColor;
     }
-    return ThemeManager::getInstance().getCurrentStyle()->getDefaultTextColor();
+    UIStyle* style = m_ownerContext ? m_ownerContext->getCurrentStyle() : nullptr;
+    return style ? style->getDefaultTextColor() : Vec4();
 }
 
 void CheckBox::resetTextColor() {

@@ -1,10 +1,12 @@
 #include "YuchenUI/widgets/RadioButton.h"
 #include "YuchenUI/rendering/RenderList.h"
-#include "YuchenUI/text/FontManager.h"
-#include "YuchenUI/theme/ThemeManager.h"
+#include "YuchenUI/text/IFontProvider.h"
+#include "YuchenUI/theme/IThemeProvider.h"
+#include "YuchenUI/theme/Theme.h"
 #include "YuchenUI/core/Validation.h"
 #include "YuchenUI/core/Config.h"
 #include "YuchenUI/core/Assert.h"
+#include "YuchenUI/core/UIContext.h"
 
 namespace YuchenUI {
 
@@ -34,7 +36,10 @@ void RadioButton::addDrawCommands(RenderList& commandList, const Vec2& offset) c
     if (!m_isVisible) return;
     
     Vec2 absPos(m_bounds.x + offset.x, m_bounds.y + offset.y);
-    UIStyle* style = ThemeManager::getInstance().getCurrentStyle();
+    
+    // Get style via UIContext instead of deprecated ThemeManager singleton
+    UIStyle* style = m_ownerContext ? m_ownerContext->getCurrentStyle() : nullptr;
+    YUCHEN_ASSERT(style);
     
     RadioButtonDrawInfo info;
     info.bounds = Rect(absPos.x, absPos.y, RADIO_SIZE, RADIO_SIZE);
@@ -45,16 +50,18 @@ void RadioButton::addDrawCommands(RenderList& commandList, const Vec2& offset) c
     style->drawRadioButton(info, commandList);
     
     if (!m_text.empty()) {
-        FontManager& fontManager = FontManager::getInstance();
+        IFontProvider* fontProvider = m_ownerContext ? m_ownerContext->getFontProvider() : nullptr;
+        YUCHEN_ASSERT(fontProvider);
+        
         FontHandle westernFont = style->getDefaultLabelFont();
-        FontHandle chineseFont = fontManager.getPingFangFont();
+        FontHandle chineseFont = fontProvider->getDefaultCJKFont();
         Vec4 textColor = m_hasCustomTextColor ? m_textColor : style->getDefaultTextColor();
         
         if (!m_isEnabled) {
             textColor = Vec4::FromRGBA(255,255,255,255);
         }
         
-        FontMetrics metrics = fontManager.getFontMetrics(westernFont, m_fontSize);
+        FontMetrics metrics = fontProvider->getFontMetrics(westernFont, m_fontSize);
         float textX = absPos.x + RADIO_SIZE + TEXT_SPACING;
         float textY = absPos.y + (RADIO_SIZE - metrics.lineHeight) * 0.5f + metrics.ascender;
         
@@ -166,7 +173,9 @@ Vec4 RadioButton::getTextColor() const {
     if (m_hasCustomTextColor) {
         return m_textColor;
     }
-    return ThemeManager::getInstance().getCurrentStyle()->getDefaultTextColor();
+    // Get default color via UIContext instead of deprecated singleton
+    UIStyle* style = m_ownerContext ? m_ownerContext->getCurrentStyle() : nullptr;
+    return style ? style->getDefaultTextColor() : Vec4();
 }
 
 void RadioButton::resetTextColor() {

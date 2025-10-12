@@ -8,8 +8,26 @@
 #include "YuchenUI/core/Assert.h"
 #include "YuchenUI/core/Types.h"
 
-
 namespace YuchenUI {
+
+//==========================================================================================
+// UIStyle Base Implementation
+
+IFontProvider* UIStyle::getFontProvider() const {
+    if (m_fontProvider) {
+        return m_fontProvider;
+    }
+    
+    // Fallback to singleton for backward compatibility
+    // This allows existing code to work without modifications
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+    return &FontManager::getInstance();
+    #pragma GCC diagnostic pop
+}
+
+//==========================================================================================
+// ProtoolsClassicStyle Implementation
 
 ProtoolsClassicStyle::ProtoolsClassicStyle()
     : m_mainWindowBg(Vec4::FromRGBA(209, 209, 209, 255))
@@ -48,18 +66,6 @@ ProtoolsClassicStyle::ProtoolsClassicStyle()
     , m_spinBoxCursor(Vec4::FromRGBA(0, 0, 0, 255))
     , m_groupBoxTitleBarHeight(20.0f)
 {
-}
-
-FontHandle ProtoolsClassicStyle::getDefaultButtonFont() const {
-    return FontManager::getInstance().getArialBold();
-}
-
-FontHandle ProtoolsClassicStyle::getDefaultLabelFont() const {
-    return FontManager::getInstance().getArialRegular();
-}
-
-FontHandle ProtoolsClassicStyle::getDefaultTitleFont() const {
-    return FontManager::getInstance().getArialBold();
 }
 
 Vec4 ProtoolsClassicStyle::getDefaultFrameBackground() const {
@@ -107,9 +113,9 @@ void ProtoolsClassicStyle::drawButton(const ButtonDrawInfo& info, RenderList& cm
                       margins);
     
     if (!info.text.empty()) {
-        FontManager& fontManager = FontManager::getInstance();
-        Vec2 textSize = fontManager.measureText(info.text.c_str(), info.fontSize);
-        FontMetrics metrics = fontManager.getFontMetrics(info.westernFont, info.fontSize);
+        IFontProvider* fontProvider = getFontProvider();
+        Vec2 textSize = fontProvider->measureText(info.text.c_str(), info.fontSize);
+        FontMetrics metrics = fontProvider->getFontMetrics(info.westernFont, info.fontSize);
         
         Vec2 textPos(
             info.bounds.x + (info.bounds.width - textSize.x) * 0.5f,
@@ -130,9 +136,9 @@ void ProtoolsClassicStyle::drawConfirmButton(const ButtonDrawInfo& info, RenderL
                       margins);
     
     if (!info.text.empty()) {
-        FontManager& fontManager = FontManager::getInstance();
-        Vec2 textSize = fontManager.measureText(info.text.c_str(), info.fontSize);
-        FontMetrics metrics = fontManager.getFontMetrics(info.westernFont, info.fontSize);
+        IFontProvider* fontProvider = getFontProvider();
+        Vec2 textSize = fontProvider->measureText(info.text.c_str(), info.fontSize);
+        FontMetrics metrics = fontProvider->getFontMetrics(info.westernFont, info.fontSize);
         
         Vec2 textPos(
             info.bounds.x + (info.bounds.width - textSize.x) * 0.5f,
@@ -162,7 +168,7 @@ void ProtoolsClassicStyle::drawGroupBox(const GroupBoxDrawInfo& info, RenderList
     static constexpr float TITLE_PADDING_LEFT = 8.0f;
     static constexpr float CORNER_RADIUS = 2.0f;
     
-    FontManager& fontManager = FontManager::getInstance();
+    IFontProvider* fontProvider = getFontProvider();
     
     Vec4 blackColor = Vec4::FromRGBA(0, 0, 0, 76);
     
@@ -188,14 +194,14 @@ void ProtoolsClassicStyle::drawGroupBox(const GroupBoxDrawInfo& info, RenderList
     }
     
     if (!info.title.empty()) {
-        FontMetrics metrics = fontManager.getFontMetrics(info.titleFont, info.titleFontSize);
+        FontMetrics metrics = fontProvider->getFontMetrics(info.titleFont, info.titleFontSize);
         
         float textX = info.bounds.x + TITLE_PADDING_LEFT;
         float textY = info.bounds.y + (TITLE_HEIGHT - metrics.lineHeight) * 0.5f + metrics.ascender;
         
         Vec2 titleTextPos(textX, textY);
         Vec4 titleTextColor = Vec4::FromRGBA(255, 255, 255, 255);
-        FontHandle chineseFont = fontManager.getPingFangFont();
+        FontHandle chineseFont = fontProvider->getDefaultCJKFont();
         
         cmdList.drawText(info.title.c_str(), titleTextPos, info.titleFont,
                         chineseFont, info.titleFontSize, titleTextColor);
@@ -295,21 +301,21 @@ void ProtoolsClassicStyle::drawTextInput(const TextInputDrawInfo& info, RenderLi
     }
     
     if (!info.text.empty()) {
-        FontManager& fontManager = FontManager::getInstance();
+        IFontProvider* fontProvider = getFontProvider();
         FontHandle westernFont = getDefaultLabelFont();
-        FontHandle chineseFont = fontManager.getPingFangFont();
+        FontHandle chineseFont = fontProvider->getDefaultCJKFont();
         
-        FontMetrics metrics = fontManager.getFontMetrics(westernFont, info.fontSize);
+        FontMetrics metrics = fontProvider->getFontMetrics(westernFont, info.fontSize);
         float textY = info.textY + metrics.ascender;
         
         cmdList.drawText(info.text.c_str(), Vec2(info.textX, textY),
                         westernFont, chineseFont, info.fontSize, m_textColor);
     } else if (!info.placeholder.empty() && !info.hasFocus) {
-        FontManager& fontManager = FontManager::getInstance();
+        IFontProvider* fontProvider = getFontProvider();
         FontHandle westernFont = getDefaultLabelFont();
-        FontHandle chineseFont = fontManager.getPingFangFont();
+        FontHandle chineseFont = fontProvider->getDefaultCJKFont();
         
-        FontMetrics metrics = fontManager.getFontMetrics(westernFont, info.fontSize);
+        FontMetrics metrics = fontProvider->getFontMetrics(westernFont, info.fontSize);
         float textY = info.textY + metrics.ascender;
         
         Vec4 placeholderColor = Vec4::FromRGBA(160, 160, 160, 255);
@@ -332,9 +338,9 @@ void ProtoolsClassicStyle::drawSpinBox(const SpinBoxDrawInfo& info, RenderList& 
 
     if (info.displayText.empty()) return;
     
-    FontManager& fontManager = FontManager::getInstance();
-    FontHandle arialBold = fontManager.getArialBold();
-    FontMetrics metrics = fontManager.getFontMetrics(arialBold, info.fontSize);
+    IFontProvider* fontProvider = getFontProvider();
+    FontHandle boldFont = fontProvider->getDefaultBoldFont();
+    FontMetrics metrics = fontProvider->getFontMetrics(boldFont, info.fontSize);
     
     float contentHeight = info.bounds.height - info.paddingTop - info.paddingBottom;
     float textY = info.bounds.y + info.paddingTop + (contentHeight - metrics.lineHeight) * 0.5f + metrics.ascender;
@@ -343,7 +349,7 @@ void ProtoolsClassicStyle::drawSpinBox(const SpinBoxDrawInfo& info, RenderList& 
     Vec4 textColor = m_spinBoxTextNormal;
     
     if (info.isEditing) {
-        Vec2 textSize = fontManager.measureText(info.displayText.c_str(), info.fontSize);
+        Vec2 textSize = fontProvider->measureText(info.displayText.c_str(), info.fontSize);
         
         Rect textBgRect(
             textX - 1.0f,
@@ -357,7 +363,7 @@ void ProtoolsClassicStyle::drawSpinBox(const SpinBoxDrawInfo& info, RenderList& 
     }
     
     cmdList.drawText(info.displayText.c_str(), Vec2(textX, textY),
-                    arialBold, info.chineseFont, info.fontSize, textColor);
+                    boldFont, info.chineseFont, info.fontSize, textColor);
 }
 
 void ProtoolsClassicStyle::drawComboBox(const ComboBoxDrawInfo& info, RenderList& cmdList) {
@@ -377,8 +383,8 @@ void ProtoolsClassicStyle::drawComboBox(const ComboBoxDrawInfo& info, RenderList
 
     std::string displayText = info.isEmpty ? info.placeholder : info.text;
     if (!displayText.empty()) {
-        FontManager& fontManager = FontManager::getInstance();
-        FontMetrics metrics = fontManager.getFontMetrics(info.westernFont, info.fontSize);
+        IFontProvider* fontProvider = getFontProvider();
+        FontMetrics metrics = fontProvider->getFontMetrics(info.westernFont, info.fontSize);
         
         float textX = info.bounds.x + TEXT_PADDING_LEFT;
         float textY = info.bounds.y + (info.bounds.height - metrics.lineHeight) * 0.5f + metrics.ascender;
@@ -403,6 +409,7 @@ void ProtoolsClassicStyle::drawFocusIndicator(const FocusIndicatorDrawInfo& info
 Vec4 ProtoolsClassicStyle::getDefaultScrollAreaBackground() const {
     return m_scrollAreaBg;
 }
+
 void ProtoolsClassicStyle::drawCheckBox(const CheckBoxDrawInfo& info, RenderList& cmdList) {
     std::string resourcePath = "components/checkbox/classical/";
     
@@ -454,4 +461,20 @@ void ProtoolsClassicStyle::drawRadioButton(const RadioButtonDrawInfo& info, Rend
     
     cmdList.drawImage(resourcePath.c_str(), info.bounds, ScaleMode::Original);
 }
+
+FontHandle ProtoolsClassicStyle::getDefaultButtonFont() const {
+    IFontProvider* provider = getFontProvider();
+    return provider->getDefaultFont();
+}
+
+FontHandle ProtoolsClassicStyle::getDefaultLabelFont() const {
+    IFontProvider* provider = getFontProvider();
+    return provider->getDefaultFont();
+}
+
+FontHandle ProtoolsClassicStyle::getDefaultTitleFont() const {
+    IFontProvider* provider = getFontProvider();
+    return provider->getDefaultBoldFont();
+}
+
 }

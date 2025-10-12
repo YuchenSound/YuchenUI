@@ -129,7 +129,8 @@ void UIComponent::setTabOrder(int order) {
 void UIComponent::drawFocusIndicator(RenderList& commandList, const Vec2& offset) const {
     if (!m_hasFocus || !m_showFocusIndicator) return;
     
-    UIStyle* style = ThemeManager::getInstance().getCurrentStyle();
+    UIStyle* style = m_ownerContext ? m_ownerContext->getCurrentStyle() : nullptr;
+    if (!style) return;
     
     const float borderWidth = UIStyle::FOCUS_INDICATOR_BORDER_WIDTH;
     
@@ -189,6 +190,7 @@ void UIComponent::scrollIntoViewIfNeeded() {
         parent = parent->getParent();
     }
 }
+
 void UIComponent::setOwnerContext(UIContext* context) {
     m_ownerContext = context;
     
@@ -201,4 +203,5 @@ void UIComponent::setOwnerContext(UIContext* context) {
         m_focusManagerAccessor = nullptr;
     }
 }
+
 }

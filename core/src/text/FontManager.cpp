@@ -116,7 +116,14 @@ FontManager* FontManager::s_instance = nullptr;
 
 FontManager& FontManager::getInstance()
 {
-    if (!s_instance) s_instance = new FontManager();
+    if (!s_instance)
+    {
+        s_instance = new FontManager();
+        if (!s_instance->isInitialized())
+        {
+            s_instance->initialize();
+        }
+    }
     return *s_instance;
 }
 
@@ -171,6 +178,23 @@ void FontManager::destroy()
     
     cleanupFreeType();
     m_isInitialized = false;
+}
+
+// Implement IFontProvider interface methods (already exist, just ensure they're public)
+
+FontHandle FontManager::getDefaultFont() const
+{
+    return m_arialRegular;
+}
+
+FontHandle FontManager::getDefaultBoldFont() const
+{
+    return m_arialBold;
+}
+
+FontHandle FontManager::getDefaultCJKFont() const
+{
+    return m_pingFangFont;
 }
 
 //==========================================================================================
@@ -279,10 +303,9 @@ FontHandle FontManager::selectFontForCharacter(uint32_t codepoint) const
 //==========================================================================================
 // Font Loading
 
-FontHandle FontManager::loadFontFromFile(const char* path, const std::string& name)
+FontHandle FontManager::loadFontFromFile(const char* path, const char* name)
 {
     YUCHEN_ASSERT(path != nullptr);
-    YUCHEN_ASSERT(!name.empty());
     YUCHEN_ASSERT(m_fonts.size() < Config::Font::MAX_FONTS);
 
     FontHandle handle = generateFontHandle();
@@ -306,11 +329,10 @@ FontHandle FontManager::loadFontFromFile(const char* path, const std::string& na
     return handle;
 }
 
-FontHandle FontManager::loadFontFromMemory(const void* data, size_t size, const std::string& name)
+FontHandle FontManager::loadFontFromMemory(const void* data, size_t size, const char* name)
 {
     YUCHEN_ASSERT(data != nullptr);
     YUCHEN_ASSERT(size > 0);
-    YUCHEN_ASSERT(!name.empty());
     YUCHEN_ASSERT_MSG(m_fonts.size() < Config::Font::MAX_FONTS, "Maximum number of fonts reached");
 
     FontHandle handle = generateFontHandle();

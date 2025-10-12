@@ -2,8 +2,9 @@
 #include "YuchenUI/rendering/RenderList.h"
 #include "YuchenUI/core/IUIContent.h"
 #include "YuchenUI/core/UIContext.h"
-#include "YuchenUI/text/FontManager.h"
-#include "YuchenUI/theme/ThemeManager.h"
+#include "YuchenUI/text/IFontProvider.h"
+#include "YuchenUI/theme/IThemeProvider.h"
+#include "YuchenUI/theme/Theme.h"
 #include "YuchenUI/core/Validation.h"
 #include "YuchenUI/core/Config.h"
 #include "YuchenUI/core/Assert.h"
@@ -54,7 +55,9 @@ TextInput::~TextInput() {
 void TextInput::addDrawCommands(RenderList& commandList, const Vec2& offset) const {
     if (!m_isVisible) return;
     
-    UIStyle* style = ThemeManager::getInstance().getCurrentStyle();
+    // Get style via UIContext instead of deprecated singleton
+    UIStyle* style = m_ownerContext ? m_ownerContext->getCurrentStyle() : nullptr;
+    YUCHEN_ASSERT(style);
     
     TextInputDrawInfo info;
     info.bounds = Rect(m_bounds.x + offset.x, m_bounds.y + offset.y, m_bounds.width, m_bounds.height);
@@ -96,9 +99,12 @@ void TextInput::addDrawCommands(RenderList& commandList, const Vec2& offset) con
     
     info.text = displayText;
     
-    FontManager& fontManager = FontManager::getInstance();
+    // Get font provider via UIContext instead of deprecated singleton
+    IFontProvider* fontProvider = m_ownerContext ? m_ownerContext->getFontProvider() : nullptr;
+    YUCHEN_ASSERT(fontProvider);
+    
     FontHandle westernFont = style->getDefaultLabelFont();
-    FontMetrics metrics = fontManager.getFontMetrics(westernFont, m_fontSize);
+    FontMetrics metrics = fontProvider->getFontMetrics(westernFont, m_fontSize);
     
     float contentHeight = m_bounds.height - m_paddingTop - m_paddingBottom;
     float textTopY = m_paddingTop + (contentHeight - metrics.lineHeight) * 0.5f;
@@ -109,7 +115,7 @@ void TextInput::addDrawCommands(RenderList& commandList, const Vec2& offset) con
         size_t measurePos = std::min(visualCursorPos, displayU32.length());
         std::string measureText = utf32ToUtf8(displayU32.substr(0, measurePos));
         
-        float cursorX = m_paddingLeft + fontManager.measureText(measureText.c_str(), m_fontSize).x - m_scrollOffset;
+        float cursorX = m_paddingLeft + fontProvider->measureText(measureText.c_str(), m_fontSize).x - m_scrollOffset;
         info.cursorX = info.bounds.x + cursorX;
         info.cursorHeight = metrics.lineHeight;
     } else {
@@ -151,8 +157,8 @@ void TextInput::addDrawCommands(RenderList& commandList, const Vec2& offset) con
         std::string beforeComp = utf32ToUtf8(displayU32.substr(0, m_cursorPosition));
         std::string withComp = utf32ToUtf8(displayU32.substr(0, m_cursorPosition + compositionLength));
         
-        float compStartX = m_paddingLeft + fontManager.measureText(beforeComp.c_str(), m_fontSize).x - m_scrollOffset;
-        float compEndX = m_paddingLeft + fontManager.measureText(withComp.c_str(), m_fontSize).x - m_scrollOffset;
+        float compStartX = m_paddingLeft + fontProvider->measureText(beforeComp.c_str(), m_fontSize).x - m_scrollOffset;
+        float compEndX = m_paddingLeft + fontProvider->measureText(withComp.c_str(), m_fontSize).x - m_scrollOffset;
         
         float underlineY = info.bounds.y + textTopY + metrics.ascender + 2.0f;
         
@@ -442,7 +448,9 @@ Vec4 TextInput::getTextColor() const {
     if (m_hasCustomTextColor) {
         return m_textColor;
     }
-    return ThemeManager::getInstance().getCurrentStyle()->getDefaultTextColor();
+    // Get default color via UIContext instead of deprecated singleton
+    UIStyle* style = m_ownerContext ? m_ownerContext->getCurrentStyle() : nullptr;
+    return style ? style->getDefaultTextColor() : Vec4();
 }
 
 void TextInput::resetTextColor() {
@@ -763,8 +771,11 @@ float TextInput::measureTextToPosition(size_t charIndex) const {
         }
     }
     
-    FontManager& fontManager = FontManager::getInstance();
-    Vec2 size = fontManager.measureText(utf8substr.c_str(), m_fontSize);
+    // Get font provider via UIContext instead of deprecated singleton
+    IFontProvider* fontProvider = m_ownerContext ? m_ownerContext->getFontProvider() : nullptr;
+    if (!fontProvider) return 0.0f;
+    
+    Vec2 size = fontProvider->measureText(utf8substr.c_str(), m_fontSize);
     
     return size.x;
 }
@@ -870,10 +881,17 @@ Rect TextInput::getInputMethodCursorRect() const {
     }
 
     float cursorX = m_paddingLeft + measureTextToPosition(m_cursorPosition) - m_scrollOffset;
-        
-    UIStyle* style = ThemeManager::getInstance().getCurrentStyle();
+    
+    // Get style and font provider via UIContext instead of deprecated singletons
+    UIStyle* style = m_ownerContext ? m_ownerContext->getCurrentStyle() : nullptr;
+    IFontProvider* fontProvider = m_ownerContext ? m_ownerContext->getFontProvider() : nullptr;
+    
+    if (!style || !fontProvider) {
+        return Rect();
+    }
+    
     FontHandle westernFont = style->getDefaultLabelFont();
-    FontMetrics metrics = FontManager::getInstance().getFontMetrics(westernFont, m_fontSize);
+    FontMetrics metrics = fontProvider->getFontMetrics(westernFont, m_fontSize);
     
     float contentHeight = m_bounds.height - m_paddingTop - m_paddingBottom;
     float textTopY = m_paddingTop + (contentHeight - metrics.lineHeight) * 0.5f;

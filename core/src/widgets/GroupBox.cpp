@@ -1,10 +1,13 @@
+// GroupBox.cpp
 #include "YuchenUI/widgets/GroupBox.h"
 #include "YuchenUI/rendering/RenderList.h"
-#include "YuchenUI/text/FontManager.h"
-#include "YuchenUI/theme/ThemeManager.h"
+#include "YuchenUI/text/IFontProvider.h"
+#include "YuchenUI/theme/IThemeProvider.h"
+#include "YuchenUI/theme/Theme.h"
 #include "YuchenUI/core/Validation.h"
 #include "YuchenUI/core/Config.h"
 #include "YuchenUI/core/Assert.h"
+#include "YuchenUI/core/UIContext.h"
 
 namespace YuchenUI {
 
@@ -33,8 +36,9 @@ void GroupBox::addDrawCommands(RenderList& commandList, const Vec2& offset) cons
     
     Vec2 absPos(m_bounds.x + offset.x, m_bounds.y + offset.y);
     
-    UIStyle* style = ThemeManager::getInstance().getCurrentStyle();
-    FontManager::getInstance();
+    // Get style via UIContext instead of deprecated ThemeManager singleton
+    UIStyle* style = m_ownerContext ? m_ownerContext->getCurrentStyle() : nullptr;
+    YUCHEN_ASSERT(style);
     
     GroupBoxDrawInfo info;
     info.bounds = Rect(absPos.x, absPos.y, m_bounds.width, m_bounds.height);
@@ -70,8 +74,8 @@ void GroupBox::setTitle(const char* title) {
 }
 
 void GroupBox::setTitleFont(FontHandle fontHandle) {
-    FontManager& fontManager = FontManager::getInstance();
-    if (fontManager.isValidFont(fontHandle)) {
+    IFontProvider* fontProvider = m_ownerContext ? m_ownerContext->getFontProvider() : nullptr;
+    if (fontProvider && fontProvider->isValidFont(fontHandle)) {
         m_titleFont = fontHandle;
         m_hasCustomTitleFont = true;
     }
@@ -81,7 +85,8 @@ FontHandle GroupBox::getTitleFont() const {
     if (m_hasCustomTitleFont) {
         return m_titleFont;
     }
-    return ThemeManager::getInstance().getCurrentStyle()->getDefaultTitleFont();
+    UIStyle* style = m_ownerContext ? m_ownerContext->getCurrentStyle() : nullptr;
+    return style ? style->getDefaultTitleFont() : INVALID_FONT_HANDLE;
 }
 
 void GroupBox::resetTitleFont() {
@@ -105,7 +110,9 @@ Vec4 GroupBox::getTitleColor() const {
     if (m_hasCustomTitleColor) {
         return m_titleColor;
     }
-    return ThemeManager::getInstance().getCurrentStyle()->getDefaultTextColor();
+    // Get default color via UIContext instead of deprecated singleton
+    UIStyle* style = m_ownerContext ? m_ownerContext->getCurrentStyle() : nullptr;
+    return style ? style->getDefaultTextColor() : Vec4();
 }
 
 void GroupBox::resetTitleColor() {
@@ -123,7 +130,9 @@ Vec4 GroupBox::getBackgroundColor() const {
     if (m_hasCustomBackground) {
         return m_backgroundColor;
     }
-    return ThemeManager::getInstance().getCurrentStyle()->getDefaultGroupBoxBackground();
+    // Get default background via UIContext instead of deprecated singleton
+    UIStyle* style = m_ownerContext ? m_ownerContext->getCurrentStyle() : nullptr;
+    return style ? style->getDefaultGroupBoxBackground() : Vec4();
 }
 
 void GroupBox::resetBackgroundColor() {
@@ -141,7 +150,9 @@ Vec4 GroupBox::getBorderColor() const {
     if (m_hasCustomBorderColor) {
         return m_borderColor;
     }
-    return ThemeManager::getInstance().getCurrentStyle()->getDefaultGroupBoxBorder();
+    // Get default border via UIContext instead of deprecated singleton
+    UIStyle* style = m_ownerContext ? m_ownerContext->getCurrentStyle() : nullptr;
+    return style ? style->getDefaultGroupBoxBorder() : Vec4();
 }
 
 void GroupBox::resetBorderColor() {
@@ -175,21 +186,18 @@ bool GroupBox::isValid() const {
 bool GroupBox::handleMouseMove(const Vec2& position, const Vec2& offset) {
     if (!m_isEnabled || !m_isVisible) return false;
     
-    // 计算 GroupBox 的绝对位置
     Vec2 absPos(m_bounds.x + offset.x, m_bounds.y + offset.y);
     Rect absRect(absPos.x, absPos.y, m_bounds.width, m_bounds.height);
     
-    // 检查鼠标是否在 GroupBox 范围内
     if (!absRect.contains(position)) return false;
     
-    // 获取标题栏高度
-    UIStyle* style = ThemeManager::getInstance().getCurrentStyle();
+    // Get style via UIContext instead of deprecated singleton
+    UIStyle* style = m_ownerContext ? m_ownerContext->getCurrentStyle() : nullptr;
+    YUCHEN_ASSERT(style);
     float titleBarHeight = style->getGroupBoxTitleBarHeight();
     
-    // 传递给子组件时，Y 轴要加上标题栏高度偏移
     Vec2 contentOffset(absPos.x, absPos.y + titleBarHeight);
     
-    // 反向遍历子组件（从上到下）
     for (auto it = m_children.rbegin(); it != m_children.rend(); ++it) {
         if ((*it) && (*it)->isVisible() && (*it)->isEnabled()) {
             if ((*it)->handleMouseMove(position, contentOffset)) {
@@ -204,21 +212,18 @@ bool GroupBox::handleMouseMove(const Vec2& position, const Vec2& offset) {
 bool GroupBox::handleMouseClick(const Vec2& position, bool pressed, const Vec2& offset) {
     if (!m_isEnabled || !m_isVisible) return false;
     
-    // 计算 GroupBox 的绝对位置
     Vec2 absPos(m_bounds.x + offset.x, m_bounds.y + offset.y);
     Rect absRect(absPos.x, absPos.y, m_bounds.width, m_bounds.height);
     
-    // 检查鼠标是否在 GroupBox 范围内
     if (!absRect.contains(position)) return false;
     
-    // 获取标题栏高度
-    UIStyle* style = ThemeManager::getInstance().getCurrentStyle();
+    // Get style via UIContext instead of deprecated singleton
+    UIStyle* style = m_ownerContext ? m_ownerContext->getCurrentStyle() : nullptr;
+    YUCHEN_ASSERT(style);
     float titleBarHeight = style->getGroupBoxTitleBarHeight();
     
-    // 传递给子组件时，Y 轴要加上标题栏高度偏移
     Vec2 contentOffset(absPos.x, absPos.y + titleBarHeight);
     
-    // 反向遍历子组件（从上到下）
     for (auto it = m_children.rbegin(); it != m_children.rend(); ++it) {
         if ((*it) && (*it)->isVisible()) {
             if ((*it)->handleMouseClick(position, pressed, contentOffset)) {
@@ -233,21 +238,18 @@ bool GroupBox::handleMouseClick(const Vec2& position, bool pressed, const Vec2& 
 bool GroupBox::handleMouseWheel(const Vec2& delta, const Vec2& position, const Vec2& offset) {
     if (!m_isEnabled || !m_isVisible) return false;
     
-    // 计算 GroupBox 的绝对位置
     Vec2 absPos(m_bounds.x + offset.x, m_bounds.y + offset.y);
     Rect absRect(absPos.x, absPos.y, m_bounds.width, m_bounds.height);
     
-    // 检查鼠标是否在 GroupBox 范围内
     if (!absRect.contains(position)) return false;
     
-    // 获取标题栏高度
-    UIStyle* style = ThemeManager::getInstance().getCurrentStyle();
+    // Get style via UIContext instead of deprecated singleton
+    UIStyle* style = m_ownerContext ? m_ownerContext->getCurrentStyle() : nullptr;
+    YUCHEN_ASSERT(style);
     float titleBarHeight = style->getGroupBoxTitleBarHeight();
     
-    // 传递给子组件时，Y 轴要加上标题栏高度偏移
     Vec2 contentOffset(absPos.x, absPos.y + titleBarHeight);
     
-    // 反向遍历子组件（从上到下）
     for (auto it = m_children.rbegin(); it != m_children.rend(); ++it) {
         if ((*it) && (*it)->isVisible() && (*it)->isEnabled()) {
             if ((*it)->handleMouseWheel(delta, position, contentOffset)) {

@@ -5,6 +5,8 @@
 #include "YuchenUI/core/Validation.h"
 #include "YuchenUI/core/Config.h"
 #include "YuchenUI/core/Assert.h"
+#include "YuchenUI/core/UIContext.h"
+
 #include <sstream>
 #include <iomanip>
 #include <cmath>
@@ -48,8 +50,11 @@ SpinBox::~SpinBox() {
 void SpinBox::addDrawCommands(RenderList& commandList, const Vec2& offset) const {
     if (!m_isVisible) return;
 
-    FontManager& fontManager = FontManager::getInstance();
-    UIStyle* style = ThemeManager::getInstance().getCurrentStyle();
+    // Get font provider and style via UIContext instead of deprecated singletons
+    IFontProvider* fontProvider = m_ownerContext ? m_ownerContext->getFontProvider() : nullptr;
+    UIStyle* style = m_ownerContext ? m_ownerContext->getCurrentStyle() : nullptr;
+    YUCHEN_ASSERT(fontProvider);
+    YUCHEN_ASSERT(style);
     
     Rect absRect(
         m_bounds.x + offset.x,
@@ -70,7 +75,7 @@ void SpinBox::addDrawCommands(RenderList& commandList, const Vec2& offset) const
         drawInfo.bounds = absRect;
         drawInfo.displayText = displayText;
         drawInfo.westernFont = style->getDefaultLabelFont();
-        drawInfo.chineseFont = fontManager.getPingFangFont();
+        drawInfo.chineseFont = fontProvider->getDefaultCJKFont();
         drawInfo.fontSize = m_fontSize;
         drawInfo.isEditing = m_isEditing;
         drawInfo.isHovered = m_isHovered;

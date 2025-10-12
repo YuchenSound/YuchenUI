@@ -1,7 +1,8 @@
 #include "YuchenUI/widgets/ComboBox.h"
 #include "YuchenUI/rendering/RenderList.h"
-#include "YuchenUI/text/FontManager.h"
-#include "YuchenUI/theme/ThemeManager.h"
+#include "YuchenUI/text/IFontProvider.h"
+#include "YuchenUI/theme/IThemeProvider.h"
+#include "YuchenUI/theme/Theme.h"
 #include "YuchenUI/menu/MenuManager.h"
 #include "YuchenUI/core/UIContext.h"
 #include "YuchenUI/core/Validation.h"
@@ -30,8 +31,11 @@ ComboBox::~ComboBox() {
 void ComboBox::addDrawCommands(RenderList& commandList, const Vec2& offset) const {
     if (!m_isVisible) return;
     
-    UIStyle* style = ThemeManager::getInstance().getCurrentStyle();
-    FontManager& fontManager = FontManager::getInstance();
+    // Get style via UIContext instead of deprecated ThemeManager singleton
+    UIStyle* style = m_ownerContext ? m_ownerContext->getCurrentStyle() : nullptr;
+    IFontProvider* fontProvider = m_ownerContext ? m_ownerContext->getFontProvider() : nullptr;
+    YUCHEN_ASSERT(style);
+    YUCHEN_ASSERT(fontProvider);
     
     ComboBoxDrawInfo info;
     info.bounds = Rect(m_bounds.x + offset.x, m_bounds.y + offset.y,
@@ -42,8 +46,8 @@ void ComboBox::addDrawCommands(RenderList& commandList, const Vec2& offset) cons
     info.isHovered = m_isHovered;
     info.isEnabled = m_isEnabled;
     info.theme = m_theme;
-    info.westernFont = fontManager.getArialRegular();
-    info.chineseFont = fontManager.getPingFangFont();
+    info.westernFont = fontProvider->getDefaultFont();
+    info.chineseFont = fontProvider->getDefaultCJKFont();
     info.fontSize = 11.0f;
     
     style->drawComboBox(info, commandList);

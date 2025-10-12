@@ -13,17 +13,6 @@
 **
 ********************************************************************************************/
 
-//==========================================================================================
-/** @file UIContext.cpp
-    
-    Implementation notes:
-    - Uses pimpl idiom to hide implementation details
-    - Delta time calculated using high_resolution_clock
-    - Mouse capture routes all events to captured component
-    - Viewport resize triggers content resize
-    - Component registration separate from focus registration
-*/
-
 #include "YuchenUI/core/UIContext.h"
 #include "YuchenUI/core/IUIContent.h"
 #include "YuchenUI/focus/FocusManager.h"
@@ -31,6 +20,11 @@
 #include "YuchenUI/widgets/UIComponent.h"
 #include "YuchenUI/rendering/RenderList.h"
 #include "YuchenUI/platform/ITextInputHandler.h"
+#include "YuchenUI/text/IFontProvider.h"
+#include "YuchenUI/text/FontManager.h"
+#include "YuchenUI/theme/IThemeProvider.h"
+#include "YuchenUI/theme/ThemeManager.h"
+#include "YuchenUI/theme/Theme.h"
 #include <vector>
 #include <algorithm>
 #include <chrono>
@@ -52,10 +46,12 @@ struct UIContext::Impl
     UIComponent* capturedComponent;
     ITextInputHandler* textInputHandler;
     ICoordinateMapper* coordinateMapper;
+    IFontProvider* fontProvider;
+    IThemeProvider* themeProvider;
     
     std::chrono::time_point<std::chrono::high_resolution_clock> lastFrameTime;
     
-    Impl()
+    Impl(IFontProvider* font, IThemeProvider* theme)
     : content(nullptr)
     , focusManager(nullptr)
     , viewportSize(800, 600)
@@ -63,6 +59,8 @@ struct UIContext::Impl
     , capturedComponent(nullptr)
     , textInputHandler(nullptr)
     , coordinateMapper(nullptr)
+    , fontProvider(font)
+    , themeProvider(theme)
     , lastFrameTime(std::chrono::high_resolution_clock::now())
     {}
 };
@@ -70,8 +68,8 @@ struct UIContext::Impl
 //==========================================================================================
 // Construction
 
-UIContext::UIContext()
-: m_impl(std::make_unique<Impl>())
+UIContext::UIContext(IFontProvider* fontProvider, IThemeProvider* themeProvider)
+: m_impl(std::make_unique<Impl>(fontProvider, themeProvider))
 {
     m_impl->focusManager = std::make_unique<FocusManager>();
 }
@@ -79,16 +77,85 @@ UIContext::UIContext()
 UIContext::~UIContext() = default;
 
 //==========================================================================================
+// Font Provider Access
+
+IFontProvider* UIContext::getFontProvider() const
+{
+    // If provider was injected, use it
+    if (m_impl->fontProvider)
+    {
+        return m_impl->fontProvider;
+    }
+    
+    // Fallback to singleton for backward compatibility
+    // Suppress deprecation warnings since this is intentional fallback behavior
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+    #ifdef _MSC_VER
+    #pragma warning(push)
+    #pragma warning(disable: 4996)
+    #endif
+    
+    return &FontManager::getInstance();
+    
+    #ifdef _MSC_VER
+    #pragma warning(pop)
+    #endif
+    #pragma GCC diagnostic pop
+}
+
+void UIContext::setFontProvider(IFontProvider* provider)
+{
+    m_impl->fontProvider = provider;
+}
+
+//==========================================================================================
+// Theme Provider Access
+
+IThemeProvider* UIContext::getThemeProvider() const
+{
+    // If provider was injected, use it
+    if (m_impl->themeProvider)
+    {
+        return m_impl->themeProvider;
+    }
+    
+    // Fallback to singleton for backward compatibility
+    // Suppress deprecation warnings since this is intentional fallback behavior
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+    #ifdef _MSC_VER
+    #pragma warning(push)
+    #pragma warning(disable: 4996)
+    #endif
+    
+    return &ThemeManager::getInstance();
+    
+    #ifdef _MSC_VER
+    #pragma warning(pop)
+    #endif
+    #pragma GCC diagnostic pop
+}
+
+void UIContext::setThemeProvider(IThemeProvider* provider)
+{
+    m_impl->themeProvider = provider;
+}
+
+UIStyle* UIContext::getCurrentStyle() const
+{
+    return getThemeProvider()->getCurrentStyle();
+}
+
+//==========================================================================================
 // Content management
 
 void UIContext::setContent(std::unique_ptr<IUIContent> content)
 {
-    // Destroy old content
     if (m_impl->content) m_impl->content->onDestroy();
     
     m_impl->content = std::move(content);
     
-    // Initialize new content
     if (m_impl->content)
     {
         Rect contentArea(0, 0, m_impl->viewportSize.x, m_impl->viewportSize.y);
@@ -111,12 +178,10 @@ void UIContext::render(RenderList& outCommandList)
 
 void UIContext::beginFrame()
 {
-    // Calculate delta time
     auto now = std::chrono::high_resolution_clock::now();
     float deltaTime = std::chrono::duration<float>(now - m_impl->lastFrameTime).count();
     m_impl->lastFrameTime = now;
     
-    // Update content
     if (m_impl->content) m_impl->content->onUpdate(deltaTime);
 }
 
@@ -127,7 +192,6 @@ void UIContext::endFrame() {}
 
 bool UIContext::handleMouseMove(const Vec2& position)
 {
-    // Route to captured component if any
     if (m_impl->capturedComponent)
         return m_impl->capturedComponent->handleMouseMove(position);
     
@@ -139,7 +203,6 @@ bool UIContext::handleMouseMove(const Vec2& position)
 
 bool UIContext::handleMouseClick(const Vec2& position, bool pressed)
 {
-    // Route to captured component if any
     if (m_impl->capturedComponent)
         return m_impl->capturedComponent->handleMouseClick(position, pressed);
     
@@ -209,7 +272,6 @@ void UIContext::setViewportSize(const Vec2& size)
 {
     m_impl->viewportSize = size;
     
-    // Notify content of resize
     if (m_impl->content)
     {
         Rect newArea(0, 0, size.x, size.y);

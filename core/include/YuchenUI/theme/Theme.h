@@ -1,6 +1,7 @@
 #pragma once
 
 #include "YuchenUI/core/Types.h"
+#include "YuchenUI/text/IFontProvider.h"
 #include <string>
 
 namespace YuchenUI {
@@ -168,6 +169,26 @@ struct RadioButtonDrawInfo {
     bool isHovered;
     bool isEnabled;
 };
+
+//==========================================================================================
+/**
+    Abstract base class for UI visual styles.
+    
+    UIStyle defines the rendering interface for all UI components. Concrete styles
+    implement platform-specific or themed rendering.
+    
+    Font Provider Integration:
+    - Styles need font access for text rendering
+    - Call setFontProvider() after creating style instance
+    - If not set, falls back to FontManager singleton (deprecated)
+    
+    Usage:
+    @code
+    auto style = std::make_unique<ProtoolsDarkStyle>();
+    style->setFontProvider(fontProvider);  // Inject font provider
+    themeManager.setStyle(std::move(style));
+    @endcode
+*/
 class UIStyle {
 public:
     virtual ~UIStyle() = default;
@@ -206,6 +227,31 @@ public:
     virtual void drawCheckBox(const CheckBoxDrawInfo& info, RenderList& cmdList) = 0;
     virtual void drawRadioButton(const RadioButtonDrawInfo& info, RenderList& cmdList) = 0;
     
+    //======================================================================================
+    // Font Provider Access
+    
+    /**
+        Sets the font provider for this style.
+        
+        Must be called after creating style instance to inject font provider.
+        If not set, style will fall back to FontManager::getInstance() (deprecated).
+        
+        @param provider  Font provider interface (must not be null)
+    */
+    virtual void setFontProvider(IFontProvider* provider) { m_fontProvider = provider; }
+    
+    /**
+        Returns the font provider for this style.
+        
+        Falls back to FontManager::getInstance() if no provider was injected.
+        This ensures backward compatibility with existing code.
+        
+        @returns Font provider interface (never null)
+    */
+    virtual IFontProvider* getFontProvider() const;
+    
+protected:
+    IFontProvider* m_fontProvider = nullptr;
 };
 
 class ProtoolsDarkStyle : public UIStyle {
@@ -329,6 +375,7 @@ public:
     float getGroupBoxTitleBarHeight() const override;
     void drawCheckBox(const CheckBoxDrawInfo& info, RenderList& cmdList) override;
     void drawRadioButton(const RadioButtonDrawInfo& info, RenderList& cmdList) override;
+
 private:
     Vec4 m_mainWindowBg;
     Vec4 m_dialogBg;

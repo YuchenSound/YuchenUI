@@ -80,10 +80,7 @@ bool TextRenderer::initialize(float dpiScale)
     YUCHEN_ASSERT_MSG(m_backend != nullptr, "GraphicsContext is null");
     
     m_dpiScale = dpiScale;
-    
-    // Verify FontManager initialized
-    YUCHEN_ASSERT_MSG(FontManager::getInstance().isInitialized(), "FontManager not initialized");
-    
+
     // Create glyph cache with DPI scaling
     m_glyphCache = std::make_unique<GlyphCache>(m_backend, m_dpiScale);
     YUCHEN_ASSERT_MSG(m_glyphCache->initialize(), "GlyphCache initialization failed");

@@ -9,6 +9,14 @@ function(yuchen_configure_text_libraries target_name)
     set(FT_WITH_HARFBUZZ OFF CACHE BOOL "")
     set(BUILD_SHARED_LIBS OFF CACHE BOOL "")
     
+    set(ORIGINAL_CXX_FLAGS ${CMAKE_CXX_FLAGS})
+    
+    if(APPLE OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -w")
+    elseif(MSVC)
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /w")
+    endif()
+    
     add_subdirectory(${FREETYPE_DIR} freetype EXCLUDE_FROM_ALL)
     
     set(HB_HAVE_FREETYPE ON CACHE BOOL "")
@@ -22,6 +30,8 @@ function(yuchen_configure_text_libraries target_name)
     set(FREETYPE_LIBRARIES freetype CACHE STRING "")
     
     add_subdirectory(${HARFBUZZ_DIR} harfbuzz EXCLUDE_FROM_ALL)
+    
+    set(CMAKE_CXX_FLAGS ${ORIGINAL_CXX_FLAGS})
     
     target_link_libraries(${target_name} PRIVATE freetype harfbuzz)
     target_include_directories(${target_name} PUBLIC

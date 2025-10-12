@@ -1,9 +1,12 @@
+// Button.cpp
 #include "YuchenUI/widgets/Button.h"
-#include "YuchenUI/text/FontManager.h"
-#include "YuchenUI/theme/ThemeManager.h"
+#include "YuchenUI/text/IFontProvider.h"
+#include "YuchenUI/theme/IThemeProvider.h"
+#include "YuchenUI/theme/Theme.h"
 #include "YuchenUI/rendering/RenderList.h"
 #include "YuchenUI/core/Validation.h"
 #include "YuchenUI/core/Config.h"
+#include "YuchenUI/core/UIContext.h"
 
 namespace YuchenUI {
 
@@ -34,8 +37,11 @@ void Button::addDrawCommands(RenderList& commandList, const Vec2& offset) const 
     
     if (!m_isVisible) return;
     
-    UIStyle* style = ThemeManager::getInstance().getCurrentStyle();
-    FontManager& fontManager = FontManager::getInstance();
+    // Get style via UIContext instead of deprecated ThemeManager singleton
+    UIStyle* style = m_ownerContext ? m_ownerContext->getCurrentStyle() : nullptr;
+    IFontProvider* fontProvider = m_ownerContext ? m_ownerContext->getFontProvider() : nullptr;
+    YUCHEN_ASSERT(style);
+    YUCHEN_ASSERT(fontProvider);
     
     ButtonDrawInfo info;
     info.bounds = Rect(m_bounds.x + offset.x, m_bounds.y + offset.y,
@@ -45,7 +51,7 @@ void Button::addDrawCommands(RenderList& commandList, const Vec2& offset) const 
     info.westernFont = m_hasCustomWesternFont ? m_westernFontHandle
                                               : style->getDefaultButtonFont();
     info.chineseFont = m_hasCustomChineseFont ? m_chineseFontHandle
-                                              : fontManager.getPingFangFont();
+                                              : fontProvider->getDefaultCJKFont();
     info.textColor = m_hasCustomTextColor ? m_textColor
                                           : style->getDefaultTextColor();
     
@@ -77,7 +83,8 @@ void Button::setText(const char* text) {
 }
 
 void Button::setWesternFont(FontHandle fontHandle) {
-    if (FontManager::getInstance().isValidFont(fontHandle)) {
+    IFontProvider* fontProvider = m_ownerContext ? m_ownerContext->getFontProvider() : nullptr;
+    if (fontProvider && fontProvider->isValidFont(fontHandle)) {
         m_westernFontHandle = fontHandle;
         m_hasCustomWesternFont = true;
     }
@@ -87,7 +94,9 @@ FontHandle Button::getWesternFont() const {
     if (m_hasCustomWesternFont) {
         return m_westernFontHandle;
     }
-    return ThemeManager::getInstance().getCurrentStyle()->getDefaultButtonFont();
+    // Get default font via UIContext instead of deprecated singleton
+    UIStyle* style = m_ownerContext ? m_ownerContext->getCurrentStyle() : nullptr;
+    return style ? style->getDefaultButtonFont() : INVALID_FONT_HANDLE;
 }
 
 void Button::resetWesternFont() {
@@ -96,7 +105,8 @@ void Button::resetWesternFont() {
 }
 
 void Button::setChineseFont(FontHandle fontHandle) {
-    if (FontManager::getInstance().isValidFont(fontHandle)) {
+    IFontProvider* fontProvider = m_ownerContext ? m_ownerContext->getFontProvider() : nullptr;
+    if (fontProvider && fontProvider->isValidFont(fontHandle)) {
         m_chineseFontHandle = fontHandle;
         m_hasCustomChineseFont = true;
     }
@@ -106,7 +116,8 @@ FontHandle Button::getChineseFont() const {
     if (m_hasCustomChineseFont) {
         return m_chineseFontHandle;
     }
-    return FontManager::getInstance().getPingFangFont();
+    IFontProvider* fontProvider = m_ownerContext ? m_ownerContext->getFontProvider() : nullptr;
+    return fontProvider ? fontProvider->getDefaultCJKFont() : INVALID_FONT_HANDLE;
 }
 
 void Button::resetChineseFont() {
@@ -130,7 +141,9 @@ Vec4 Button::getTextColor() const {
     if (m_hasCustomTextColor) {
         return m_textColor;
     }
-    return ThemeManager::getInstance().getCurrentStyle()->getDefaultTextColor();
+    // Get default color via UIContext instead of deprecated singleton
+    UIStyle* style = m_ownerContext ? m_ownerContext->getCurrentStyle() : nullptr;
+    return style ? style->getDefaultTextColor() : Vec4();
 }
 
 void Button::resetTextColor() {

@@ -1,12 +1,13 @@
 function(yuchen_configure_target target_name)
     if(APPLE)
         target_compile_options(${target_name} PRIVATE
-            -Wall -Wextra -Werror
+            -Wall -Wextra
             -Wno-unused-parameter
             -Wno-missing-field-initializers
             -pedantic
             $<$<CONFIG:Debug>:-g3 -O0>
             $<$<CONFIG:Release>:-O3>
+            $<$<BOOL:${YUCHEN_WARNINGS_AS_ERRORS}>:-Werror>
         )
     elseif(MSVC)
         target_compile_options(${target_name} PRIVATE
@@ -19,6 +20,7 @@ function(yuchen_configure_target target_name)
             /wd4996
             $<$<CONFIG:Debug>:/Od /Zi>
             $<$<CONFIG:Release>:/O2>
+            $<$<BOOL:${YUCHEN_WARNINGS_AS_ERRORS}>:/WX>
         )
         
         target_compile_definitions(${target_name} PRIVATE

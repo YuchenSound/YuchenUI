@@ -49,18 +49,6 @@ ProtoolsDarkStyle::ProtoolsDarkStyle()
 {
 }
 
-FontHandle ProtoolsDarkStyle::getDefaultButtonFont() const {
-    return FontManager::getInstance().getArialBold();
-}
-
-FontHandle ProtoolsDarkStyle::getDefaultLabelFont() const {
-    return FontManager::getInstance().getArialRegular();
-}
-
-FontHandle ProtoolsDarkStyle::getDefaultTitleFont() const {
-    return FontManager::getInstance().getArialBold();
-}
-
 Vec4 ProtoolsDarkStyle::getDefaultFrameBackground() const {
     return m_frameBg;
 }
@@ -139,9 +127,9 @@ void ProtoolsDarkStyle::drawButtonInternal(const ButtonDrawInfo& info, RenderLis
     cmdList.drawRect(info.bounds, borderColor, 1.0f, CornerRadius(2.0f));
     
     if (!info.text.empty()) {
-        FontManager& fontManager = FontManager::getInstance();
-        Vec2 textSize = fontManager.measureText(info.text.c_str(), info.fontSize);
-        FontMetrics metrics = fontManager.getFontMetrics(info.westernFont, info.fontSize);
+        IFontProvider* fontProvider = getFontProvider();
+        Vec2 textSize = fontProvider->measureText(info.text.c_str(), info.fontSize);
+        FontMetrics metrics = fontProvider->getFontMetrics(info.westernFont, info.fontSize);
         
         Vec2 textPos(
             info.bounds.x + (info.bounds.width - textSize.x) * 0.5f,
@@ -167,7 +155,7 @@ void ProtoolsDarkStyle::drawGroupBox(const GroupBoxDrawInfo& info, RenderList& c
     static constexpr float TITLE_PADDING_LEFT = 8.0f;
     static constexpr float CORNER_RADIUS = 2.0f;
     
-    FontManager& fontManager = FontManager::getInstance();
+    IFontProvider* fontProvider = getFontProvider();
     
     Vec4 blackColor = Vec4::FromRGBA(0, 0, 0, 76);
     
@@ -193,14 +181,14 @@ void ProtoolsDarkStyle::drawGroupBox(const GroupBoxDrawInfo& info, RenderList& c
     }
     
     if (!info.title.empty()) {
-        FontMetrics metrics = fontManager.getFontMetrics(info.titleFont, info.titleFontSize);
+        FontMetrics metrics = fontProvider->getFontMetrics(info.titleFont, info.titleFontSize);
         
         float textX = info.bounds.x + TITLE_PADDING_LEFT;
         float textY = info.bounds.y + (TITLE_HEIGHT - metrics.lineHeight) * 0.5f + metrics.ascender;
         
         Vec2 titleTextPos(textX, textY);
         Vec4 titleTextColor = m_uiTextColor;
-        FontHandle chineseFont = fontManager.getPingFangFont();
+        FontHandle chineseFont = fontProvider->getDefaultCJKFont();
         
         cmdList.drawText(info.title.c_str(), titleTextPos, info.titleFont,
                         chineseFont, info.titleFontSize, titleTextColor);
@@ -312,21 +300,21 @@ void ProtoolsDarkStyle::drawTextInput(const TextInputDrawInfo& info, RenderList&
     }
     
     if (!info.text.empty()) {
-        FontManager& fontManager = FontManager::getInstance();
+        IFontProvider* fontProvider = getFontProvider();
         FontHandle westernFont = getDefaultLabelFont();
-        FontHandle chineseFont = fontManager.getPingFangFont();
+        FontHandle chineseFont = fontProvider->getDefaultCJKFont();
         
-        FontMetrics metrics = fontManager.getFontMetrics(westernFont, info.fontSize);
+        FontMetrics metrics = fontProvider->getFontMetrics(westernFont, info.fontSize);
         float textY = info.textY + metrics.ascender;
         
         cmdList.drawText(info.text.c_str(), Vec2(info.textX, textY),
                         westernFont, chineseFont, info.fontSize, m_uiTextColor);
     } else if (!info.placeholder.empty() && !info.hasFocus) {
-        FontManager& fontManager = FontManager::getInstance();
+        IFontProvider* fontProvider = getFontProvider();
         FontHandle westernFont = getDefaultLabelFont();
-        FontHandle chineseFont = fontManager.getPingFangFont();
+        FontHandle chineseFont = fontProvider->getDefaultCJKFont();
         
-        FontMetrics metrics = fontManager.getFontMetrics(westernFont, info.fontSize);
+        FontMetrics metrics = fontProvider->getFontMetrics(westernFont, info.fontSize);
         float textY = info.textY + metrics.ascender;
         
         Vec4 placeholderColor = Vec4::FromRGBA(120, 120, 120, 255);
@@ -349,9 +337,9 @@ void ProtoolsDarkStyle::drawSpinBox(const SpinBoxDrawInfo& info, RenderList& cmd
 
     if (info.displayText.empty()) return;
     
-    FontManager& fontManager = FontManager::getInstance();
-    FontHandle arialBold = fontManager.getArialBold();
-    FontMetrics metrics = fontManager.getFontMetrics(arialBold, info.fontSize);
+    IFontProvider* fontProvider = getFontProvider();
+    FontHandle boldFont = fontProvider->getDefaultBoldFont();
+    FontMetrics metrics = fontProvider->getFontMetrics(boldFont, info.fontSize);
     
     float contentHeight = info.bounds.height - info.paddingTop - info.paddingBottom;
     float textY = info.bounds.y + info.paddingTop + (contentHeight - metrics.lineHeight) * 0.5f + metrics.ascender;
@@ -360,7 +348,7 @@ void ProtoolsDarkStyle::drawSpinBox(const SpinBoxDrawInfo& info, RenderList& cmd
     Vec4 textColor = m_spinBoxTextNormal;
     
     if (info.isEditing) {
-        Vec2 textSize = fontManager.measureText(info.displayText.c_str(), info.fontSize);
+        Vec2 textSize = fontProvider->measureText(info.displayText.c_str(), info.fontSize);
         
         Rect textBgRect(
             textX - 1.0f,
@@ -374,7 +362,7 @@ void ProtoolsDarkStyle::drawSpinBox(const SpinBoxDrawInfo& info, RenderList& cmd
     }
     
     cmdList.drawText(info.displayText.c_str(), Vec2(textX, textY),
-                    arialBold, info.chineseFont, info.fontSize, textColor);
+                    boldFont, info.chineseFont, info.fontSize, textColor);
 }
 
 void ProtoolsDarkStyle::drawComboBox(const ComboBoxDrawInfo& info, RenderList& cmdList) {
@@ -392,8 +380,8 @@ void ProtoolsDarkStyle::drawComboBox(const ComboBoxDrawInfo& info, RenderList& c
 
     std::string displayText = info.isEmpty ? info.placeholder : info.text;
     if (!displayText.empty()) {
-        FontManager& fontManager = FontManager::getInstance();
-        FontMetrics metrics = fontManager.getFontMetrics(info.westernFont, info.fontSize);
+        IFontProvider* fontProvider = getFontProvider();
+        FontMetrics metrics = fontProvider->getFontMetrics(info.westernFont, info.fontSize);
         
         float textX = info.bounds.x + TEXT_PADDING_LEFT;
         float textY = info.bounds.y + (info.bounds.height - metrics.lineHeight) * 0.5f + metrics.ascender;
@@ -418,7 +406,6 @@ void ProtoolsDarkStyle::drawFocusIndicator(const FocusIndicatorDrawInfo& info, R
     Vec4 focusColor = Vec4::FromRGBA(255, 200, 0, 255);
     cmdList.drawRect(info.bounds, focusColor, UIStyle::FOCUS_INDICATOR_BORDER_WIDTH, info.cornerRadius);
 }
-
 
 void ProtoolsDarkStyle::drawCheckBox(const CheckBoxDrawInfo& info, RenderList& cmdList) {
     std::string resourcePath = "components/checkbox/dark/";
@@ -470,6 +457,21 @@ void ProtoolsDarkStyle::drawRadioButton(const RadioButtonDrawInfo& info, RenderL
     }
     
     cmdList.drawImage(resourcePath.c_str(), info.bounds, ScaleMode::Original);
+}
+
+FontHandle ProtoolsDarkStyle::getDefaultButtonFont() const {
+    IFontProvider* provider = getFontProvider();
+    return provider->getDefaultFont();
+}
+
+FontHandle ProtoolsDarkStyle::getDefaultLabelFont() const {
+    IFontProvider* provider = getFontProvider();
+    return provider->getDefaultFont();
+}
+
+FontHandle ProtoolsDarkStyle::getDefaultTitleFont() const {
+    IFontProvider* provider = getFontProvider();
+    return provider->getDefaultBoldFont();
 }
 
 }

@@ -10,6 +10,7 @@ include(Shaders)
 file(GLOB_RECURSE YUCHEN_DESKTOP_SOURCES
     "${CMAKE_CURRENT_SOURCE_DIR}/src/windows/*.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/menu/*.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/YuchenUI-Desktop/*.cpp"
 )
 
 # Exclude platform-specific subdirectories
@@ -42,6 +43,7 @@ endif()
 # Scan public headers only (in include directory)
 file(GLOB_RECURSE YUCHEN_DESKTOP_HEADERS
     "${CMAKE_CURRENT_SOURCE_DIR}/include/YuchenUI/*.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/YuchenUI-Desktop/*.h"
 )
 
 # Create library target

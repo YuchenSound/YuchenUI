@@ -1,8 +1,10 @@
+// Frame.cpp
 #include "YuchenUI/widgets/Frame.h"
 #include "YuchenUI/theme/ThemeManager.h"
 #include "YuchenUI/rendering/RenderList.h"
 #include "YuchenUI/core/Validation.h"
 #include "YuchenUI/core/Assert.h"
+#include "YuchenUI/core/UIContext.h"
 
 namespace YuchenUI {
 
@@ -25,7 +27,9 @@ void Frame::addDrawCommands(RenderList& commandList, const Vec2& offset) const {
     
     Vec2 absPos(m_bounds.x + offset.x, m_bounds.y + offset.y);
     
-    UIStyle* style = ThemeManager::getInstance().getCurrentStyle();
+    // Get style via UIContext instead of deprecated singleton
+    UIStyle* style = m_ownerContext ? m_ownerContext->getCurrentStyle() : nullptr;
+    YUCHEN_ASSERT(style);
     
     FrameDrawInfo info;
     info.bounds = Rect(absPos.x, absPos.y, m_bounds.width, m_bounds.height);
@@ -53,9 +57,9 @@ Vec4 Frame::getBackgroundColor() const {
     if (m_hasCustomBackground) {
         return m_backgroundColor;
     }
-    return ThemeManager::getInstance().getCurrentStyle()->getDefaultFrameBackground();
+    UIStyle* style = m_ownerContext ? m_ownerContext->getCurrentStyle() : nullptr;
+    return style ? style->getDefaultFrameBackground() : Vec4();
 }
-
 void Frame::resetBackgroundColor() {
     m_hasCustomBackground = false;
     m_backgroundColor = Vec4();
@@ -71,7 +75,8 @@ Vec4 Frame::getBorderColor() const {
     if (m_hasCustomBorderColor) {
         return m_borderColor;
     }
-    return ThemeManager::getInstance().getCurrentStyle()->getDefaultFrameBorder();
+    UIStyle* style = m_ownerContext ? m_ownerContext->getCurrentStyle() : nullptr;
+    return style ? style->getDefaultFrameBorder() : Vec4();
 }
 
 void Frame::resetBorderColor() {

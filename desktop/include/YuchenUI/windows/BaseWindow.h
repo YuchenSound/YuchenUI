@@ -87,7 +87,7 @@ public:
     
     UIContext& getUIContext() { return m_uiContext; }
     const UIContext& getUIContext() const { return m_uiContext; }
-
+    void setFontProvider(IFontProvider* provider);
 protected:
     IGraphicsBackend* getGraphicsBackend() { return m_backend.get(); }
     virtual void onWindowReady() {}
