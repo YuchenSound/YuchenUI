@@ -24,6 +24,11 @@
     - Command count capped at Config::Rendering::MAX_COMMANDS_PER_LIST
     - Factory methods in RenderCommand handle invalid parameter cases
     - All geometric parameters validated before command creation
+    
+    Version 2.0 Changes:
+    - Added drawText() implementation with FontFallbackChain support
+    - Updated validation logic for new text command format
+    - Legacy drawText() converts to new format internally
 */
 
 #include "YuchenUI/rendering/RenderList.h"
@@ -78,21 +83,54 @@ void RenderList::drawRect(const Rect& rect, const Vec4& color, float borderWidth
     addCommand(cmd);
 }
 
-void RenderList::drawText(const char* text, const Vec2& position, FontHandle westernFont, FontHandle chineseFont, float fontSize, const Vec4& color)
+//==========================================================================================
+// Text Drawing (New API with Font Fallback)
+
+void RenderList::drawText(const char* text, const Vec2& position,
+                          const FontFallbackChain& fallbackChain,
+                          float fontSize, const Vec4& color)
 {
     YUCHEN_ASSERT(text);
     YUCHEN_ASSERT(position.isValid());
+    YUCHEN_ASSERT(!fallbackChain.isEmpty());
     YUCHEN_ASSERT(fontSize > 0.0f);
     YUCHEN_ASSERT(color.isValid());
     
-    size_t textLength[[maybe_unused]] = strlen(text);
+    size_t textLength [[maybe_unused]] = strlen(text);
     YUCHEN_ASSERT(textLength > 0 && textLength <= Config::Text::MAX_LENGTH);
     
-    RenderCommand cmd = RenderCommand::CreateDrawText(text, position, westernFont, chineseFont, fontSize, color);
+    RenderCommand cmd = RenderCommand::CreateDrawText(text, position, fallbackChain, fontSize, color);
     addCommand(cmd);
 }
 
-void RenderList::drawImage(const char* resourceIdentifier, const Rect& destRect, ScaleMode scaleMode, const NineSliceMargins& nineSlice)
+//==========================================================================================
+// Text Drawing (Legacy API)
+
+void RenderList::drawText(const char* text, const Vec2& position,
+                          FontHandle westernFont, FontHandle chineseFont,
+                          float fontSize, const Vec4& color)
+{
+    YUCHEN_ASSERT(text);
+    YUCHEN_ASSERT(position.isValid());
+    YUCHEN_ASSERT(westernFont != INVALID_FONT_HANDLE);
+    YUCHEN_ASSERT(chineseFont != INVALID_FONT_HANDLE);
+    YUCHEN_ASSERT(fontSize > 0.0f);
+    YUCHEN_ASSERT(color.isValid());
+    
+    size_t textLength [[maybe_unused]] = strlen(text);
+    YUCHEN_ASSERT(textLength > 0 && textLength <= Config::Text::MAX_LENGTH);
+    
+    // Convert to new API by building fallback chain
+    FontFallbackChain fallbackChain(westernFont, chineseFont);
+    RenderCommand cmd = RenderCommand::CreateDrawText(text, position, fallbackChain, fontSize, color);
+    addCommand(cmd);
+}
+
+//==========================================================================================
+// Image Drawing
+
+void RenderList::drawImage(const char* resourceIdentifier, const Rect& destRect,
+                           ScaleMode scaleMode, const NineSliceMargins& nineSlice)
 {
     YUCHEN_ASSERT(resourceIdentifier);
     YUCHEN_ASSERT(destRect.isValid());
@@ -110,6 +148,9 @@ void RenderList::drawImage(const char* resourceIdentifier, const Rect& destRect,
     validateCommand(cmd);
     addCommand(cmd);
 }
+
+//==========================================================================================
+// Shape Drawing
 
 void RenderList::drawLine(const Vec2& start, const Vec2& end, const Vec4& color, float width)
 {
@@ -174,7 +215,8 @@ void RenderList::drawCircle(const Vec2& center, float radius, const Vec4& color,
 //==========================================================================================
 // Clipping
 
-void RenderList::pushClipRect(const Rect& rect) {
+void RenderList::pushClipRect(const Rect& rect)
+{
     YUCHEN_ASSERT(rect.isValid());
     m_clipStack.push_back(rect);
     
@@ -184,7 +226,8 @@ void RenderList::pushClipRect(const Rect& rect) {
     addCommand(cmd);
 }
 
-void RenderList::popClipRect() {
+void RenderList::popClipRect()
+{
     YUCHEN_ASSERT(!m_clipStack.empty());
     m_clipStack.pop_back();
     
@@ -196,7 +239,8 @@ void RenderList::popClipRect() {
 //==========================================================================================
 // State Management
 
-void RenderList::reset() {
+void RenderList::reset()
+{
     m_commands.clear();
     m_clipStack.clear();
 }
@@ -243,8 +287,7 @@ bool RenderList::validate() const
                 YUCHEN_ASSERT(cmd.textPosition.isValid());
                 YUCHEN_ASSERT(cmd.fontSize > 0.0f);
                 YUCHEN_ASSERT(Validation::ValidateColor(cmd.textColor));
-                YUCHEN_ASSERT(cmd.westernFont != INVALID_FONT_HANDLE);
-                YUCHEN_ASSERT(cmd.chineseFont != INVALID_FONT_HANDLE);
+                YUCHEN_ASSERT(cmd.fontFallbackChain.isValid());
                 YUCHEN_ASSERT(cmd.text.length() <= Config::Text::MAX_LENGTH);
                 break;
                 
@@ -322,8 +365,7 @@ void RenderList::validateCommand(const RenderCommand& cmd) const
             YUCHEN_ASSERT(cmd.textPosition.isValid());
             YUCHEN_ASSERT(cmd.fontSize > 0.0f);
             YUCHEN_ASSERT(Validation::ValidateColor(cmd.textColor));
-            YUCHEN_ASSERT(cmd.westernFont != INVALID_FONT_HANDLE);
-            YUCHEN_ASSERT(cmd.chineseFont != INVALID_FONT_HANDLE);
+            YUCHEN_ASSERT(cmd.fontFallbackChain.isValid());
             YUCHEN_ASSERT(cmd.text.length() <= Config::Text::MAX_LENGTH);
             break;
             

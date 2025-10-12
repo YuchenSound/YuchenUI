@@ -16,17 +16,23 @@
 //==========================================================================================
 /** @file TextRenderer.h
     
-    High-level text rendering with HarfBuzz shaping and glyph caching.
+    High-level text rendering with HarfBuzz shaping, glyph caching, and font fallback.
+    
+    Version 2.0 Changes:
+    - Added shapeText() overload with FontFallbackChain support
+    - Enhanced text segmentation with fallback chain resolution
+    - Improved multi-script text rendering
+    - Better emoji and symbol support
     
     TextRenderer provides complete text rendering pipeline:
-    1. Text segmentation by character set (Western/CJK)
+    1. Text segmentation by font fallback chain (per-character font selection)
     2. HarfBuzz text shaping per segment
     3. FreeType glyph rasterization on demand
     4. Glyph caching in GPU texture atlases
     5. Vertex generation for GPU rendering
     
     Shaping pipeline:
-    - Segment text by Western/CJK boundaries
+    - Segment text by font fallback (Western/CJK/Emoji/Symbol)
     - Shape each segment with appropriate font
     - Combine shaped segments with proper positioning
     - Cache shaped results for repeated text
@@ -58,13 +64,24 @@ class IFontProvider;
 struct TextCacheKey {
     uint64_t hash;  ///< Combined hash of text, fonts, and size
     
-    /** Creates cache key from text rendering parameters.
+    /** Creates cache key from text rendering parameters (new fallback chain version).
+        
+        @param text           UTF-8 text string
+        @param fallbackChain  Font fallback chain
+        @param fontSize       Font size in points
+    */
+    TextCacheKey(const char* text, const FontFallbackChain& fallbackChain, float fontSize);
+    
+    /** Creates cache key from text rendering parameters (legacy two-font version).
+        
+        @deprecated Use constructor with FontFallbackChain instead.
         
         @param text          UTF-8 text string
         @param westernFont   Font handle for Western characters
         @param chineseFont   Font handle for CJK characters
         @param fontSize      Font size in points
     */
+    [[deprecated("Use constructor with FontFallbackChain instead")]]
     TextCacheKey(const char* text, FontHandle westernFont, FontHandle chineseFont, float fontSize);
     
     bool operator==(const TextCacheKey& other) const { return hash == other.hash; }
@@ -77,15 +94,21 @@ struct TextCacheKeyHash {
 
 //==========================================================================================
 /**
-    Text rendering with shaping and glyph caching.
+    Text rendering with shaping, glyph caching, and font fallback.
     
     TextRenderer manages complete text rendering pipeline from text string to GPU
     vertices. Uses HarfBuzz for complex script shaping, FreeType for glyph
     rasterization, and GPU texture atlases for caching. Shaped text cached to
     avoid repeated shaping overhead.
     
+    Version 2.0 Changes:
+    - Font fallback chain support for mixed scripts
+    - Per-character font selection
+    - Enhanced emoji and symbol rendering
+    - Improved cache key generation
+    
     Key features:
-    - Multi-font text support (Western + CJK mixing)
+    - Multi-font text support via fallback chains
     - Complex script shaping via HarfBuzz
     - On-demand glyph rasterization and caching
     - Shaped text caching for performance
@@ -136,26 +159,74 @@ public:
     */
     void beginFrame();
     
-    /** Shapes text string with appropriate fonts.
+    //======================================================================================
+    // Text Shaping (New API with Font Fallback)
+    
+    /**
+        Shapes text string with font fallback chain.
         
-        Segments text by character set (Western/CJK), shapes each segment with
-        appropriate font, and combines results. Shaped results cached for reuse.
+        This is the new recommended API for text shaping. It supports:
+        - Per-character font selection from fallback chain
+        - Proper emoji and symbol rendering
+        - Mixed-script text (Western + CJK + Emoji)
         
         Process:
         1. Check shaped text cache
-        2. Segment text by Western/CJK boundaries
+        2. Segment text by font fallback (per-character font selection)
         3. Shape each segment with HarfBuzz
         4. Combine segments with proper positioning
         5. Cache result for future use
         
+        Example:
+        @code
+        FontFallbackChain chain = fontManager.createDefaultFallbackChain();
+        ShapedText shaped;
+        renderer.shapeText("Hello世界😊", chain, 14.0f, shaped);
+        @endcode
+        
+        @param text            UTF-8 text string
+        @param fallbackChain   Font fallback chain
+        @param fontSize        Font size in points
+        @param outShapedText   Output shaped text result
+    */
+    void shapeText(const char* text,
+                   const FontFallbackChain& fallbackChain,
+                   float fontSize,
+                   ShapedText& outShapedText);
+    
+    /**
+        Shapes text string with two fonts (legacy method).
+        
+        @deprecated Use shapeText() with FontFallbackChain instead.
+        
+        This legacy method only handles Western and CJK fonts. For proper
+        emoji and symbol support, use the new fallback chain API.
+        
+        Migration example:
+        @code
+        // Old code:
+        ShapedText shaped;
+        renderer.shapeText("Hello世界", westernFont, cjkFont, 14.0f, shaped);
+        
+        // New code:
+        FontFallbackChain chain(westernFont, cjkFont);
+        renderer.shapeText("Hello世界", chain, 14.0f, shaped);
+        @endcode
+        
         @param text          UTF-8 text string
-        @param westernFont   Font handle for Western characters
-        @param chineseFont   Font handle for CJK characters
+        @param westernFont   Font for Western characters
+        @param chineseFont   Font for CJK characters
         @param fontSize      Font size in points
         @param outShapedText Output shaped text result
     */
-    void shapeText(const char* text, FontHandle westernFont, FontHandle chineseFont, float fontSize, ShapedText& outShapedText);
+    [[deprecated("Use shapeText() with FontFallbackChain instead")]]
+    void shapeText(const char* text,
+                   FontHandle westernFont,
+                   FontHandle chineseFont,
+                   float fontSize,
+                   ShapedText& outShapedText);
     
+    //======================================================================================
     /** Generates GPU vertices for shaped text.
         
         For each glyph in shaped text:
@@ -173,7 +244,12 @@ public:
         @param fontSize      Font size in points
         @param outVertices   Output vertex buffer (cleared and filled)
     */
-    void generateTextVertices(const ShapedText& shapedText, const Vec2& basePosition, const Vec4& color, FontHandle fontHandle, float fontSize, std::vector<TextVertex>& outVertices);
+    void generateTextVertices(const ShapedText& shapedText,
+                              const Vec2& basePosition,
+                              const Vec4& color,
+                              FontHandle fontHandle,
+                              float fontSize,
+                              std::vector<TextVertex>& outVertices);
     
     //======================================================================================
     /** Returns opaque handle to current glyph atlas texture.
@@ -212,7 +288,10 @@ private:
         @param outShapedText Output shaped glyphs
         @returns True if shaping succeeded
     */
-    bool shapeTextWithHarfBuzz(const char* text, FontHandle fontHandle, float fontSize, ShapedText& outShapedText);
+    bool shapeTextWithHarfBuzz(const char* text,
+                               FontHandle fontHandle,
+                               float fontSize,
+                               ShapedText& outShapedText);
     
     /** Rasterizes glyph with FreeType.
         
@@ -227,7 +306,13 @@ private:
         @param outBearing      Output glyph bearing
         @param outAdvance      Output horizontal advance
     */
-    void renderGlyph(FontHandle fontHandle, uint32_t glyphIndex, float fontSize, const void*& outBitmapData, Vec2& outSize, Vec2& outBearing, float& outAdvance);
+    void renderGlyph(FontHandle fontHandle,
+                     uint32_t glyphIndex,
+                     float fontSize,
+                     const void*& outBitmapData,
+                     Vec2& outSize,
+                     Vec2& outBearing,
+                     float& outAdvance);
     
     /** Rasterizes glyph using FreeType face directly.
         
@@ -241,7 +326,13 @@ private:
         @param outBearing      Output glyph bearing
         @param outAdvance      Output horizontal advance
     */
-    void rasterizeGlyphWithFreeType(void* face, uint32_t glyphIndex, float fontSize, const void*& outBitmapData, Vec2& outSize, Vec2& outBearing, float& outAdvance);
+    void rasterizeGlyphWithFreeType(void* face,
+                                     uint32_t glyphIndex,
+                                     float fontSize,
+                                     const void*& outBitmapData,
+                                     Vec2& outSize,
+                                     Vec2& outBearing,
+                                     float& outAdvance);
     
     //======================================================================================
     IGraphicsBackend* m_backend;                                                    ///< Graphics backend (not owned)

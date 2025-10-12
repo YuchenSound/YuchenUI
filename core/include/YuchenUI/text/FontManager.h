@@ -23,6 +23,7 @@
 #include <vector>
 #include <memory>
 #include <string>
+#include <unordered_map>
 
 namespace YuchenUI {
 
@@ -40,11 +41,17 @@ struct FontEntry {
 
 //==========================================================================================
 /**
-    Font manager with FreeType integration.
+    Font manager with FreeType integration and font fallback support.
     
     FontManager implements IFontProvider interface and provides complete font
     management for Desktop applications. It handles font loading, FreeType
-    integration, and system font enumeration.
+    integration, system font enumeration, and font fallback chain resolution.
+    
+    Version 2.0 Changes:
+    - Added hasGlyph() for checking glyph availability
+    - Added selectFontForCodepoint() for font fallback
+    - Added glyph availability caching for performance
+    - Enhanced emoji and symbol font support
     
     Architecture:
     - Core layer code should use IFontProvider interface methods only
@@ -55,6 +62,7 @@ struct FontEntry {
     - getDefaultFont() -> Arial Regular
     - getDefaultBoldFont() -> Arial Bold
     - getDefaultCJKFont() -> PingFang SC (macOS) / Microsoft YaHei (Windows)
+    - getDefaultEmojiFont() -> Apple Color Emoji (macOS) / Segoe UI Emoji (Windows)
     
     Lifecycle:
     - Create instance via constructor
@@ -67,11 +75,15 @@ struct FontEntry {
     FontManager fontManager;
     fontManager.initialize();
     
-    UIContext context(&fontManager);  // Inject as IFontProvider
+    // Build fallback chain
+    FontFallbackChain chain = fontManager.createDefaultFallbackChain();
+    
+    UIContext context(&fontManager);
     
     // In IUIContent implementation
     IFontProvider* fonts = m_context->getFontProvider();
-    FontHandle boldFont = fonts->getDefaultBoldFont();  // Use interface method
+    FontFallbackChain chain = fonts->createDefaultFallbackChain();
+    cmdList.drawText("Hello世界😊", pos, chain, 14.0f, color);
     @endcode
     
     @see IFontProvider, Application
@@ -97,7 +109,7 @@ public:
     /**
         Initializes font manager and loads default fonts.
         
-        Loads system fonts (Arial variants and CJK fonts).
+        Loads system fonts (Arial variants, CJK fonts, and emoji fonts).
         Must be called before using any font methods.
         
         @returns True if initialization succeeded
@@ -188,6 +200,51 @@ public:
     float getTextHeight(FontHandle handle, float fontSize) const override;
     
     /**
+        Checks if a font has a glyph for specific Unicode code point.
+        
+        This method queries the font's character map using FreeType's FT_Get_Char_Index.
+        A glyph index of 0 indicates the character is not supported.
+        
+        Performance: Results are cached in m_glyphAvailabilityCache to avoid
+        repeated FreeType queries.
+        
+        @param handle     Font handle
+        @param codepoint  Unicode code point to check
+        @returns True if font has glyph for this character
+    */
+    bool hasGlyph(FontHandle handle, uint32_t codepoint) const override;
+    
+    /**
+        Selects best font from fallback chain for specific character.
+        
+        Iterates through fallback chain in order, checking each font with hasGlyph().
+        Returns first font that supports the character, or primary font if none do.
+        
+        Algorithm:
+        1. For each font in fallback chain:
+           - Check if font has glyph for codepoint
+           - If yes, return this font immediately
+        2. If no font supports character, return primary font (will render .notdef)
+        
+        Example:
+        @code
+        // Chain: [Arial, PingFang, Apple Color Emoji]
+        selectFontForCodepoint('A', chain)    -> Arial
+        selectFontForCodepoint('中', chain)    -> PingFang
+        selectFontForCodepoint('😊', chain)   -> Apple Color Emoji
+        selectFontForCodepoint('☺', chain)    -> Apple Color Emoji
+        @endcode
+        
+        @param codepoint      Unicode code point
+        @param fallbackChain  Ordered list of fonts to try
+        @returns Font handle that can render character, or primary font
+    */
+    FontHandle selectFontForCodepoint(
+        uint32_t codepoint,
+        const FontFallbackChain& fallbackChain
+    ) const override;
+    
+    /**
         Returns default regular font handle.
         
         Desktop Implementation: Returns Arial Regular
@@ -248,6 +305,42 @@ public:
     void* getHarfBuzzFont(FontHandle handle, float fontSize, float dpiScale) override;
     
     //======================================================================================
+    // Font Fallback Chain Builders
+    
+    /**
+        Creates default font fallback chain with all available fonts.
+        
+        Builds chain in priority order:
+        1. Default regular font (Arial)
+        2. Default CJK font (PingFang/YaHei)
+        3. Default emoji font (if available)
+        4. Default symbol font (if available)
+        
+        This is the recommended fallback chain for general text rendering.
+        
+        @returns Complete fallback chain
+    */
+    FontFallbackChain createDefaultFallbackChain() const;
+    
+    /**
+        Creates bold font fallback chain.
+        
+        Similar to createDefaultFallbackChain() but uses bold variants where available.
+        
+        @returns Bold fallback chain
+    */
+    FontFallbackChain createBoldFallbackChain() const;
+    
+    /**
+        Creates title font fallback chain.
+        
+        Uses larger, more prominent fonts suitable for titles.
+        
+        @returns Title fallback chain
+    */
+    FontFallbackChain createTitleFallbackChain() const;
+    
+    //======================================================================================
     // Desktop-specific Font Access
     //
     // WARNING: These methods are Desktop platform specific and should NOT be used in
@@ -259,6 +352,7 @@ public:
     // - getDefaultFont() instead of getArialRegular()
     // - getDefaultBoldFont() instead of getArialBold()
     // - getDefaultCJKFont() instead of getPingFangFont()
+    // - getDefaultEmojiFont() instead of getEmojiFont()
     
     /**
         Returns Arial Regular font handle.
@@ -311,13 +405,49 @@ public:
     FontHandle getPingFangFont() const { return m_pingFangFont; }
     
     /**
-        Selects appropriate font for given character.
+        Returns default emoji font handle.
         
-        Chooses between Western (Arial) and CJK fonts based on Unicode range.
+        Direct access to emoji font. Desktop-specific method.
+        
+        Platform: Apple Color Emoji (macOS), Segoe UI Emoji (Windows)
+        
+        @returns Emoji font handle, or INVALID_FONT_HANDLE if not available
+    */
+    FontHandle getEmojiFont() const { return m_emojiFont; }
+    
+    /**
+        Returns default symbol font handle.
+        
+        Direct access to symbol font. Desktop-specific method.
+        
+        Platform: Apple Symbols (macOS), Segoe UI Symbol (Windows)
+        
+        @returns Symbol font handle, or INVALID_FONT_HANDLE if not available
+    */
+    FontHandle getSymbolFont() const { return m_symbolFont; }
+    
+    /**
+        Selects appropriate font for given character (legacy method).
+        
+        @deprecated Use selectFontForCodepoint() with FontFallbackChain instead.
+        
+        This legacy method only chooses between Western and CJK fonts.
+        For proper emoji and symbol support, use the new fallback chain system.
+        
+        Migration example:
+        @code
+        // Old code:
+        FontHandle font = fontManager.selectFontForCharacter(codepoint);
+        
+        // New code:
+        FontFallbackChain chain = fontManager.createDefaultFallbackChain();
+        FontHandle font = fontManager.selectFontForCodepoint(codepoint, chain);
+        @endcode
         
         @param codepoint  Unicode code point
-        @returns Font handle for character
+        @returns Font handle for character (Western or CJK only)
     */
+    [[deprecated("Use selectFontForCodepoint() with FontFallbackChain instead")]]
     FontHandle selectFontForCharacter(uint32_t codepoint) const;
 
 private:
@@ -325,6 +455,8 @@ private:
     bool initializeFreeType();
     void cleanupFreeType();
     void initializeFonts();
+    void loadEmojiFont();
+    void loadSymbolFont();
     
 #ifdef __APPLE__
     std::string getCoreTextFontPath(const char* fontName) const;
@@ -333,6 +465,18 @@ private:
     FontHandle generateFontHandle();
     FontEntry* getFontEntry(FontHandle handle);
     const FontEntry* getFontEntry(FontHandle handle) const;
+    
+    /**
+        Checks glyph availability with caching.
+        
+        Internal method that implements hasGlyph() with caching layer.
+        Cache key: (FontHandle << 32) | codepoint
+        
+        @param handle     Font handle
+        @param codepoint  Unicode code point
+        @returns True if font has glyph
+    */
+    bool hasGlyphImpl(FontHandle handle, uint32_t codepoint) const;
     
     //======================================================================================
     bool m_isInitialized;
@@ -346,6 +490,12 @@ private:
     FontHandle m_arialNarrowRegular;
     FontHandle m_arialNarrowBold;
     FontHandle m_pingFangFont;
+    FontHandle m_emojiFont;    // New: Emoji font support
+    FontHandle m_symbolFont;   // New: Symbol font support
+    
+    // Glyph availability cache for performance
+    // Key: (FontHandle << 32) | codepoint, Value: has glyph
+    mutable std::unordered_map<uint64_t, bool> m_glyphAvailabilityCache;
 };
 
 } // namespace YuchenUI

@@ -18,13 +18,20 @@
     
     Implementation notes:
     - Text cache key combines text, fonts, and size into 64-bit hash
-    - Text segmented by Western/CJK boundaries for appropriate font selection
+    - Text segmented by font fallback chain for appropriate font selection
     - HarfBuzz buffer reused across shaping calls for efficiency
     - Kerning disabled via HarfBuzz features (kern=0)
     - Glyph positions scaled by 1/64 (HarfBuzz uses 26.6 fixed-point)
     - DPI scaling applied to font size for glyph rasterization
     - Vertex generation creates quads with texture coordinates
     - All vertices reference current atlas texture
+    
+    Version 2.0 Changes:
+    - Added TextCacheKey constructors for fallback chain and legacy APIs
+    - Implemented shapeText() with FontFallbackChain support
+    - Enhanced text segmentation using TextUtils::segmentTextWithFallback()
+    - Improved cache key generation for better hit rates
+    - Better support for emoji and symbol rendering
 */
 
 #include "YuchenUI/text/TextRenderer.h"
@@ -38,26 +45,37 @@
 #include <stdexcept>
 #include <functional>
 
-#include <stdexcept>
-#include <functional>
-
 namespace YuchenUI {
 
 //==========================================================================================
 // TextCacheKey Implementation
 
-TextCacheKey::TextCacheKey(const char* text, FontHandle westernFont, FontHandle chineseFont, float fontSize)
+TextCacheKey::TextCacheKey(const char* text, const FontFallbackChain& fallbackChain, float fontSize)
 {
     // Combine all parameters into single hash
     std::string textStr(text);
     std::hash<std::string> stringHasher;
-    std::hash<FontHandle> fontHasher;
     std::hash<float> floatHasher;
     
-    hash = stringHasher(textStr) ^
-           (fontHasher(westernFont) << 8) ^
-           (fontHasher(chineseFont) << 16) ^
-           (floatHasher(fontSize) << 24);
+    // Start with text hash
+    hash = stringHasher(textStr);
+    
+    // XOR with each font in fallback chain
+    for (size_t i = 0; i < fallbackChain.fonts.size(); ++i)
+    {
+        std::hash<FontHandle> fontHasher;
+        hash ^= (fontHasher(fallbackChain.fonts[i]) << (8 + i * 8));
+    }
+    
+    // XOR with font size
+    hash ^= (floatHasher(fontSize) << 24);
+}
+
+TextCacheKey::TextCacheKey(const char* text, FontHandle westernFont, FontHandle chineseFont, float fontSize)
+{
+    // Legacy constructor: build fallback chain and use new constructor
+    FontFallbackChain chain(westernFont, chineseFont);
+    *this = TextCacheKey(text, chain, fontSize);
 }
 
 //==========================================================================================
@@ -148,13 +166,18 @@ void TextRenderer::beginFrame()
 }
 
 //==========================================================================================
-// Text Shaping
+// Text Shaping (New API with Font Fallback)
 
-void TextRenderer::shapeText(const char* text, FontHandle westernFont, FontHandle chineseFont, float fontSize, ShapedText& outShapedText)
+void TextRenderer::shapeText(const char* text,
+                             const FontFallbackChain& fallbackChain,
+                             float fontSize,
+                             ShapedText& outShapedText)
 {
     YUCHEN_ASSERT_MSG(m_isInitialized, "Not initialized");
     YUCHEN_ASSERT_MSG(text != nullptr, "Text cannot be null");
-    YUCHEN_ASSERT_MSG(fontSize >= Config::Font::MIN_SIZE && fontSize <= Config::Font::MAX_SIZE,"Font size out of range");
+    YUCHEN_ASSERT_MSG(!fallbackChain.isEmpty(), "Fallback chain is empty");
+    YUCHEN_ASSERT_MSG(fontSize >= Config::Font::MIN_SIZE && fontSize <= Config::Font::MAX_SIZE,
+                      "Font size out of range");
     
     outShapedText.clear();
     
@@ -163,7 +186,7 @@ void TextRenderer::shapeText(const char* text, FontHandle westernFont, FontHandl
     if (textLength == 0 || textLength > Config::Text::MAX_LENGTH) return;
     
     // Check shaped text cache
-    TextCacheKey cacheKey(text, westernFont, chineseFont, fontSize);
+    TextCacheKey cacheKey(text, fallbackChain, fontSize);
     auto it = m_shapedTextCache.find(cacheKey);
     if (it != m_shapedTextCache.end())
     {
@@ -171,8 +194,13 @@ void TextRenderer::shapeText(const char* text, FontHandle westernFont, FontHandl
         return;
     }
     
-    // Segment text by Western/CJK boundaries
-    std::vector<TextSegment> segments = TextUtils::segmentText(text, westernFont, chineseFont);
+    // Segment text by font fallback chain (per-character font selection)
+    std::vector<TextSegment> segments = TextUtils::segmentTextWithFallback(
+        text,
+        fallbackChain,
+        m_fontProvider
+    );
+    
     if (segments.empty()) return;
     
     float totalAdvance = 0.0f;
@@ -203,14 +231,38 @@ void TextRenderer::shapeText(const char* text, FontHandle westernFont, FontHandl
     m_shapedTextCache[cacheKey] = outShapedText;
 }
 
-bool TextRenderer::shapeTextWithHarfBuzz(const char* text, FontHandle fontHandle, float fontSize, ShapedText& outShapedText)
+//==========================================================================================
+// Text Shaping (Legacy API)
+
+void TextRenderer::shapeText(const char* text,
+                             FontHandle westernFont,
+                             FontHandle chineseFont,
+                             float fontSize,
+                             ShapedText& outShapedText)
+{
+    // Convert legacy two-font call to new fallback chain API
+    FontFallbackChain fallbackChain(westernFont, chineseFont);
+    shapeText(text, fallbackChain, fontSize, outShapedText);
+}
+
+//==========================================================================================
+// HarfBuzz Shaping
+
+bool TextRenderer::shapeTextWithHarfBuzz(const char* text,
+                                         FontHandle fontHandle,
+                                         float fontSize,
+                                         ShapedText& outShapedText)
 {
     YUCHEN_ASSERT_MSG(text != nullptr, "Text cannot be null");
-    YUCHEN_ASSERT_MSG(fontSize >= Config::Font::MIN_SIZE && fontSize <= Config::Font::MAX_SIZE,"Font size out of range");
+    YUCHEN_ASSERT_MSG(fontSize >= Config::Font::MIN_SIZE && fontSize <= Config::Font::MAX_SIZE,
+                      "Font size out of range");
     
     // Get HarfBuzz font scaled for DPI
     float scaledFontSize = fontSize * m_dpiScale;
-    hb_font_t* hbFont = static_cast<hb_font_t*>(m_fontProvider->getHarfBuzzFont(fontHandle, scaledFontSize, 1.0f));
+    hb_font_t* hbFont = static_cast<hb_font_t*>(
+        m_fontProvider->getHarfBuzzFont(fontHandle, scaledFontSize, 1.0f)
+    );
+    
     YUCHEN_ASSERT_MSG(hbFont != nullptr, "Failed to get HarfBuzz font");
     
     // Prepare HarfBuzz buffer
@@ -242,8 +294,10 @@ bool TextRenderer::shapeTextWithHarfBuzz(const char* text, FontHandle fontHandle
     hb_glyph_info_t* glyphInfos = hb_buffer_get_glyph_infos(m_harfBuzzBuffer, &glyphCount);
     hb_glyph_position_t* glyphPositions = hb_buffer_get_glyph_positions(m_harfBuzzBuffer, &glyphCount);
     
-    YUCHEN_ASSERT_MSG(glyphInfos != nullptr && glyphPositions != nullptr,"Failed to get glyph info/positions");
-    YUCHEN_ASSERT_MSG(glyphCount > 0 && glyphCount <= Config::Text::MAX_GLYPHS_PER_TEXT,"Invalid glyph count");
+    YUCHEN_ASSERT_MSG(glyphInfos != nullptr && glyphPositions != nullptr,
+                      "Failed to get glyph info/positions");
+    YUCHEN_ASSERT_MSG(glyphCount > 0 && glyphCount <= Config::Text::MAX_GLYPHS_PER_TEXT,
+                      "Invalid glyph count");
     
     outShapedText.glyphs.reserve(glyphCount);
     
@@ -284,9 +338,12 @@ bool TextRenderer::shapeTextWithHarfBuzz(const char* text, FontHandle fontHandle
 //==========================================================================================
 // Vertex Generation
 
-void TextRenderer::generateTextVertices(const ShapedText& shapedText, const Vec2& basePosition,
-                                       const Vec4& color, FontHandle fontHandle, float fontSize,
-                                       std::vector<TextVertex>& outVertices)
+void TextRenderer::generateTextVertices(const ShapedText& shapedText,
+                                        const Vec2& basePosition,
+                                        const Vec4& color,
+                                        FontHandle fontHandle,
+                                        float fontSize,
+                                        std::vector<TextVertex>& outVertices)
 {
     outVertices.clear();
     outVertices.reserve(shapedText.glyphs.size() * 4);
@@ -312,14 +369,16 @@ void TextRenderer::generateTextVertices(const ShapedText& shapedText, const Vec2
             Vec2 glyphSize, bearing;
             float advance;
             
-            renderGlyph(actualFontHandle, glyph.glyphIndex, scaledFontSize, bitmapData, glyphSize, bearing, advance);
+            renderGlyph(actualFontHandle, glyph.glyphIndex, scaledFontSize,
+                       bitmapData, glyphSize, bearing, advance);
             
             m_glyphCache->cacheGlyph(key, bitmapData, glyphSize, bearing, advance);
             entry = m_glyphCache->getGlyph(key);
         }
         
         // Skip empty glyphs (e.g., space)
-        if (!entry || entry->textureRect.width <= 0.0f || entry->textureRect.height <= 0.0f) continue;
+        if (!entry || entry->textureRect.width <= 0.0f || entry->textureRect.height <= 0.0f)
+            continue;
         
         // Calculate screen position with bearing offset
         Vec2 glyphPos = Vec2(
@@ -332,17 +391,36 @@ void TextRenderer::generateTextVertices(const ShapedText& shapedText, const Vec2
         float glyphHeight = entry->textureRect.height / m_dpiScale;
         
         // Calculate texture coordinates (normalized to 0-1)
-        Vec2 texCoordMin = Vec2(entry->textureRect.x / atlasSize.x, entry->textureRect.y / atlasSize.y);
+        Vec2 texCoordMin = Vec2(
+            entry->textureRect.x / atlasSize.x,
+            entry->textureRect.y / atlasSize.y
+        );
         Vec2 texCoordMax = Vec2(
             (entry->textureRect.x + entry->textureRect.width) / atlasSize.x,
             (entry->textureRect.y + entry->textureRect.height) / atlasSize.y
         );
         
         // Create quad vertices (two triangles)
-        TextVertex topLeft(Vec2(glyphPos.x, glyphPos.y), Vec2(texCoordMin.x, texCoordMin.y), color);
-        TextVertex topRight(Vec2(glyphPos.x + glyphWidth, glyphPos.y), Vec2(texCoordMax.x, texCoordMin.y), color);
-        TextVertex bottomLeft(Vec2(glyphPos.x, glyphPos.y + glyphHeight), Vec2(texCoordMin.x, texCoordMax.y), color);
-        TextVertex bottomRight(Vec2(glyphPos.x + glyphWidth, glyphPos.y + glyphHeight), Vec2(texCoordMax.x, texCoordMax.y), color);
+        TextVertex topLeft(
+            Vec2(glyphPos.x, glyphPos.y),
+            Vec2(texCoordMin.x, texCoordMin.y),
+            color
+        );
+        TextVertex topRight(
+            Vec2(glyphPos.x + glyphWidth, glyphPos.y),
+            Vec2(texCoordMax.x, texCoordMin.y),
+            color
+        );
+        TextVertex bottomLeft(
+            Vec2(glyphPos.x, glyphPos.y + glyphHeight),
+            Vec2(texCoordMin.x, texCoordMax.y),
+            color
+        );
+        TextVertex bottomRight(
+            Vec2(glyphPos.x + glyphWidth, glyphPos.y + glyphHeight),
+            Vec2(texCoordMax.x, texCoordMax.y),
+            color
+        );
         
         outVertices.push_back(topLeft);
         outVertices.push_back(topRight);
@@ -354,31 +432,57 @@ void TextRenderer::generateTextVertices(const ShapedText& shapedText, const Vec2
 //==========================================================================================
 // Glyph Rasterization
 
-void TextRenderer::renderGlyph(FontHandle fontHandle, uint32_t glyphIndex, float scaledFontSize,
-                              const void*& outBitmapData, Vec2& outSize, Vec2& outBearing, float& outAdvance)
+void TextRenderer::renderGlyph(FontHandle fontHandle,
+                               uint32_t glyphIndex,
+                               float scaledFontSize,
+                               const void*& outBitmapData,
+                               Vec2& outSize,
+                               Vec2& outBearing,
+                               float& outAdvance)
 {
     // Get FreeType face from font provider
     void* face = m_fontProvider->getFontFace(fontHandle);
-    rasterizeGlyphWithFreeType(face, glyphIndex, scaledFontSize, outBitmapData, outSize, outBearing, outAdvance);
+    rasterizeGlyphWithFreeType(face, glyphIndex, scaledFontSize,
+                                outBitmapData, outSize, outBearing, outAdvance);
 }
 
-void TextRenderer::rasterizeGlyphWithFreeType(void* face, uint32_t glyphIndex, float scaledFontSize,
-                                             const void*& outBitmapData, Vec2& outSize, Vec2& outBearing, float& outAdvance)
+void TextRenderer::rasterizeGlyphWithFreeType(void* face,
+                                               uint32_t glyphIndex,
+                                               float scaledFontSize,
+                                               const void*& outBitmapData,
+                                               Vec2& outSize,
+                                               Vec2& outBearing,
+                                               float& outAdvance)
 {
     YUCHEN_ASSERT_MSG(face != nullptr, "Face cannot be null");
     
     FT_Face ftFace = static_cast<FT_Face>(face);
     
     // Set character size
-    FT_Error error = FT_Set_Char_Size(ftFace, 0, (FT_F26Dot6)(scaledFontSize * 64), Config::Font::FREETYPE_DPI, Config::Font::FREETYPE_DPI);
-    if (error != FT_Err_Ok) throw std::runtime_error("Failed to set char size");
+    FT_Error error = FT_Set_Char_Size(
+        ftFace,
+        0,
+        (FT_F26Dot6)(scaledFontSize * 64),
+        Config::Font::FREETYPE_DPI,
+        Config::Font::FREETYPE_DPI
+    );
+    if (error != FT_Err_Ok)
+    {
+        throw std::runtime_error("Failed to set char size");
+    }
     
     // Load and render glyph
     error = FT_Load_Glyph(ftFace, glyphIndex, FT_LOAD_RENDER);
-    if (error != FT_Err_Ok) throw std::runtime_error("Failed to load glyph");
+    if (error != FT_Err_Ok)
+    {
+        throw std::runtime_error("Failed to load glyph");
+    }
     
     FT_GlyphSlot slot = ftFace->glyph;
-    if (slot->format != FT_GLYPH_FORMAT_BITMAP) throw std::runtime_error("Glyph not in bitmap format");
+    if (slot->format != FT_GLYPH_FORMAT_BITMAP)
+    {
+        throw std::runtime_error("Glyph not in bitmap format");
+    }
     
     // Extract bitmap data and metrics
     outBitmapData = slot->bitmap.buffer;

@@ -16,23 +16,32 @@
 //==========================================================================================
 /** @file TextUtils.h
     
-    Text processing utilities for Unicode, script detection, and segmentation.
+    Text processing utilities for Unicode, script detection, segmentation, and font fallback.
+    
+    Version 2.0 Changes:
+    - Added mapCharactersToFonts() for per-character font selection
+    - Added segmentTextWithFallback() for fallback-aware text segmentation
+    - Enhanced script detection for emoji and symbols
+    - Improved Unicode range coverage
     
     Provides utilities for:
-    - UTF-8 decoding
-    - Character classification (Western/CJK)
+    - UTF-8 encoding/decoding
+    - Character classification (Western/CJK/Emoji/Symbol)
     - Unicode script detection for HarfBuzz
-    - Text segmentation by font requirements
+    - Text segmentation by font requirements with fallback support
+    - Font fallback chain resolution
     
     Script detection:
     - Supports major scripts: Latin, Han (CJK), Hiragana, Katakana, Hangul, Arabic, Hebrew, Thai
+    - Added emoji and symbol detection
     - Uses Unicode ranges for classification
     - Provides ISO language codes for HarfBuzz
     
     Text segmentation:
-    - Splits text into Western and CJK segments
-    - Each segment assigned appropriate font
+    - Splits text into Western, CJK, Emoji, and Symbol segments
+    - Each segment assigned appropriate font from fallback chain
     - Preserves character indices for cursor mapping
+    - Optimizes by merging consecutive characters using same font
 */
 
 #pragma once
@@ -44,25 +53,32 @@
 
 namespace YuchenUI {
 
+class IFontProvider;
+
 //==========================================================================================
 /**
     Text processing utilities.
     
-    TextUtils provides static utility functions for Unicode text processing.
-    All methods are static - class cannot be instantiated.
+    TextUtils provides static utility functions for Unicode text processing,
+    script detection, and font fallback resolution. All methods are static -
+    class cannot be instantiated.
     
     Key features:
     - UTF-8 decoding with error handling
     - Character classification by Unicode ranges
     - Script detection for HarfBuzz shaping
     - Text segmentation by font requirements
+    - Font fallback chain resolution per character
     
-    @see TextRenderer, FontManager
+    @see TextRenderer, FontManager, IFontProvider
 */
 class TextUtils {
 public:
     //======================================================================================
-    /** Decodes next UTF-8 code point from string.
+    // UTF-8 Processing
+    
+    /**
+        Decodes next UTF-8 code point from string.
         
         Advances pointer past decoded character. Returns replacement character
         (U+FFFD) for invalid sequences.
@@ -71,7 +87,7 @@ public:
         - 1-byte: ASCII (U+0000 to U+007F)
         - 2-byte: U+0080 to U+07FF
         - 3-byte: U+0800 to U+FFFF
-        - 4-byte: U+10000 to U+10FFFF
+        - 4-byte: U+10000 to U+10FFFF (includes emoji)
         
         @param text  Pointer to UTF-8 string (advanced past character)
         @returns Decoded Unicode code point, or 0 if end of string
@@ -79,7 +95,10 @@ public:
     static uint32_t decodeUTF8(const char*& text);
     
     //======================================================================================
-    /** Tests if code point is Western character.
+    // Character Classification
+    
+    /**
+        Tests if code point is Western character.
         
         Western characters include:
         - Basic Latin and Latin-1 Supplement (U+0000-U+024F)
@@ -94,7 +113,8 @@ public:
     */
     static bool isWesternCharacter(uint32_t codepoint);
     
-    /** Tests if code point is Chinese/CJK character.
+    /**
+        Tests if code point is Chinese/CJK character.
         
         CJK characters include:
         - CJK Unified Ideographs (U+4E00-U+9FFF)
@@ -107,8 +127,42 @@ public:
     */
     static bool isChineseCharacter(uint32_t codepoint);
     
+    /**
+        Tests if code point is emoji.
+        
+        Emoji ranges include:
+        - Emoticons (U+1F600-U+1F64F)
+        - Miscellaneous Symbols and Pictographs (U+1F300-U+1F5FF)
+        - Transport and Map Symbols (U+1F680-U+1F6FF)
+        - Supplemental Symbols and Pictographs (U+1F900-U+1F9FF)
+        - Symbols and Pictographs Extended-A (U+1FA70-U+1FAFF)
+        - Emoji Components (U+FE00-U+FE0F, U+1F3FB-U+1F3FF)
+        
+        @param codepoint  Unicode code point
+        @returns True if emoji character
+    */
+    static bool isEmojiCharacter(uint32_t codepoint);
+    
+    /**
+        Tests if code point is symbol.
+        
+        Symbol ranges include:
+        - Miscellaneous Symbols (U+2600-U+26FF)
+        - Dingbats (U+2700-U+27BF)
+        - Miscellaneous Mathematical Symbols (U+2980-U+29FF)
+        - Supplemental Punctuation (U+2E00-U+2E7F)
+        - Geometric Shapes (U+25A0-U+25FF)
+        
+        @param codepoint  Unicode code point
+        @returns True if symbol character
+    */
+    static bool isSymbolCharacter(uint32_t codepoint);
+    
     //======================================================================================
-    /** Detects Unicode script for single code point.
+    // Script Detection
+    
+    /**
+        Detects Unicode script for single code point.
         
         Returns HarfBuzz script constant for character. Used for script-specific
         shaping features.
@@ -119,14 +173,15 @@ public:
         - HB_SCRIPT_HIRAGANA: Japanese hiragana
         - HB_SCRIPT_KATAKANA: Japanese katakana
         - HB_SCRIPT_HANGUL: Korean hangul
-        - HB_SCRIPT_COMMON: Punctuation, symbols, etc.
+        - HB_SCRIPT_COMMON: Punctuation, symbols, emoji, etc.
         
         @param codepoint  Unicode code point
         @returns HarfBuzz script constant
     */
     static hb_script_t detectScript(uint32_t codepoint);
     
-    /** Detects dominant script for text string.
+    /**
+        Detects dominant script for text string.
         
         Analyzes all characters and returns most common script. Used to set
         HarfBuzz buffer script for shaping.
@@ -142,7 +197,8 @@ public:
     */
     static hb_script_t detectTextScript(const char* text);
     
-    /** Returns ISO language code for script.
+    /**
+        Returns ISO language code for script.
         
         Maps HarfBuzz script to ISO 639 language code for shaping.
         
@@ -162,26 +218,122 @@ public:
     static const char* getLanguageForScript(hb_script_t script);
     
     //======================================================================================
-    /** Segments text by font requirements.
+    // Font Fallback Support (New in v2.0)
+    
+    /**
+        Maps each character in text to best font from fallback chain.
         
-        Splits text into contiguous segments requiring same font (Western or CJK).
-        Each segment tracks original character indices for cursor mapping.
+        This is the core of the font fallback system. For each character:
+        1. Decode UTF-8 to get Unicode code point
+        2. Use IFontProvider::selectFontForCodepoint() to find best font
+        3. Record mapping with byte offsets for later segmentation
         
-        Process:
-        1. Decode each character
-        2. Classify as Western or CJK
-        3. Start new segment on font change
-        4. Track original indices in source string
+        The result contains per-character font selections with original byte positions,
+        which can be used for:
+        - Text segmentation (merging consecutive same-font characters)
+        - Debugging font selection
+        - Cursor position mapping
         
-        @param text          UTF-8 text string
-        @param westernFont   Font handle for Western characters
-        @param chineseFont   Font handle for CJK characters
+        Example:
+        @code
+        const char* text = "Hello世界😊";
+        auto mappings = TextUtils::mapCharactersToFonts(text, fallbackChain, fontProvider);
+        
+        // Results:
+        // mappings[0]: 'H' -> Arial, offset=0, length=1
+        // mappings[1]: 'e' -> Arial, offset=1, length=1
+        // ...
+        // mappings[5]: '世' -> PingFang, offset=5, length=3
+        // mappings[6]: '界' -> PingFang, offset=8, length=3
+        // mappings[7]: '😊' -> Emoji, offset=11, length=4
+        @endcode
+        
+        @param text             UTF-8 text string
+        @param fallbackChain    Ordered font fallback chain
+        @param fontProvider     Font provider for glyph queries
+        @returns Vector of character-to-font mappings with byte positions
+    */
+    static std::vector<CharFontMapping> mapCharactersToFonts(
+        const char* text,
+        const FontFallbackChain& fallbackChain,
+        IFontProvider* fontProvider
+    );
+    
+    /**
+        Segments text by font requirements using fallback chain.
+        
+        Uses mapCharactersToFonts() to select fonts per character, then merges
+        consecutive characters using the same font into segments. This is more
+        efficient than the legacy segmentText() which only handles Western/CJK.
+        
+        Algorithm:
+        1. Map each character to optimal font via fallback chain
+        2. Merge consecutive characters with same font into segments
+        3. Track original byte positions for each segment
+        
+        Example:
+        @code
+        // Input: "Hello世界😊"
+        // Chain: [Arial, PingFang, Emoji]
+        
+        auto segments = TextUtils::segmentTextWithFallback(text, chain, fontProvider);
+        
+        // Result:
+        // segments[0]: "Hello" -> Arial (offset=0, length=5)
+        // segments[1]: "世界" -> PingFang (offset=5, length=6)
+        // segments[2]: "😊" -> Emoji (offset=11, length=4)
+        @endcode
+        
+        This is the recommended method for text segmentation in the new system.
+        
+        @param text             UTF-8 text string
+        @param fallbackChain    Ordered font fallback chain
+        @param fontProvider     Font provider for glyph queries
         @returns Vector of text segments with font assignments
     */
-    static std::vector<TextSegment> segmentText(const char* text, FontHandle westernFont, FontHandle chineseFont);
+    static std::vector<TextSegment> segmentTextWithFallback(
+        const char* text,
+        const FontFallbackChain& fallbackChain,
+        IFontProvider* fontProvider
+    );
+    
+    //======================================================================================
+    // Legacy Text Segmentation (Deprecated)
+    
+    /**
+        Segments text by font requirements (legacy two-font method).
+        
+        @deprecated Use segmentTextWithFallback() with FontFallbackChain instead.
+        
+        This legacy method only handles Western vs CJK segmentation and cannot
+        properly handle emoji, symbols, or other special characters.
+        
+        Migration example:
+        @code
+        // Old code:
+        auto segments = TextUtils::segmentText(text, westernFont, chineseFont);
+        
+        // New code:
+        FontFallbackChain chain(westernFont, chineseFont);
+        auto segments = TextUtils::segmentTextWithFallback(text, chain, fontProvider);
+        @endcode
+        
+        @param text          UTF-8 text string
+        @param westernFont   Font for Western characters
+        @param chineseFont   Font for CJK characters
+        @returns Vector of text segments (Western/CJK only)
+    */
+    [[deprecated("Use segmentTextWithFallback() with FontFallbackChain instead")]]
+    static std::vector<TextSegment> segmentText(
+        const char* text,
+        FontHandle westernFont,
+        FontHandle chineseFont
+    );
 
 private:
-    /** Private constructor. Class contains only static methods. */
+    /**
+        Private constructor. Class contains only static methods.
+    */
     TextUtils() = delete;
 };
 

@@ -109,6 +109,60 @@ public:
     virtual float getTextHeight(FontHandle handle, float fontSize) const = 0;
     
     //======================================================================================
+    // Font Fallback Support (New in v2.0)
+    
+    /**
+        Checks if a font has a glyph for a specific Unicode code point.
+        
+        This method is critical for font fallback. It queries the font's character
+        map to determine if it can render the specified character.
+        
+        Performance note: This method is frequently called during text layout.
+        Implementations should cache results when possible.
+        
+        Example usage:
+        @code
+        if (fontProvider->hasGlyph(arialFont, 0x1F600)) {
+            // Arial can render 😀 (it can't in reality)
+        } else {
+            // Need to try emoji font
+        }
+        @endcode
+        
+        @param handle     Font handle
+        @param codepoint  Unicode code point to check
+        @returns True if font has a glyph for this character, false otherwise
+    */
+    virtual bool hasGlyph(FontHandle handle, uint32_t codepoint) const = 0;
+    
+    /**
+        Selects the best font from a fallback chain for a specific character.
+        
+        Iterates through the fallback chain and returns the first font that
+        has a glyph for the specified character. If no font in the chain supports
+        the character, returns the primary font (first in chain).
+        
+        This is the core of the font fallback system. It enables proper rendering
+        of mixed-script text like "Hello世界😊" where different characters need
+        different fonts.
+        
+        Example usage:
+        @code
+        FontFallbackChain chain(arialFont, cjkFont, emojiFont);
+        FontHandle font = fontProvider->selectFontForCodepoint(0x1F600, chain);
+        // Returns emojiFont because Arial and CJK fonts don't have emoji
+        @endcode
+        
+        @param codepoint      Unicode code point
+        @param fallbackChain  Ordered list of fonts to try
+        @returns Font handle that can render this character, or primary font if none
+    */
+    virtual FontHandle selectFontForCodepoint(
+        uint32_t codepoint,
+        const FontFallbackChain& fallbackChain
+    ) const = 0;
+    
+    //======================================================================================
     // Default Font Access
     
     /**

@@ -280,6 +280,173 @@ struct GlyphMetrics {
 };
 
 //==========================================================================================
+/**
+    Font fallback chain for multi-font text rendering.
+    
+    Defines an ordered list of fonts to try when rendering text. When a character
+    cannot be rendered with the primary font, the system tries each font in the
+    chain until it finds one that supports the character.
+    
+    This is similar to:
+    - Qt: QFont::setFamilies()
+    - CSS: font-family: Arial, "PingFang SC", "Apple Color Emoji"
+    - Flutter: TextStyle(fontFamilyFallback: [...])
+    
+    Usage example:
+    @code
+    FontFallbackChain chain;
+    chain.addFont(arialFont);           // Primary font
+    chain.addFont(pingFangFont);        // CJK fallback
+    chain.addFont(emojiFont);           // Emoji fallback
+    
+    // Or use builder pattern:
+    FontFallbackChain chain = FontFallbackChain()
+        .withFont(arialFont)
+        .withFont(pingFangFont)
+        .withFont(emojiFont);
+    @endcode
+*/
+struct FontFallbackChain {
+    std::vector<FontHandle> fonts;  ///< Ordered list of font handles (priority order)
+    
+    /** Creates empty fallback chain. */
+    FontFallbackChain() = default;
+    
+    /** Creates fallback chain with single font.
+        
+        @param primaryFont  The primary font handle
+    */
+    explicit FontFallbackChain(FontHandle primaryFont) {
+        if (primaryFont != INVALID_FONT_HANDLE) {
+            fonts.push_back(primaryFont);
+        }
+    }
+    
+    /** Creates fallback chain with two fonts.
+        
+        @param primaryFont    Primary font (e.g., Arial)
+        @param fallbackFont   Fallback font (e.g., PingFang SC)
+    */
+    FontFallbackChain(FontHandle primaryFont, FontHandle fallbackFont) {
+        if (primaryFont != INVALID_FONT_HANDLE) fonts.push_back(primaryFont);
+        if (fallbackFont != INVALID_FONT_HANDLE) fonts.push_back(fallbackFont);
+    }
+    
+    /** Creates fallback chain with three fonts.
+        
+        @param primaryFont    Primary font (e.g., Arial)
+        @param fallbackFont1  First fallback (e.g., PingFang SC)
+        @param fallbackFont2  Second fallback (e.g., Apple Color Emoji)
+    */
+    FontFallbackChain(FontHandle primaryFont, FontHandle fallbackFont1, FontHandle fallbackFont2) {
+        if (primaryFont != INVALID_FONT_HANDLE) fonts.push_back(primaryFont);
+        if (fallbackFont1 != INVALID_FONT_HANDLE) fonts.push_back(fallbackFont1);
+        if (fallbackFont2 != INVALID_FONT_HANDLE) fonts.push_back(fallbackFont2);
+    }
+    
+    /** Creates fallback chain with four fonts.
+        
+        @param primaryFont    Primary font (e.g., Arial)
+        @param fallbackFont1  First fallback (e.g., PingFang SC)
+        @param fallbackFont2  Second fallback (e.g., Apple Color Emoji)
+        @param fallbackFont3  Third fallback (e.g., Segoe UI Symbol)
+    */
+    FontFallbackChain(FontHandle primaryFont, FontHandle fallbackFont1,
+                      FontHandle fallbackFont2, FontHandle fallbackFont3) {
+        if (primaryFont != INVALID_FONT_HANDLE) fonts.push_back(primaryFont);
+        if (fallbackFont1 != INVALID_FONT_HANDLE) fonts.push_back(fallbackFont1);
+        if (fallbackFont2 != INVALID_FONT_HANDLE) fonts.push_back(fallbackFont2);
+        if (fallbackFont3 != INVALID_FONT_HANDLE) fonts.push_back(fallbackFont3);
+    }
+    
+    /** Adds a font to the fallback chain.
+        
+        @param fontHandle  Font to add
+        @returns Reference to this chain for method chaining
+    */
+    FontFallbackChain& addFont(FontHandle fontHandle) {
+        if (fontHandle != INVALID_FONT_HANDLE) {
+            fonts.push_back(fontHandle);
+        }
+        return *this;
+    }
+    
+    /** Adds a font to the fallback chain (builder pattern).
+        
+        @param fontHandle  Font to add
+        @returns Reference to this chain for method chaining
+    */
+    FontFallbackChain& withFont(FontHandle fontHandle) {
+        return addFont(fontHandle);
+    }
+    
+    /** Returns true if the chain is empty. */
+    bool isEmpty() const {
+        return fonts.empty();
+    }
+    
+    /** Returns the number of fonts in the chain. */
+    size_t size() const {
+        return fonts.size();
+    }
+    
+    /** Returns the primary (first) font in the chain.
+        
+        @returns Primary font handle, or INVALID_FONT_HANDLE if chain is empty
+    */
+    FontHandle getPrimary() const {
+        return !fonts.empty() ? fonts[0] : INVALID_FONT_HANDLE;
+    }
+    
+    /** Returns font at specified index.
+        
+        @param index  Index in the chain
+        @returns Font handle at index, or INVALID_FONT_HANDLE if out of bounds
+    */
+    FontHandle getFont(size_t index) const {
+        return (index < fonts.size()) ? fonts[index] : INVALID_FONT_HANDLE;
+    }
+    
+    /** Clears all fonts from the chain. */
+    void clear() {
+        fonts.clear();
+    }
+    
+    /** Returns true if the chain is valid (has at least one font). */
+    bool isValid() const {
+        return !fonts.empty() && fonts[0] != INVALID_FONT_HANDLE;
+    }
+};
+
+//==========================================================================================
+/**
+    Character to font mapping result.
+    
+    Records which font was selected for rendering a specific character.
+    Used internally by the font fallback system.
+*/
+struct CharFontMapping {
+    uint32_t codepoint;         ///< Unicode code point
+    FontHandle selectedFont;    ///< Font selected from fallback chain
+    size_t byteOffset;          ///< Byte offset in UTF-8 string
+    size_t byteLength;          ///< Byte length of this character in UTF-8
+    
+    CharFontMapping()
+        : codepoint(0)
+        , selectedFont(INVALID_FONT_HANDLE)
+        , byteOffset(0)
+        , byteLength(0) {
+    }
+    
+    CharFontMapping(uint32_t cp, FontHandle font, size_t offset, size_t length)
+        : codepoint(cp)
+        , selectedFont(font)
+        , byteOffset(offset)
+        , byteLength(length) {
+    }
+};
+
+//==========================================================================================
 /** Vertex for text rendering */
 YUCHEN_PACK_BEGIN
 struct TextVertex {
@@ -451,13 +618,16 @@ struct RenderCommand
     CornerRadius cornerRadius;
     float borderWidth;
 
-    // Text commands
+    // Text commands (legacy - two font slots)
     Vec2 textPosition;
     std::string text;
-    FontHandle westernFont;
-    FontHandle chineseFont;
+    FontHandle westernFont;  ///< @deprecated Use fontFallbackChain instead
+    FontHandle chineseFont;  ///< @deprecated Use fontFallbackChain instead
     float fontSize;
     Vec4 textColor;
+    
+    // Text commands (new - fallback chain)
+    FontFallbackChain fontFallbackChain;  ///< Font fallback chain for text rendering
 
     // Image commands
     void* textureHandle;
@@ -491,6 +661,7 @@ struct RenderCommand
         , chineseFont(INVALID_FONT_HANDLE)
         , fontSize(11.0f)
         , textColor()
+        , fontFallbackChain()
         , textureHandle(nullptr)
         , sourceRect()
         , scaleMode(ScaleMode::Stretch)
@@ -539,6 +710,67 @@ struct RenderCommand
         return cmd;
     }
 
+    /** Creates text rendering command with fallback chain (recommended).
+        
+        This is the new preferred way to create text commands. The fallback chain
+        allows proper rendering of mixed scripts and emoji.
+        
+        @param text                Text string to render
+        @param position            Position to render at
+        @param fallbackChain       Font fallback chain
+        @param fontSize            Font size in points
+        @param textColor           Text color
+        @returns Render command for text drawing
+    */
+    static RenderCommand CreateDrawText(const char* text, const Vec2& position,
+        const FontFallbackChain& fallbackChain,
+        float fontSize, const Vec4& textColor)
+    {
+        if (!text || !position.isValid() || fontSize <= 0.0f || !textColor.isValid()) {
+            RenderCommand cmd;
+            cmd.type = RenderCommandType::Clear;
+            return cmd;
+        }
+
+        RenderCommand cmd;
+        cmd.type = RenderCommandType::DrawText;
+        cmd.text = text;
+        cmd.textPosition = position;
+        cmd.fontFallbackChain = fallbackChain;
+        cmd.fontSize = fontSize;
+        cmd.textColor = textColor;
+        
+        // Set legacy fields for compatibility
+        cmd.westernFont = fallbackChain.getPrimary();
+        cmd.chineseFont = (fallbackChain.size() > 1) ? fallbackChain.getFont(1) : INVALID_FONT_HANDLE;
+        
+        return cmd;
+    }
+
+    /** Creates text rendering command with two fonts (legacy, deprecated).
+        
+        @deprecated Use CreateDrawText() with FontFallbackChain instead.
+                    This method is provided for backward compatibility only.
+        
+        Migration example:
+        @code
+        // Old code:
+        auto cmd = RenderCommand::CreateDrawText("Hello世界", pos, arialFont, cjkFont, 14.0f, color);
+        
+        // New code:
+        FontFallbackChain chain(arialFont, cjkFont);
+        auto cmd = RenderCommand::CreateDrawText("Hello世界", pos, chain, 14.0f, color);
+        @endcode
+        
+        @param text          Text string to render
+        @param position      Position to render at
+        @param westernFont   Font for Western characters
+        @param chineseFont   Font for CJK characters
+        @param fontSize      Font size in points
+        @param textColor     Text color
+        @returns Render command for text drawing
+    */
+    [[deprecated("Use CreateDrawText() with FontFallbackChain instead")]]
     static RenderCommand CreateDrawText(const char* text, const Vec2& position,
         FontHandle westernFont, FontHandle chineseFont,
         float fontSize, const Vec4& textColor)
@@ -557,6 +789,10 @@ struct RenderCommand
         cmd.chineseFont = chineseFont;
         cmd.fontSize = fontSize;
         cmd.textColor = textColor;
+        
+        // Build fallback chain from legacy fonts for internal use
+        cmd.fontFallbackChain = FontFallbackChain(westernFont, chineseFont);
+        
         return cmd;
     }
 
