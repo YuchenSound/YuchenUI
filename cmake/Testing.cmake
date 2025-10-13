@@ -1,6 +1,6 @@
 include(FetchContent)
 
-set(BUILD_GMOCK OFF CACHE BOOL "" FORCE)
+set(BUILD_GMOCK ON CACHE BOOL "" FORCE)
 set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 
@@ -23,34 +23,36 @@ function(yuchen_add_test test_name)
     target_link_libraries(${test_name} PRIVATE
         gtest
         gtest_main
+        gmock
+        gmock_main
         YuchenUI-Desktop
     )
     
     yuchen_configure_target(${test_name})
     
-    # 复制着色器到测试二进制目录
     if(APPLE)
         yuchen_copy_shaders_to_bundle(${test_name})
         
-        # 如果不是 bundle，需要手动复制
         get_target_property(IS_BUNDLE ${test_name} MACOSX_BUNDLE)
         if(NOT IS_BUNDLE)
             get_target_property(DESKTOP_BINARY_DIR YuchenUI-Desktop BINARY_DIR)
-            add_custom_command(TARGET ${test_name} POST_BUILD
-                COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                    "${DESKTOP_BINARY_DIR}/Basic.metallib"
-                    "$<TARGET_FILE_DIR:${test_name}>/"
-                COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                    "${DESKTOP_BINARY_DIR}/Text.metallib"
-                    "$<TARGET_FILE_DIR:${test_name}>/"
-                COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                    "${DESKTOP_BINARY_DIR}/Image.metallib"
-                    "$<TARGET_FILE_DIR:${test_name}>/"
-                COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                    "${DESKTOP_BINARY_DIR}/Shape.metallib"
-                    "$<TARGET_FILE_DIR:${test_name}>/"
-                COMMENT "Copying shaders for test ${test_name}"
-            )
+            if(DESKTOP_BINARY_DIR)
+                add_custom_command(TARGET ${test_name} POST_BUILD
+                    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                        "${DESKTOP_BINARY_DIR}/Basic.metallib"
+                        "$<TARGET_FILE_DIR:${test_name}>/"
+                    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                        "${DESKTOP_BINARY_DIR}/Text.metallib"
+                        "$<TARGET_FILE_DIR:${test_name}>/"
+                    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                        "${DESKTOP_BINARY_DIR}/Image.metallib"
+                        "$<TARGET_FILE_DIR:${test_name}>/"
+                    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                        "${DESKTOP_BINARY_DIR}/Shape.metallib"
+                        "$<TARGET_FILE_DIR:${test_name}>/"
+                    COMMENT "Copying shaders for test ${test_name}"
+                )
+            endif()
         endif()
     endif()
     

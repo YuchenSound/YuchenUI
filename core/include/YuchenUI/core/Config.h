@@ -48,7 +48,7 @@ namespace Font {
 /** Text rendering configuration */
 namespace Text {
     static constexpr size_t MAX_LENGTH = 8192;              ///< Maximum text length (characters)
-    static constexpr size_t MAX_GLYPHS_PER_TEXT = 1024;     ///< Maximum glyphs per text object
+    static constexpr size_t MAX_GLYPHS_PER_TEXT = 8192;     ///< Maximum glyphs per text object
     static constexpr float DEFAULT_PADDING = 0.0f;          ///< Default text padding
 }
 

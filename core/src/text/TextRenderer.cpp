@@ -71,13 +71,6 @@ TextCacheKey::TextCacheKey(const char* text, const FontFallbackChain& fallbackCh
     hash ^= (floatHasher(fontSize) << 24);
 }
 
-TextCacheKey::TextCacheKey(const char* text, FontHandle westernFont, FontHandle chineseFont, float fontSize)
-{
-    // Legacy constructor: build fallback chain and use new constructor
-    FontFallbackChain chain(westernFont, chineseFont);
-    *this = TextCacheKey(text, chain, fontSize);
-}
-
 //==========================================================================================
 // Lifecycle
 
@@ -232,20 +225,6 @@ void TextRenderer::shapeText(const char* text,
 }
 
 //==========================================================================================
-// Text Shaping (Legacy API)
-
-void TextRenderer::shapeText(const char* text,
-                             FontHandle westernFont,
-                             FontHandle chineseFont,
-                             float fontSize,
-                             ShapedText& outShapedText)
-{
-    // Convert legacy two-font call to new fallback chain API
-    FontFallbackChain fallbackChain(westernFont, chineseFont);
-    shapeText(text, fallbackChain, fontSize, outShapedText);
-}
-
-//==========================================================================================
 // HarfBuzz Shaping
 
 bool TextRenderer::shapeTextWithHarfBuzz(const char* text,
@@ -338,23 +317,24 @@ bool TextRenderer::shapeTextWithHarfBuzz(const char* text,
 //==========================================================================================
 // Vertex Generation
 
-void TextRenderer::generateTextVertices(const ShapedText& shapedText,
-                                        const Vec2& basePosition,
-                                        const Vec4& color,
-                                        FontHandle fontHandle,
-                                        float fontSize,
-                                        std::vector<TextVertex>& outVertices)
+void TextRenderer::generateTextVertices(const ShapedText& shaped,
+                                       const Vec2& position,
+                                       const Vec4& color,
+                                       const FontFallbackChain& fontChain,
+                                       float fontSize,
+                                       std::vector<TextVertex>& vertices)
 {
-    outVertices.clear();
-    outVertices.reserve(shapedText.glyphs.size() * 4);
+    vertices.clear();
+    vertices.reserve(shaped.glyphs.size() * 4);
     
     Vec2 atlasSize = m_glyphCache->getCurrentAtlasSize();
     
     // Generate quad for each glyph
-    for (const auto& glyph : shapedText.glyphs)
+    for (const auto& glyph : shaped.glyphs)
     {
         if (glyph.glyphIndex == 0) continue;  // Skip invalid glyphs
         
+        // ✅ 使用 glyph 自带的 fontHandle（shapeText 已经选择了正确的字体）
         FontHandle actualFontHandle = glyph.fontHandle;
         
         // Create glyph cache key
@@ -382,8 +362,8 @@ void TextRenderer::generateTextVertices(const ShapedText& shapedText,
         
         // Calculate screen position with bearing offset
         Vec2 glyphPos = Vec2(
-            basePosition.x + glyph.position.x + (entry->bearing.x / m_dpiScale),
-            basePosition.y + glyph.position.y - (entry->bearing.y / m_dpiScale)
+            position.x + glyph.position.x + (entry->bearing.x / m_dpiScale),
+            position.y + glyph.position.y - (entry->bearing.y / m_dpiScale)
         );
         
         // Calculate glyph dimensions
@@ -422,10 +402,10 @@ void TextRenderer::generateTextVertices(const ShapedText& shapedText,
             color
         );
         
-        outVertices.push_back(topLeft);
-        outVertices.push_back(topRight);
-        outVertices.push_back(bottomLeft);
-        outVertices.push_back(bottomRight);
+        vertices.push_back(topLeft);
+        vertices.push_back(topRight);
+        vertices.push_back(bottomLeft);
+        vertices.push_back(bottomRight);
     }
 }
 

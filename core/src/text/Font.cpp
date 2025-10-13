@@ -243,9 +243,54 @@ bool FontFace::setCharSize(float fontSize) const
     if (!isValid()) return false;
     if (fontSize < Config::Font::MIN_SIZE || fontSize > Config::Font::MAX_SIZE) return false;
     
-    // Set character size in 26.6 fixed-point format
-    FT_Error error = FT_Set_Char_Size(m_face, 0, (FT_F26Dot6)(fontSize * 64), Config::Font::FREETYPE_DPI, Config::Font::FREETYPE_DPI);
-    return error == FT_Err_Ok;
+    bool isBitmapFont = FT_HAS_FIXED_SIZES(m_face);
+    
+    if (isBitmapFont && m_face->num_fixed_sizes > 0)
+    {
+        int targetSize = static_cast<int>(fontSize + 0.5f);
+        int bestIndex = 0;
+        int bestDiff = std::abs(m_face->available_sizes[0].height - targetSize);
+        
+        for (int i = 1; i < m_face->num_fixed_sizes; ++i)
+        {
+            int currentHeight = m_face->available_sizes[i].height;
+            int diff = std::abs(currentHeight - targetSize);
+            
+            if (diff < bestDiff)
+            {
+                bestDiff = diff;
+                bestIndex = i;
+            }
+        }
+        
+        FT_Error error = FT_Select_Size(m_face, bestIndex);
+        
+        if (error != FT_Err_Ok)
+        {
+            std::cerr << "[FontFace] Failed to select bitmap size " << bestIndex
+                      << " (target: " << targetSize << "px)" << std::endl;
+            return false;
+        }
+        
+        return true;
+    }
+    
+    FT_Error error = FT_Set_Char_Size(
+        m_face,
+        0,
+        (FT_F26Dot6)(fontSize * 64),
+        Config::Font::FREETYPE_DPI,
+        Config::Font::FREETYPE_DPI
+    );
+    
+    if (error != FT_Err_Ok)
+    {
+        std::cerr << "[FontFace] Failed to set char size " << fontSize
+                  << "pt (error: " << error << ")" << std::endl;
+        return false;
+    }
+    
+    return true;
 }
 
 //==========================================================================================
@@ -360,15 +405,55 @@ hb_font_t* FontCache::createHarfBuzzFont(const FontFace& fontFace, float fontSiz
         return nullptr;
     }
     
-    // Set FreeType character size
-    FT_Error error = FT_Set_Char_Size(ftFace, 0, (FT_F26Dot6)(fontSize * 64), Config::Font::FREETYPE_DPI, Config::Font::FREETYPE_DPI);
-    if (error != FT_Err_Ok)
+    bool isBitmapFont = FT_HAS_FIXED_SIZES(ftFace);
+    
+    FT_Error error;
+    
+    if (isBitmapFont && ftFace->num_fixed_sizes > 0)
     {
-        std::cerr << "[FontCache] Failed to set char size" << std::endl;
-        return nullptr;
+        int targetSize = static_cast<int>(fontSize + 0.5f);
+        int bestIndex = 0;
+        int bestDiff = std::abs(ftFace->available_sizes[0].height - targetSize);
+        
+        for (int i = 1; i < ftFace->num_fixed_sizes; ++i)
+        {
+            int currentHeight = ftFace->available_sizes[i].height;
+            int diff = std::abs(currentHeight - targetSize);
+            
+            if (diff < bestDiff)
+            {
+                bestDiff = diff;
+                bestIndex = i;
+            }
+        }
+        
+        error = FT_Select_Size(ftFace, bestIndex);
+        
+        if (error != FT_Err_Ok)
+        {
+            std::cerr << "[FontCache] Failed to select bitmap size " << bestIndex
+                      << " (target: " << targetSize << "px, error: " << error << ")" << std::endl;
+            return nullptr;
+        }
+    }
+    else
+    {
+        error = FT_Set_Char_Size(
+            ftFace,
+            0,
+            (FT_F26Dot6)(fontSize * 64),
+            Config::Font::FREETYPE_DPI,
+            Config::Font::FREETYPE_DPI
+        );
+        
+        if (error != FT_Err_Ok)
+        {
+            std::cerr << "[FontCache] Failed to set char size " << fontSize
+                      << "pt (error: " << error << ")" << std::endl;
+            return nullptr;
+        }
     }
     
-    // Create HarfBuzz font from FreeType face
     hb_font_t* hbFont = hb_ft_font_create(ftFace, nullptr);
     if (!hbFont)
     {
@@ -376,15 +461,12 @@ hb_font_t* FontCache::createHarfBuzzFont(const FontFace& fontFace, float fontSiz
         return nullptr;
     }
     
-    // Set up FreeType callbacks
     hb_ft_font_set_funcs(hbFont);
     
-    // Set scale from FreeType metrics
     int x_scale = static_cast<int>(ftFace->size->metrics.x_scale);
     int y_scale = static_cast<int>(ftFace->size->metrics.y_scale);
     hb_font_set_scale(hbFont, x_scale, y_scale);
     
-    // Set pixels-per-em from FreeType
     unsigned int x_ppem = ftFace->size->metrics.x_ppem;
     unsigned int y_ppem = ftFace->size->metrics.y_ppem;
     hb_font_set_ppem(hbFont, x_ppem, y_ppem);

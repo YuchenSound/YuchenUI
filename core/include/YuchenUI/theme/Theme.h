@@ -11,8 +11,7 @@ class RenderList;
 struct ButtonDrawInfo {
     Rect bounds;
     std::string text;
-    FontHandle westernFont;
-    FontHandle chineseFont;
+    FontFallbackChain fallbackChain;
     float fontSize;
     Vec4 textColor;
     bool isHovered;
@@ -23,8 +22,7 @@ struct ButtonDrawInfo {
 struct TextLabelDrawInfo {
     Rect bounds;
     std::string text;
-    FontHandle westernFont;
-    FontHandle chineseFont;
+    FontFallbackChain fallbackChain;
     float fontSize;
     Vec4 textColor;
     TextAlignment horizontalAlignment;
@@ -46,7 +44,7 @@ struct FrameDrawInfo {
 struct GroupBoxDrawInfo {
     Rect bounds;
     std::string title;
-    FontHandle titleFont;
+    FontFallbackChain titleFallbackChain;
     float titleFontSize;
     Vec4 titleColor;
     Vec4 backgroundColor;
@@ -130,16 +128,14 @@ struct ComboBoxDrawInfo {
     bool isHovered;
     bool isEnabled;
     ComboBoxTheme theme;
-    FontHandle westernFont;
-    FontHandle chineseFont;
+    FontFallbackChain fallbackChain;
     float fontSize;
 };
 
 struct SpinBoxDrawInfo {
     Rect bounds;
     std::string displayText;
-    FontHandle westernFont;
-    FontHandle chineseFont;
+    FontFallbackChain fallbackChain;
     float fontSize;
     bool isEditing;
     bool isHovered;
@@ -177,6 +173,12 @@ struct RadioButtonDrawInfo {
     UIStyle defines the rendering interface for all UI components. Concrete styles
     implement platform-specific or themed rendering.
     
+    Version 3.0 Changes (Qt-style Font System):
+    - Replaced getDefaultButtonFont() → getDefaultButtonFontChain()
+    - Replaced getDefaultLabelFont() → getDefaultLabelFontChain()
+    - Replaced getDefaultTitleFont() → getDefaultTitleFontChain()
+    - All methods now return complete FontFallbackChain with emoji support
+    
     Font Provider Integration:
     - Styles need font access for text rendering
     - Call setFontProvider() after creating style instance
@@ -212,9 +214,38 @@ public:
     virtual Vec4 getWindowBackground(WindowType type) const = 0;
 
     virtual Vec4 getDefaultTextColor() const = 0;
-    virtual FontHandle getDefaultButtonFont() const = 0;
-    virtual FontHandle getDefaultLabelFont() const = 0;
-    virtual FontHandle getDefaultTitleFont() const = 0;
+    
+    //======================================================================================
+    // Font Chain API (New in v3.0 - Qt-style)
+    
+    /**
+        Returns default font chain for buttons.
+        
+        Includes proper fallback for Western, CJK, and emoji characters.
+        
+        @returns Complete font fallback chain
+    */
+    virtual FontFallbackChain getDefaultButtonFontChain() const = 0;
+    
+    /**
+        Returns default font chain for labels and text.
+        
+        Includes proper fallback for Western, CJK, and emoji characters.
+        
+        @returns Complete font fallback chain
+    */
+    virtual FontFallbackChain getDefaultLabelFontChain() const = 0;
+    
+    /**
+        Returns default font chain for titles (usually bold).
+        
+        Includes proper fallback for Western, CJK, and emoji characters.
+        
+        @returns Complete font fallback chain
+    */
+    virtual FontFallbackChain getDefaultTitleFontChain() const = 0;
+    
+    //======================================================================================
     
     virtual Vec4 getDefaultFrameBackground() const = 0;
     virtual Vec4 getDefaultFrameBorder() const = 0;
@@ -275,9 +306,9 @@ public:
     void drawSpinBox(const SpinBoxDrawInfo& info, RenderList& cmdList) override;
     Vec4 getWindowBackground(WindowType type) const override;
     Vec4 getDefaultTextColor() const override;
-    FontHandle getDefaultButtonFont() const override;
-    FontHandle getDefaultLabelFont() const override;
-    FontHandle getDefaultTitleFont() const override;
+    FontFallbackChain getDefaultButtonFontChain() const override;
+    FontFallbackChain getDefaultLabelFontChain() const override;
+    FontFallbackChain getDefaultTitleFontChain() const override;
     
     Vec4 getDefaultFrameBackground() const override;
     Vec4 getDefaultFrameBorder() const override;
@@ -362,9 +393,9 @@ public:
     void drawSpinBox(const SpinBoxDrawInfo& info, RenderList& cmdList) override;
     Vec4 getWindowBackground(WindowType type) const override;
     Vec4 getDefaultTextColor() const override;
-    FontHandle getDefaultButtonFont() const override;
-    FontHandle getDefaultLabelFont() const override;
-    FontHandle getDefaultTitleFont() const override;
+    FontFallbackChain getDefaultButtonFontChain() const override;
+    FontFallbackChain getDefaultLabelFontChain() const override;
+    FontFallbackChain getDefaultTitleFontChain() const override;
     
     Vec4 getDefaultFrameBackground() const override;
     Vec4 getDefaultFrameBorder() const override;
@@ -380,7 +411,7 @@ private:
     Vec4 m_mainWindowBg;
     Vec4 m_dialogBg;
     Vec4 m_toolWindowBg;
-    Vec4 m_textColor;
+    Vec4 m_uiTextColor;
     Vec4 m_textDisabledColor;
     
     Vec4 m_buttonNormal;

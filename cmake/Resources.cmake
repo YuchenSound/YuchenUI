@@ -26,14 +26,14 @@ function(yuchen_generate_resources target_name)
             --header-file "embedded_resources.h"
             --source-file "embedded_resources.cpp"
         DEPENDS resource_generator ${RESOURCE_FILES}
-        COMMENT "Generating embedded resources"
+        COMMENT "Generating embedded resources for ${target_name}"
         VERBATIM
     )
     
     add_custom_target(${target_name}_resources DEPENDS ${HEADER_FILE} ${SOURCE_FILE})
     
     target_sources(${target_name} PRIVATE ${SOURCE_FILE})
-    target_include_directories(${target_name} PRIVATE ${OUTPUT_DIR})
+
     add_dependencies(${target_name} ${target_name}_resources)
     
     set_property(DIRECTORY APPEND PROPERTY ADDITIONAL_MAKE_CLEAN_FILES ${OUTPUT_DIR})

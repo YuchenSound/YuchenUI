@@ -14,14 +14,14 @@ namespace YuchenUI {
 GroupBox::GroupBox(const Rect& bounds)
     : Widget(bounds)
     , m_title()
-    , m_titleFont(INVALID_FONT_HANDLE)
+    , m_titleFontChain()         // ✅ 新：统一的字体链
     , m_titleFontSize(Config::Font::DEFAULT_SIZE)
     , m_titleColor()
     , m_backgroundColor()
     , m_borderColor()
     , m_borderWidth(1.0f)
     , m_cornerRadius()
-    , m_hasCustomTitleFont(false)
+    , m_hasCustomTitleFont(false)  // ✅ 新：统一的标志
     , m_hasCustomTitleColor(false)
     , m_hasCustomBackground(false)
     , m_hasCustomBorderColor(false)
@@ -36,16 +36,20 @@ void GroupBox::addDrawCommands(RenderList& commandList, const Vec2& offset) cons
     
     Vec2 absPos(m_bounds.x + offset.x, m_bounds.y + offset.y);
     
-    // Get style via UIContext instead of deprecated ThemeManager singleton
     UIStyle* style = m_ownerContext ? m_ownerContext->getCurrentStyle() : nullptr;
+    IFontProvider* fontProvider = m_ownerContext ? m_ownerContext->getFontProvider() : nullptr;
     YUCHEN_ASSERT(style);
+    YUCHEN_ASSERT(fontProvider);
     
     GroupBoxDrawInfo info;
     info.bounds = Rect(absPos.x, absPos.y, m_bounds.width, m_bounds.height);
     info.title = m_title;
     
-    info.titleFont = m_hasCustomTitleFont ? m_titleFont
-                                          : style->getDefaultTitleFont();
+    // ✅ 使用新 API：直接获取 fallback chain
+    info.titleFallbackChain = m_hasCustomTitleFont
+        ? m_titleFontChain
+        : style->getDefaultTitleFontChain();
+    
     info.titleColor = m_hasCustomTitleColor ? m_titleColor
                                             : style->getDefaultTextColor();
     info.backgroundColor = m_hasCustomBackground ? m_backgroundColor
@@ -75,23 +79,38 @@ void GroupBox::setTitle(const char* title) {
 
 void GroupBox::setTitleFont(FontHandle fontHandle) {
     IFontProvider* fontProvider = m_ownerContext ? m_ownerContext->getFontProvider() : nullptr;
-    if (fontProvider && fontProvider->isValidFont(fontHandle)) {
-        m_titleFont = fontHandle;
-        m_hasCustomTitleFont = true;
+    
+    if (!fontProvider || !fontProvider->isValidFont(fontHandle)) {
+        return;
     }
+    
+    // 自动构建带 CJK fallback 的链
+    FontHandle cjkFont = fontProvider->getDefaultCJKFont();
+    m_titleFontChain = FontFallbackChain(fontHandle, cjkFont);
+    m_hasCustomTitleFont = true;
 }
 
-FontHandle GroupBox::getTitleFont() const {
-    if (m_hasCustomTitleFont) {
-        return m_titleFont;
+void GroupBox::setTitleFontChain(const FontFallbackChain& chain) {
+    if (!chain.isValid()) {
+        return;
     }
+    
+    m_titleFontChain = chain;
+    m_hasCustomTitleFont = true;
+}
+
+FontFallbackChain GroupBox::getTitleFontChain() const {
+    if (m_hasCustomTitleFont) {
+        return m_titleFontChain;
+    }
+    
     UIStyle* style = m_ownerContext ? m_ownerContext->getCurrentStyle() : nullptr;
-    return style ? style->getDefaultTitleFont() : INVALID_FONT_HANDLE;
+    return style ? style->getDefaultTitleFontChain() : FontFallbackChain();
 }
 
 void GroupBox::resetTitleFont() {
+    m_titleFontChain.clear();
     m_hasCustomTitleFont = false;
-    m_titleFont = INVALID_FONT_HANDLE;
 }
 
 void GroupBox::setTitleFontSize(float fontSize) {

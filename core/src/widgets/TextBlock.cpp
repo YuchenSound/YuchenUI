@@ -11,8 +11,7 @@ namespace YuchenUI {
 
 TextBlock::TextBlock(const Rect& bounds)
     : m_text()
-    , m_westernFontHandle(INVALID_FONT_HANDLE)
-    , m_chineseFontHandle(INVALID_FONT_HANDLE)
+    , m_fontChain()              // ✅ 新：统一的字体链
     , m_fontSize(Config::Font::DEFAULT_SIZE)
     , m_textColor()
     , m_bounds(bounds)
@@ -24,8 +23,7 @@ TextBlock::TextBlock(const Rect& bounds)
     , m_paddingBottom(Config::Text::DEFAULT_PADDING)
     , m_lineHeightMultiplier(1.2f)
     , m_paragraphSpacing(0.0f)
-    , m_hasCustomWesternFont(false)
-    , m_hasCustomChineseFont(false)
+    , m_hasCustomFont(false)     // ✅ 新：统一的标志
     , m_hasCustomTextColor(false)
     , m_cachedLines()
     , m_needsLayout(true)
@@ -45,14 +43,15 @@ void TextBlock::addDrawCommands(RenderList& commandList, const Vec2& offset) con
         m_needsLayout = false;
     }
     
-    // Get style and font provider via UIContext instead of deprecated singletons
     UIStyle* style = m_ownerContext ? m_ownerContext->getCurrentStyle() : nullptr;
     IFontProvider* fontProvider = m_ownerContext ? m_ownerContext->getFontProvider() : nullptr;
     YUCHEN_ASSERT(style);
     YUCHEN_ASSERT(fontProvider);
     
-    FontHandle westernFont = m_hasCustomWesternFont ? m_westernFontHandle : style->getDefaultLabelFont();
-    FontHandle chineseFont = m_hasCustomChineseFont ? m_chineseFontHandle : fontProvider->getDefaultCJKFont();
+    FontFallbackChain fallbackChain = m_hasCustomFont
+        ? m_fontChain
+        : style->getDefaultLabelFontChain();
+    
     Vec4 textColor = m_hasCustomTextColor ? m_textColor : style->getDefaultTextColor();
     
     Rect absoluteBounds(
@@ -71,7 +70,7 @@ void TextBlock::addDrawCommands(RenderList& commandList, const Vec2& offset) con
             absoluteBounds.x + line.position.x,
             absoluteBounds.y + line.position.y
         );
-        commandList.drawText(line.text.c_str(), position, westernFont, chineseFont, m_fontSize, textColor);
+        commandList.drawText(line.text.c_str(), position, fallbackChain, m_fontSize, textColor);
     }
     
     commandList.popClipRect();
@@ -88,51 +87,42 @@ void TextBlock::setText(const char* text) {
     setText(std::string(text));
 }
 
-void TextBlock::setWesternFont(FontHandle fontHandle) {
+void TextBlock::setFont(FontHandle fontHandle) {
     IFontProvider* fontProvider = m_ownerContext ? m_ownerContext->getFontProvider() : nullptr;
-    if (fontProvider && fontProvider->isValidFont(fontHandle)) {
-        m_westernFontHandle = fontHandle;
-        m_hasCustomWesternFont = true;
-        m_needsLayout = true;
+    
+    if (!fontProvider || !fontProvider->isValidFont(fontHandle)) {
+        return;
     }
-}
-
-FontHandle TextBlock::getWesternFont() const {
-    if (m_hasCustomWesternFont) {
-        return m_westernFontHandle;
-    }
-    // Get default font via UIContext instead of deprecated singleton
-    UIStyle* style = m_ownerContext ? m_ownerContext->getCurrentStyle() : nullptr;
-    return style ? style->getDefaultLabelFont() : INVALID_FONT_HANDLE;
-}
-
-void TextBlock::resetWesternFont() {
-    m_hasCustomWesternFont = false;
-    m_westernFontHandle = INVALID_FONT_HANDLE;
+    
+    // 自动构建带 CJK fallback 的链
+    FontHandle cjkFont = fontProvider->getDefaultCJKFont();
+    m_fontChain = FontFallbackChain(fontHandle, cjkFont);
+    m_hasCustomFont = true;
     m_needsLayout = true;
 }
 
-void TextBlock::setChineseFont(FontHandle fontHandle) {
-    IFontProvider* fontProvider = m_ownerContext ? m_ownerContext->getFontProvider() : nullptr;
-    if (fontProvider && fontProvider->isValidFont(fontHandle)) {
-        m_chineseFontHandle = fontHandle;
-        m_hasCustomChineseFont = true;
-        m_needsLayout = true;
+void TextBlock::setFontChain(const FontFallbackChain& chain) {
+    if (!chain.isValid()) {
+        return;
     }
+    
+    m_fontChain = chain;
+    m_hasCustomFont = true;
+    m_needsLayout = true;
 }
 
-FontHandle TextBlock::getChineseFont() const {
-    if (m_hasCustomChineseFont) {
-        return m_chineseFontHandle;
+FontFallbackChain TextBlock::getFontChain() const {
+    if (m_hasCustomFont) {
+        return m_fontChain;
     }
-    // Get default font via UIContext instead of deprecated singleton
-    IFontProvider* fontProvider = m_ownerContext ? m_ownerContext->getFontProvider() : nullptr;
-    return fontProvider ? fontProvider->getDefaultCJKFont() : INVALID_FONT_HANDLE;
+    
+    UIStyle* style = m_ownerContext ? m_ownerContext->getCurrentStyle() : nullptr;
+    return style ? style->getDefaultLabelFontChain() : FontFallbackChain();
 }
 
-void TextBlock::resetChineseFont() {
-    m_hasCustomChineseFont = false;
-    m_chineseFontHandle = INVALID_FONT_HANDLE;
+void TextBlock::resetFont() {
+    m_fontChain.clear();
+    m_hasCustomFont = false;
     m_needsLayout = true;
 }
 
@@ -275,7 +265,10 @@ void TextBlock::layoutText() const {
     YUCHEN_ASSERT(fontProvider);
     YUCHEN_ASSERT(style);
     
-    FontHandle westernFont = m_hasCustomWesternFont ? m_westernFontHandle : style->getDefaultLabelFont();
+    FontFallbackChain fallbackChain = m_hasCustomFont
+        ? m_fontChain
+        : style->getDefaultLabelFontChain();
+    FontHandle westernFont = fallbackChain.getPrimary();
     FontMetrics metrics = fontProvider->getFontMetrics(westernFont, m_fontSize);
     
     float lineHeight[[maybe_unused]] = metrics.lineHeight * m_lineHeightMultiplier;
@@ -355,7 +348,10 @@ void TextBlock::layoutParagraph(const std::string& paragraph, float startY, std:
     YUCHEN_ASSERT(style);
     
     if (paragraph.empty()) {
-        FontHandle westernFont = m_hasCustomWesternFont ? m_westernFontHandle : style->getDefaultLabelFont();
+        FontFallbackChain fallbackChain = m_hasCustomFont
+            ? m_fontChain
+            : style->getDefaultLabelFontChain();
+        FontHandle westernFont = fallbackChain.getPrimary();
         FontMetrics metrics = fontProvider->getFontMetrics(westernFont, m_fontSize);
         float lineHeight = metrics.lineHeight * m_lineHeightMultiplier;
         
@@ -368,7 +364,10 @@ void TextBlock::layoutParagraph(const std::string& paragraph, float startY, std:
         return;
     }
     
-    FontHandle westernFont = m_hasCustomWesternFont ? m_westernFontHandle : style->getDefaultLabelFont();
+    FontFallbackChain fallbackChain = m_hasCustomFont
+        ? m_fontChain
+        : style->getDefaultLabelFontChain();
+    FontHandle westernFont = fallbackChain.getPrimary();
     FontMetrics metrics = fontProvider->getFontMetrics(westernFont, m_fontSize);
     
     float lineHeight = metrics.lineHeight * m_lineHeightMultiplier;

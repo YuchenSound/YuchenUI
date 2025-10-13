@@ -425,30 +425,7 @@ public:
         @returns Symbol font handle, or INVALID_FONT_HANDLE if not available
     */
     FontHandle getSymbolFont() const { return m_symbolFont; }
-    
-    /**
-        Selects appropriate font for given character (legacy method).
-        
-        @deprecated Use selectFontForCodepoint() with FontFallbackChain instead.
-        
-        This legacy method only chooses between Western and CJK fonts.
-        For proper emoji and symbol support, use the new fallback chain system.
-        
-        Migration example:
-        @code
-        // Old code:
-        FontHandle font = fontManager.selectFontForCharacter(codepoint);
-        
-        // New code:
-        FontFallbackChain chain = fontManager.createDefaultFallbackChain();
-        FontHandle font = fontManager.selectFontForCodepoint(codepoint, chain);
-        @endcode
-        
-        @param codepoint  Unicode code point
-        @returns Font handle for character (Western or CJK only)
-    */
-    [[deprecated("Use selectFontForCodepoint() with FontFallbackChain instead")]]
-    FontHandle selectFontForCharacter(uint32_t codepoint) const;
+
 
 private:
     //======================================================================================

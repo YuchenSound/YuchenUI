@@ -126,35 +126,7 @@ public:
                   const FontFallbackChain& fallbackChain,
                   float fontSize, const Vec4& color);
     
-    /**
-        Draws text with two fonts (legacy method).
-        
-        @deprecated Use drawText() with FontFallbackChain instead.
-        
-        This legacy method only handles Western and CJK fonts. For proper
-        emoji and symbol support, use the new fallback chain API.
-        
-        Migration example:
-        @code
-        // Old code:
-        cmdList.drawText("Hello世界", position, arialFont, cjkFont, 14.0f, color);
-        
-        // New code:
-        FontFallbackChain chain(arialFont, cjkFont);
-        cmdList.drawText("Hello世界", position, chain, 14.0f, color);
-        @endcode
-        
-        @param text         UTF-8 text string
-        @param position     Text baseline position
-        @param westernFont  Font for Western characters
-        @param chineseFont  Font for CJK characters
-        @param fontSize     Font size in points
-        @param color        Text color (RGBA)
-    */
-    [[deprecated("Use drawText() with FontFallbackChain instead")]]
-    void drawText(const char* text, const Vec2& position,
-                  FontHandle westernFont, FontHandle chineseFont,
-                  float fontSize, const Vec4& color);
+
     
     //======================================================================================
     // Image Drawing

@@ -9,6 +9,14 @@ namespace YuchenUI {
 
 class RenderList;
 
+/**
+    Text label widget with Qt-style font API.
+    
+    Version 3.0 Changes:
+    - Replaced setWesternFont()/setChineseFont() → setFont()/setFontChain()
+    - Simplified font management
+    - Automatic CJK and emoji fallback
+*/
 class TextLabel : public UIComponent {
 public:
     explicit TextLabel(const Rect& bounds);
@@ -18,17 +26,44 @@ public:
     bool handleMouseMove(const Vec2& position, const Vec2& offset = Vec2()) override { return false; }
     bool handleMouseClick(const Vec2& position, bool pressed, const Vec2& offset = Vec2()) override { return false; }
     
+    //======================================================================================
+    // Text API
+    
     void setText(const std::string& text);
     void setText(const char* text);
     const std::string& getText() const { return m_text; }
     
-    void setWesternFont(FontHandle fontHandle);
-    FontHandle getWesternFont() const;
-    void resetWesternFont();
+    //======================================================================================
+    // Font API (Qt-style, v3.0)
     
-    void setChineseFont(FontHandle fontHandle);
-    FontHandle getChineseFont() const;
-    void resetChineseFont();
+    /**
+        Sets label font with automatic fallback.
+        
+        @param fontHandle  Primary font handle
+    */
+    void setFont(FontHandle fontHandle);
+    
+    /**
+        Sets complete font fallback chain.
+        
+        @param chain  Font fallback chain
+    */
+    void setFontChain(const FontFallbackChain& chain);
+    
+    /**
+        Returns current font fallback chain.
+        
+        @returns Current font fallback chain
+    */
+    FontFallbackChain getFontChain() const;
+    
+    /**
+        Resets font to style default.
+    */
+    void resetFont();
+    
+    //======================================================================================
+    // Text Style API
     
     void setFontSize(float fontSize);
     float getFontSize() const { return m_fontSize; }
@@ -36,6 +71,9 @@ public:
     void setTextColor(const Vec4& color);
     Vec4 getTextColor() const;
     void resetTextColor();
+    
+    //======================================================================================
+    // Layout API
     
     void setBounds(const Rect& bounds);
     const Rect& getBounds() const override { return m_bounds; }
@@ -55,8 +93,7 @@ public:
     
 private:
     std::string m_text;
-    FontHandle m_westernFontHandle;
-    FontHandle m_chineseFontHandle;
+    FontFallbackChain m_fontChain;  // ✅ 新：统一的字体链
     float m_fontSize;
     Vec4 m_textColor;
     Rect m_bounds;
@@ -67,9 +104,7 @@ private:
     float m_paddingRight;
     float m_paddingBottom;
     
-    // 标记是否为用户自定义
-    bool m_hasCustomWesternFont;
-    bool m_hasCustomChineseFont;
+    bool m_hasCustomFont;        // ✅ 新：简化为一个标志
     bool m_hasCustomTextColor;
 };
 

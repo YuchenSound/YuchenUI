@@ -37,7 +37,6 @@ void RadioButton::addDrawCommands(RenderList& commandList, const Vec2& offset) c
     
     Vec2 absPos(m_bounds.x + offset.x, m_bounds.y + offset.y);
     
-    // Get style via UIContext instead of deprecated ThemeManager singleton
     UIStyle* style = m_ownerContext ? m_ownerContext->getCurrentStyle() : nullptr;
     YUCHEN_ASSERT(style);
     
@@ -53,20 +52,20 @@ void RadioButton::addDrawCommands(RenderList& commandList, const Vec2& offset) c
         IFontProvider* fontProvider = m_ownerContext ? m_ownerContext->getFontProvider() : nullptr;
         YUCHEN_ASSERT(fontProvider);
         
-        FontHandle westernFont = style->getDefaultLabelFont();
-        FontHandle chineseFont = fontProvider->getDefaultCJKFont();
+        FontFallbackChain fallbackChain = style->getDefaultLabelFontChain();
+        
         Vec4 textColor = m_hasCustomTextColor ? m_textColor : style->getDefaultTextColor();
         
         if (!m_isEnabled) {
             textColor = Vec4::FromRGBA(255,255,255,255);
         }
         
-        FontMetrics metrics = fontProvider->getFontMetrics(westernFont, m_fontSize);
+        FontMetrics metrics = fontProvider->getFontMetrics(fallbackChain.getPrimary(), m_fontSize);
         float textX = absPos.x + RADIO_SIZE + TEXT_SPACING;
         float textY = absPos.y + (RADIO_SIZE - metrics.lineHeight) * 0.5f + metrics.ascender;
         
         commandList.drawText(m_text.c_str(), Vec2(textX, textY),
-                           westernFont, chineseFont, m_fontSize, textColor);
+                           fallbackChain, m_fontSize, textColor);
     }
     
     drawFocusIndicator(commandList, offset);

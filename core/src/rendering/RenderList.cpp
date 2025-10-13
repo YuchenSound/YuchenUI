@@ -103,28 +103,6 @@ void RenderList::drawText(const char* text, const Vec2& position,
     addCommand(cmd);
 }
 
-//==========================================================================================
-// Text Drawing (Legacy API)
-
-void RenderList::drawText(const char* text, const Vec2& position,
-                          FontHandle westernFont, FontHandle chineseFont,
-                          float fontSize, const Vec4& color)
-{
-    YUCHEN_ASSERT(text);
-    YUCHEN_ASSERT(position.isValid());
-    YUCHEN_ASSERT(westernFont != INVALID_FONT_HANDLE);
-    YUCHEN_ASSERT(chineseFont != INVALID_FONT_HANDLE);
-    YUCHEN_ASSERT(fontSize > 0.0f);
-    YUCHEN_ASSERT(color.isValid());
-    
-    size_t textLength [[maybe_unused]] = strlen(text);
-    YUCHEN_ASSERT(textLength > 0 && textLength <= Config::Text::MAX_LENGTH);
-    
-    // Convert to new API by building fallback chain
-    FontFallbackChain fallbackChain(westernFont, chineseFont);
-    RenderCommand cmd = RenderCommand::CreateDrawText(text, position, fallbackChain, fontSize, color);
-    addCommand(cmd);
-}
 
 //==========================================================================================
 // Image Drawing

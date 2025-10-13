@@ -103,7 +103,8 @@ void TextInput::addDrawCommands(RenderList& commandList, const Vec2& offset) con
     IFontProvider* fontProvider = m_ownerContext ? m_ownerContext->getFontProvider() : nullptr;
     YUCHEN_ASSERT(fontProvider);
     
-    FontHandle westernFont = style->getDefaultLabelFont();
+    FontFallbackChain fallbackChain = style->getDefaultLabelFontChain();
+    FontHandle westernFont = fallbackChain.getPrimary();
     FontMetrics metrics = fontProvider->getFontMetrics(westernFont, m_fontSize);
     
     float contentHeight = m_bounds.height - m_paddingTop - m_paddingBottom;
@@ -890,7 +891,8 @@ Rect TextInput::getInputMethodCursorRect() const {
         return Rect();
     }
     
-    FontHandle westernFont = style->getDefaultLabelFont();
+    FontFallbackChain fallbackChain = style->getDefaultLabelFontChain();
+    FontHandle westernFont = fallbackChain.getPrimary();
     FontMetrics metrics = fontProvider->getFontMetrics(westernFont, m_fontSize);
     
     float contentHeight = m_bounds.height - m_paddingTop - m_paddingBottom;

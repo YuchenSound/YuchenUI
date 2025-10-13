@@ -502,25 +502,6 @@ FontHandle FontManager::selectFontForCodepoint(
 }
 
 //==========================================================================================
-// Legacy Font Selection (Deprecated)
-
-FontHandle FontManager::selectFontForCharacter(uint32_t codepoint) const
-{
-    YUCHEN_ASSERT_MSG(m_isInitialized, "FontManager not initialized");
-    
-    // Legacy implementation: only chooses between Western and CJK
-    // This does not support emoji or symbols properly
-    if (TextUtils::isWesternCharacter(codepoint))
-    {
-        return m_arialRegular;
-    }
-    else
-    {
-        return m_pingFangFont;
-    }
-}
-
-//==========================================================================================
 // Font Loading
 
 FontHandle FontManager::loadFontFromFile(const char* path, const char* name)

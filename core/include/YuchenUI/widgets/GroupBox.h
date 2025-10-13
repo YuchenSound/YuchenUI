@@ -8,6 +8,13 @@ namespace YuchenUI {
 
 class RenderList;
 
+/**
+    GroupBox widget with Qt-style font API.
+    
+    Version 3.0 Changes:
+    - Replaced setTitleFont() → setTitleFont()/setTitleFontChain()
+    - Automatic font fallback for title text
+*/
 class GroupBox : public Widget {
 public:
     explicit GroupBox(const Rect& bounds);
@@ -19,13 +26,44 @@ public:
     bool handleMouseClick(const Vec2& position, bool pressed, const Vec2& offset) override;
     bool handleMouseWheel(const Vec2& delta, const Vec2& position, const Vec2& offset) override;
     
+    //======================================================================================
+    // Title API
+    
     void setTitle(const std::string& title);
     void setTitle(const char* title);
     const std::string& getTitle() const { return m_title; }
     
+    //======================================================================================
+    // Title Font API (Qt-style, v3.0)
+    
+    /**
+        Sets title font with automatic fallback.
+        
+        @param fontHandle  Primary font handle for title
+    */
     void setTitleFont(FontHandle fontHandle);
-    FontHandle getTitleFont() const;
+    
+    /**
+        Sets complete font fallback chain for title.
+        
+        @param chain  Font fallback chain
+    */
+    void setTitleFontChain(const FontFallbackChain& chain);
+    
+    /**
+        Returns current title font fallback chain.
+        
+        @returns Current font fallback chain
+    */
+    FontFallbackChain getTitleFontChain() const;
+    
+    /**
+        Resets title font to style default.
+    */
     void resetTitleFont();
+    
+    //======================================================================================
+    // Title Style API
     
     void setTitleFontSize(float fontSize);
     float getTitleFontSize() const { return m_titleFontSize; }
@@ -33,6 +71,9 @@ public:
     void setTitleColor(const Vec4& color);
     Vec4 getTitleColor() const;
     void resetTitleColor();
+    
+    //======================================================================================
+    // Appearance API
     
     void setBackgroundColor(const Vec4& color);
     Vec4 getBackgroundColor() const;
@@ -53,7 +94,7 @@ public:
 
 private:
     std::string m_title;
-    FontHandle m_titleFont;
+    FontFallbackChain m_titleFontChain;  // ✅ 新：统一的字体链
     float m_titleFontSize;
     Vec4 m_titleColor;
     Vec4 m_backgroundColor;
@@ -61,8 +102,7 @@ private:
     float m_borderWidth;
     CornerRadius m_cornerRadius;
     
-    // 标记是否为用户自定义
-    bool m_hasCustomTitleFont;
+    bool m_hasCustomTitleFont;   // ✅ 新：简化为一个标志
     bool m_hasCustomTitleColor;
     bool m_hasCustomBackground;
     bool m_hasCustomBorderColor;

@@ -31,7 +31,6 @@ ComboBox::~ComboBox() {
 void ComboBox::addDrawCommands(RenderList& commandList, const Vec2& offset) const {
     if (!m_isVisible) return;
     
-    // Get style via UIContext instead of deprecated ThemeManager singleton
     UIStyle* style = m_ownerContext ? m_ownerContext->getCurrentStyle() : nullptr;
     IFontProvider* fontProvider = m_ownerContext ? m_ownerContext->getFontProvider() : nullptr;
     YUCHEN_ASSERT(style);
@@ -46,8 +45,9 @@ void ComboBox::addDrawCommands(RenderList& commandList, const Vec2& offset) cons
     info.isHovered = m_isHovered;
     info.isEnabled = m_isEnabled;
     info.theme = m_theme;
-    info.westernFont = fontProvider->getDefaultFont();
-    info.chineseFont = fontProvider->getDefaultCJKFont();
+    
+    info.fallbackChain = style->getDefaultLabelFontChain();
+    
     info.fontSize = 11.0f;
     
     style->drawComboBox(info, commandList);

@@ -187,8 +187,12 @@ public:
     */
     float measureText(const char* text, float fontSize) const;
 
-    //======================================================================================
+    //==========================================================================================
     /** Sets character size on FreeType face.
+        
+        Automatically detects and handles bitmap fonts (e.g., Apple Color Emoji).
+        - For bitmap fonts: Selects closest fixed size using FT_Select_Size()
+        - For vector fonts: Scales to exact size using FT_Set_Char_Size()
         
         Must be called before glyph loading operations. Uses Config::Font::FREETYPE_DPI
         for resolution.

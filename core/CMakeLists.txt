@@ -30,6 +30,10 @@ target_include_directories(YuchenUI PUBLIC
     $<INSTALL_INTERFACE:include>
 )
 
+target_include_directories(YuchenUI PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/generated>
+)
+
 source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}/include"
              PREFIX "Header Files"
              FILES ${YUCHEN_CORE_HEADERS})

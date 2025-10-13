@@ -297,38 +297,6 @@ public:
         IFontProvider* fontProvider
     );
     
-    //======================================================================================
-    // Legacy Text Segmentation (Deprecated)
-    
-    /**
-        Segments text by font requirements (legacy two-font method).
-        
-        @deprecated Use segmentTextWithFallback() with FontFallbackChain instead.
-        
-        This legacy method only handles Western vs CJK segmentation and cannot
-        properly handle emoji, symbols, or other special characters.
-        
-        Migration example:
-        @code
-        // Old code:
-        auto segments = TextUtils::segmentText(text, westernFont, chineseFont);
-        
-        // New code:
-        FontFallbackChain chain(westernFont, chineseFont);
-        auto segments = TextUtils::segmentTextWithFallback(text, chain, fontProvider);
-        @endcode
-        
-        @param text          UTF-8 text string
-        @param westernFont   Font for Western characters
-        @param chineseFont   Font for CJK characters
-        @returns Vector of text segments (Western/CJK only)
-    */
-    [[deprecated("Use segmentTextWithFallback() with FontFallbackChain instead")]]
-    static std::vector<TextSegment> segmentText(
-        const char* text,
-        FontHandle westernFont,
-        FontHandle chineseFont
-    );
 
 private:
     /**

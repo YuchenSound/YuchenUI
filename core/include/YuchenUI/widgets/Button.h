@@ -17,6 +17,27 @@ enum class ButtonRole {
     Cancel
 };
 
+/**
+    Button widget with Qt-style font API.
+    
+    Version 3.0 Changes:
+    - Replaced setWesternFont()/setChineseFont() → setFont()/setFontChain()
+    - Simplified from 4 font fields → 2 font fields
+    - Font fallback handled automatically
+    
+    Migration:
+    @code
+    // Old API
+    button->setWesternFont(arialFont);
+    button->setChineseFont(cjkFont);
+    
+    // New API (simpler)
+    button->setFont(arialFont);  // Automatically adds CJK fallback
+    
+    // Or explicit fallback chain
+    button->setFontChain(FontFallbackChain(arialFont, cjkFont));
+    @endcode
+*/
 class Button : public UIComponent {
 public:
     explicit Button(const Rect& bounds);
@@ -26,17 +47,58 @@ public:
     bool handleMouseMove(const Vec2& position, const Vec2& offset = Vec2()) override;
     bool handleMouseClick(const Vec2& position, bool pressed, const Vec2& offset = Vec2()) override;
     
+    //======================================================================================
+    // Text API
+    
     void setText(const std::string& text);
     void setText(const char* text);
     const std::string& getText() const { return m_text; }
     
-    void setWesternFont(FontHandle fontHandle);
-    FontHandle getWesternFont() const;
-    void resetWesternFont();
+    //======================================================================================
+    // Font API (Qt-style, v3.0)
     
-    void setChineseFont(FontHandle fontHandle);
-    FontHandle getChineseFont() const;
-    void resetChineseFont();
+    /**
+        Sets button font with automatic fallback.
+        
+        The system automatically adds appropriate CJK fallback fonts.
+        
+        @param fontHandle  Primary font handle
+    */
+    void setFont(FontHandle fontHandle);
+    
+    /**
+        Sets complete font fallback chain.
+        
+        For full control over font fallback, including emoji and symbol fonts.
+        
+        Example:
+        @code
+        FontFallbackChain chain(arialFont, cjkFont, emojiFont);
+        button->setFontChain(chain);
+        @endcode
+        
+        @param chain  Font fallback chain
+    */
+    void setFontChain(const FontFallbackChain& chain);
+    
+    /**
+        Returns current font fallback chain.
+        
+        If custom font not set, returns style's default button font chain.
+        
+        @returns Current font fallback chain
+    */
+    FontFallbackChain getFontChain() const;
+    
+    /**
+        Resets font to style default.
+        
+        Clears any custom font and uses style's default button font chain.
+    */
+    void resetFont();
+    
+    //======================================================================================
+    // Text Style API
     
     void setFontSize(float fontSize);
     float getFontSize() const { return m_fontSize; }
@@ -45,8 +107,14 @@ public:
     Vec4 getTextColor() const;
     void resetTextColor();
     
+    //======================================================================================
+    // Geometry API
+    
     void setBounds(const Rect& bounds);
     const Rect& getBounds() const override { return m_bounds; }
+    
+    //======================================================================================
+    // Button Behavior API
     
     void setRole(ButtonRole role);
     ButtonRole getRole() const { return m_role; }
@@ -60,8 +128,7 @@ protected:
     
 private:
     std::string m_text;
-    FontHandle m_westernFontHandle;
-    FontHandle m_chineseFontHandle;
+    FontFallbackChain m_fontChain;  // ✅ 新：统一的字体链
     float m_fontSize;
     Vec4 m_textColor;
     
@@ -73,8 +140,7 @@ private:
     
     ButtonClickCallback m_clickCallback;
     
-    bool m_hasCustomWesternFont;
-    bool m_hasCustomChineseFont;
+    bool m_hasCustomFont;        // ✅ 新：简化为一个标志
     bool m_hasCustomTextColor;
 };
 

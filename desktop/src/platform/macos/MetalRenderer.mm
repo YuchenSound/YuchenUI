@@ -1085,8 +1085,7 @@ void MetalRenderer::executeRenderCommands(const RenderList& commandList)
                 // Shape text and generate vertices
                 ShapedText shapedText;
                 m_textRenderer->shapeText(cmd.text.c_str(),
-                                          cmd.westernFont,
-                                          cmd.chineseFont,
+                                          cmd.fontFallbackChain,
                                           cmd.fontSize,
                                           shapedText);
                 if (!shapedText.isEmpty())
@@ -1095,7 +1094,7 @@ void MetalRenderer::executeRenderCommands(const RenderList& commandList)
                     m_textRenderer->generateTextVertices(shapedText,
                                                          cmd.textPosition,
                                                          cmd.textColor,
-                                                         cmd.westernFont,
+                                                         cmd.fontFallbackChain,
                                                          cmd.fontSize,
                                                          vertices);
                     

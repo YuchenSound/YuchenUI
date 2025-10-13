@@ -10,8 +10,7 @@ namespace YuchenUI {
 
 TextLabel::TextLabel(const Rect& bounds)
     : m_text()
-    , m_westernFontHandle(INVALID_FONT_HANDLE)
-    , m_chineseFontHandle(INVALID_FONT_HANDLE)
+    , m_fontChain()              // ✅ 新：统一的字体链
     , m_fontSize(Config::Font::DEFAULT_SIZE)
     , m_textColor()
     , m_bounds(bounds)
@@ -21,8 +20,7 @@ TextLabel::TextLabel(const Rect& bounds)
     , m_paddingTop(Config::Text::DEFAULT_PADDING)
     , m_paddingRight(Config::Text::DEFAULT_PADDING)
     , m_paddingBottom(Config::Text::DEFAULT_PADDING)
-    , m_hasCustomWesternFont(false)
-    , m_hasCustomChineseFont(false)
+    , m_hasCustomFont(false)     // ✅ 新：统一的标志
     , m_hasCustomTextColor(false)
 {
     Validation::AssertRect(bounds);
@@ -35,18 +33,20 @@ TextLabel::~TextLabel() {
 void TextLabel::addDrawCommands(RenderList& commandList, const Vec2& offset) const {
     if (!isVisible() || m_text.empty()) return;
     
-    // Get style and font provider via UIContext instead of deprecated singletons
     UIStyle* style = m_ownerContext ? m_ownerContext->getCurrentStyle() : nullptr;
     IFontProvider* fontProvider = m_ownerContext ? m_ownerContext->getFontProvider() : nullptr;
     YUCHEN_ASSERT(style);
     YUCHEN_ASSERT(fontProvider);
     
-    FontHandle westernFont = m_hasCustomWesternFont ? m_westernFontHandle : style->getDefaultLabelFont();
-    FontHandle chineseFont = m_hasCustomChineseFont ? m_chineseFontHandle : fontProvider->getDefaultCJKFont();
+    // ✅ 使用新 API：直接获取 fallback chain
+    FontFallbackChain fallbackChain = m_hasCustomFont
+        ? m_fontChain
+        : style->getDefaultLabelFontChain();
+    
     Vec4 textColor = m_hasCustomTextColor ? m_textColor : style->getDefaultTextColor();
     
     Vec2 textSize = fontProvider->measureText(m_text.c_str(), m_fontSize);
-    FontMetrics metrics = fontProvider->getFontMetrics(westernFont, m_fontSize);
+    FontMetrics metrics = fontProvider->getFontMetrics(fallbackChain.getPrimary(), m_fontSize);
     
     Rect contentRect(
         m_paddingLeft,
@@ -95,7 +95,7 @@ void TextLabel::addDrawCommands(RenderList& commandList, const Vec2& offset) con
     }
 
     commandList.pushClipRect(absoluteBounds);
-    commandList.drawText(m_text.c_str(), position, westernFont, chineseFont, m_fontSize, textColor);
+    commandList.drawText(m_text.c_str(), position, fallbackChain, m_fontSize, textColor);
     commandList.popClipRect();
 }
 
@@ -107,48 +107,40 @@ void TextLabel::setText(const char* text) {
     setText(std::string(text));
 }
 
-void TextLabel::setWesternFont(FontHandle fontHandle) {
+void TextLabel::setFont(FontHandle fontHandle) {
     IFontProvider* fontProvider = m_ownerContext ? m_ownerContext->getFontProvider() : nullptr;
-    if (fontProvider && fontProvider->isValidFont(fontHandle)) {
-        m_westernFontHandle = fontHandle;
-        m_hasCustomWesternFont = true;
+    
+    if (!fontProvider || !fontProvider->isValidFont(fontHandle)) {
+        return;
     }
+    
+    // 自动构建带 CJK fallback 的链
+    FontHandle cjkFont = fontProvider->getDefaultCJKFont();
+    m_fontChain = FontFallbackChain(fontHandle, cjkFont);
+    m_hasCustomFont = true;
 }
 
-FontHandle TextLabel::getWesternFont() const {
-    if (m_hasCustomWesternFont) {
-        return m_westernFontHandle;
+void TextLabel::setFontChain(const FontFallbackChain& chain) {
+    if (!chain.isValid()) {
+        return;
     }
-    // Get default font via UIContext instead of deprecated singleton
+    
+    m_fontChain = chain;
+    m_hasCustomFont = true;
+}
+
+FontFallbackChain TextLabel::getFontChain() const {
+    if (m_hasCustomFont) {
+        return m_fontChain;
+    }
+    
     UIStyle* style = m_ownerContext ? m_ownerContext->getCurrentStyle() : nullptr;
-    return style ? style->getDefaultLabelFont() : INVALID_FONT_HANDLE;
+    return style ? style->getDefaultLabelFontChain() : FontFallbackChain();
 }
 
-void TextLabel::resetWesternFont() {
-    m_hasCustomWesternFont = false;
-    m_westernFontHandle = INVALID_FONT_HANDLE;
-}
-
-void TextLabel::setChineseFont(FontHandle fontHandle) {
-    IFontProvider* fontProvider = m_ownerContext ? m_ownerContext->getFontProvider() : nullptr;
-    if (fontProvider && fontProvider->isValidFont(fontHandle)) {
-        m_chineseFontHandle = fontHandle;
-        m_hasCustomChineseFont = true;
-    }
-}
-
-FontHandle TextLabel::getChineseFont() const {
-    if (m_hasCustomChineseFont) {
-        return m_chineseFontHandle;
-    }
-    // Get default font via UIContext instead of deprecated singleton
-    IFontProvider* fontProvider = m_ownerContext ? m_ownerContext->getFontProvider() : nullptr;
-    return fontProvider ? fontProvider->getDefaultCJKFont() : INVALID_FONT_HANDLE;
-}
-
-void TextLabel::resetChineseFont() {
-    m_hasCustomChineseFont = false;
-    m_chineseFontHandle = INVALID_FONT_HANDLE;
+void TextLabel::resetFont() {
+    m_fontChain.clear();
+    m_hasCustomFont = false;
 }
 
 void TextLabel::setFontSize(float fontSize) {

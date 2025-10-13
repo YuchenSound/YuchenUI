@@ -50,7 +50,6 @@ SpinBox::~SpinBox() {
 void SpinBox::addDrawCommands(RenderList& commandList, const Vec2& offset) const {
     if (!m_isVisible) return;
 
-    // Get font provider and style via UIContext instead of deprecated singletons
     IFontProvider* fontProvider = m_ownerContext ? m_ownerContext->getFontProvider() : nullptr;
     UIStyle* style = m_ownerContext ? m_ownerContext->getCurrentStyle() : nullptr;
     YUCHEN_ASSERT(fontProvider);
@@ -74,8 +73,9 @@ void SpinBox::addDrawCommands(RenderList& commandList, const Vec2& offset) const
         SpinBoxDrawInfo drawInfo;
         drawInfo.bounds = absRect;
         drawInfo.displayText = displayText;
-        drawInfo.westernFont = style->getDefaultLabelFont();
-        drawInfo.chineseFont = fontProvider->getDefaultCJKFont();
+        
+        drawInfo.fallbackChain = style->getDefaultLabelFontChain();
+        
         drawInfo.fontSize = m_fontSize;
         drawInfo.isEditing = m_isEditing;
         drawInfo.isHovered = m_isHovered;

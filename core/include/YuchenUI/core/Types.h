@@ -621,8 +621,7 @@ struct RenderCommand
     // Text commands (legacy - two font slots)
     Vec2 textPosition;
     std::string text;
-    FontHandle westernFont;  ///< @deprecated Use fontFallbackChain instead
-    FontHandle chineseFont;  ///< @deprecated Use fontFallbackChain instead
+
     float fontSize;
     Vec4 textColor;
     
@@ -657,8 +656,6 @@ struct RenderCommand
         , borderWidth(0.0f)
         , textPosition()
         , text()
-        , westernFont(INVALID_FONT_HANDLE)
-        , chineseFont(INVALID_FONT_HANDLE)
         , fontSize(11.0f)
         , textColor()
         , fontFallbackChain()
@@ -741,57 +738,7 @@ struct RenderCommand
         cmd.textColor = textColor;
         
         // Set legacy fields for compatibility
-        cmd.westernFont = fallbackChain.getPrimary();
-        cmd.chineseFont = (fallbackChain.size() > 1) ? fallbackChain.getFont(1) : INVALID_FONT_HANDLE;
-        
-        return cmd;
-    }
-
-    /** Creates text rendering command with two fonts (legacy, deprecated).
-        
-        @deprecated Use CreateDrawText() with FontFallbackChain instead.
-                    This method is provided for backward compatibility only.
-        
-        Migration example:
-        @code
-        // Old code:
-        auto cmd = RenderCommand::CreateDrawText("Hello世界", pos, arialFont, cjkFont, 14.0f, color);
-        
-        // New code:
-        FontFallbackChain chain(arialFont, cjkFont);
-        auto cmd = RenderCommand::CreateDrawText("Hello世界", pos, chain, 14.0f, color);
-        @endcode
-        
-        @param text          Text string to render
-        @param position      Position to render at
-        @param westernFont   Font for Western characters
-        @param chineseFont   Font for CJK characters
-        @param fontSize      Font size in points
-        @param textColor     Text color
-        @returns Render command for text drawing
-    */
-    [[deprecated("Use CreateDrawText() with FontFallbackChain instead")]]
-    static RenderCommand CreateDrawText(const char* text, const Vec2& position,
-        FontHandle westernFont, FontHandle chineseFont,
-        float fontSize, const Vec4& textColor)
-    {
-        if (!text || !position.isValid() || fontSize <= 0.0f || !textColor.isValid()) {
-            RenderCommand cmd;
-            cmd.type = RenderCommandType::Clear;
-            return cmd;
-        }
-
-        RenderCommand cmd;
-        cmd.type = RenderCommandType::DrawText;
-        cmd.text = text;
-        cmd.textPosition = position;
-        cmd.westernFont = westernFont;
-        cmd.chineseFont = chineseFont;
-        cmd.fontSize = fontSize;
-        cmd.textColor = textColor;
-        
-        // Build fallback chain from legacy fonts for internal use
-        cmd.fontFallbackChain = FontFallbackChain(westernFont, chineseFont);
+        cmd.fontFallbackChain.getPrimary();
         
         return cmd;
     }

@@ -72,18 +72,6 @@ struct TextCacheKey {
     */
     TextCacheKey(const char* text, const FontFallbackChain& fallbackChain, float fontSize);
     
-    /** Creates cache key from text rendering parameters (legacy two-font version).
-        
-        @deprecated Use constructor with FontFallbackChain instead.
-        
-        @param text          UTF-8 text string
-        @param westernFont   Font handle for Western characters
-        @param chineseFont   Font handle for CJK characters
-        @param fontSize      Font size in points
-    */
-    [[deprecated("Use constructor with FontFallbackChain instead")]]
-    TextCacheKey(const char* text, FontHandle westernFont, FontHandle chineseFont, float fontSize);
-    
     bool operator==(const TextCacheKey& other) const { return hash == other.hash; }
 };
 
@@ -194,62 +182,15 @@ public:
                    float fontSize,
                    ShapedText& outShapedText);
     
-    /**
-        Shapes text string with two fonts (legacy method).
-        
-        @deprecated Use shapeText() with FontFallbackChain instead.
-        
-        This legacy method only handles Western and CJK fonts. For proper
-        emoji and symbol support, use the new fallback chain API.
-        
-        Migration example:
-        @code
-        // Old code:
-        ShapedText shaped;
-        renderer.shapeText("Hello世界", westernFont, cjkFont, 14.0f, shaped);
-        
-        // New code:
-        FontFallbackChain chain(westernFont, cjkFont);
-        renderer.shapeText("Hello世界", chain, 14.0f, shaped);
-        @endcode
-        
-        @param text          UTF-8 text string
-        @param westernFont   Font for Western characters
-        @param chineseFont   Font for CJK characters
-        @param fontSize      Font size in points
-        @param outShapedText Output shaped text result
-    */
-    [[deprecated("Use shapeText() with FontFallbackChain instead")]]
-    void shapeText(const char* text,
-                   FontHandle westernFont,
-                   FontHandle chineseFont,
-                   float fontSize,
-                   ShapedText& outShapedText);
-    
     //======================================================================================
     /** Generates GPU vertices for shaped text.
-        
-        For each glyph in shaped text:
-        1. Lookup in cache (rasterize if not cached)
-        2. Calculate screen position with bearing
-        3. Generate quad vertices with texture coordinates
-        
-        All vertices reference current glyph atlas texture. Must upload vertices
-        and bind atlas texture before rendering.
-        
-        @param shapedText    Shaped text from shapeText()
-        @param basePosition  Text baseline position in pixels
-        @param color         Text color (RGBA)
-        @param fontHandle    Font handle (currently unused, uses shaped glyph fonts)
-        @param fontSize      Font size in points
-        @param outVertices   Output vertex buffer (cleared and filled)
     */
-    void generateTextVertices(const ShapedText& shapedText,
-                              const Vec2& basePosition,
-                              const Vec4& color,
-                              FontHandle fontHandle,
-                              float fontSize,
-                              std::vector<TextVertex>& outVertices);
+    void generateTextVertices(const ShapedText& shaped,
+                             const Vec2& position,
+                             const Vec4& color,
+                             const FontFallbackChain& fontChain,
+                             float fontSize,
+                             std::vector<TextVertex>& vertices);
     
     //======================================================================================
     /** Returns opaque handle to current glyph atlas texture.
