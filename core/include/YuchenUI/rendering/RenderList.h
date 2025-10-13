@@ -33,6 +33,9 @@ namespace YuchenUI {
     - Deprecated legacy drawText() with two font handles
     - Enhanced validation for new text rendering commands
     
+    Version 2.1 Changes:
+    - Added drawImageRegion() for sprite sheet rendering
+    
     Key features:
     - Cache-friendly linear command storage
     - Validation on command insertion
@@ -134,6 +137,8 @@ public:
     /**
         Draws an image from resource identifier.
         
+        Draws the entire image resource to the destination rectangle.
+        
         @param resourceIdentifier  Resource name or path
         @param destRect           Destination rectangle
         @param scaleMode          Scaling mode (default: Stretch)
@@ -142,6 +147,25 @@ public:
     void drawImage(const char* resourceIdentifier, const Rect& destRect,
                    ScaleMode scaleMode = ScaleMode::Stretch,
                    const NineSliceMargins& nineSlice = NineSliceMargins());
+    
+    /**
+        Draws a region of an image (sprite sheet support).
+        
+        This overload allows rendering a portion of an image, useful for sprite sheets
+        and multi-frame animations. The source rectangle specifies which region of the
+        source texture to draw.
+        
+        Note: Nine-slice scaling is not supported when using explicit source rectangles.
+        
+        @param resourceIdentifier  Resource name or path
+        @param destRect           Destination rectangle in logical pixels
+        @param sourceRect         Source rectangle in logical pixels (region to sample)
+        @param scaleMode          Scaling mode (default: Stretch, NineSlice not supported)
+    */
+    void drawImageRegion(const char* resourceIdentifier,
+                         const Rect& destRect,
+                         const Rect& sourceRect,
+                         ScaleMode scaleMode = ScaleMode::Stretch);
     
     //======================================================================================
     // Shape Drawing

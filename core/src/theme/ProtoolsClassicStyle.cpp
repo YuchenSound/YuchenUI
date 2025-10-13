@@ -30,12 +30,14 @@
     [SECTION] - Frame
     [SECTION] - Group Box
     [SECTION] - Push Button
+    [SECTION] - Knob
     [SECTION] - Check Box
     [SECTION] - Radio Button
     [SECTION] - Text Input
     [SECTION] - Spin Box
     [SECTION] - Combo Box
     [SECTION] - Scrollbar
+    [SECTION] - LevelMeter
 */
 
 #include "YuchenUI/core/Assert.h"
@@ -51,7 +53,7 @@
 namespace YuchenUI {
 //==========================================================================================
 ProtoolsClassicStyle::ProtoolsClassicStyle()
-    : m_uiTextEnableColor(Vec4::FromRGBA(30, 30, 30, 255))
+    : m_uiTextEnabledColor(Vec4::FromRGBA(30, 30, 30, 255))
     , m_uiTextDisabledColor(Vec4::FromRGBA(160, 160, 160, 255))
     , m_uiThemeColorText(Vec4::FromRGBA(169, 231, 0, 255))
 {}
@@ -63,8 +65,8 @@ Vec4 ProtoolsClassicStyle::getWindowBackground(WindowType type) const
     switch (type)
     {
         case WindowType::Main:          return Vec4::FromRGBA(209, 209, 209, 255);
-        case WindowType::Dialog:        return Vec4::FromRGBA(60, 60, 60, 255);
-        case WindowType::ToolWindow:    return Vec4::FromRGBA(250, 250, 250, 255);
+        case WindowType::Dialog:        return Vec4::FromRGBA(60,  60,  60,  255);
+        case WindowType::ToolWindow:    return Vec4::FromRGBA(209, 209, 209, 255);
         default:                        return Vec4::FromRGBA(209, 209, 209, 255);
     }
 }
@@ -88,7 +90,7 @@ FontFallbackChain ProtoolsClassicStyle::getDefaultTitleFontChain() const
     IFontProvider* provider = getFontProvider();
     return FontFallbackChain(provider->getDefaultBoldFont(),provider->getDefaultCJKFont());
 }
-Vec4 ProtoolsClassicStyle::getDefaultTextColor() const { return m_uiTextEnableColor; }
+Vec4 ProtoolsClassicStyle::getDefaultTextColor() const { return m_uiTextEnabledColor; }
 
 //==========================================================================================
 // [SECTION] - Focus Indicator
@@ -150,9 +152,8 @@ void ProtoolsClassicStyle::drawNormalButton(const ButtonDrawInfo& info, RenderLi
         Vec2 textSize = fontProvider->measureText(info.text.c_str(), info.fontSize);
         FontHandle primaryFont = info.fallbackChain.getPrimary();
         FontMetrics metrics = fontProvider->getFontMetrics(primaryFont, info.fontSize);
-        Vec2 textPos(
-            info.bounds.x + (info.bounds.width - textSize.x) * 0.5f,
-            info.bounds.y + (info.bounds.height - metrics.lineHeight) * 0.5f + metrics.ascender
+        Vec2 textPos(info.bounds.x + (info.bounds.width - textSize.x) * 0.5f,
+                     info.bounds.y + (info.bounds.height - metrics.lineHeight) * 0.5f + metrics.ascender
         );
         Vec4 textColor = info.isEnabled ? Vec4::FromRGBA(255, 255, 255, 255) : m_uiTextDisabledColor;
         cmdList.drawText(info.text.c_str(), textPos, info.fallbackChain, info.fontSize, textColor);
@@ -177,7 +178,7 @@ void ProtoolsClassicStyle::drawPrimaryButton(const ButtonDrawInfo& info, RenderL
 void ProtoolsClassicStyle::drawDestructiveButton(const ButtonDrawInfo& info, RenderList &cmdList)
 {
     NineSliceMargins margins(4.0f, 4.0f, 4.0f, 4.0f);
-    cmdList.drawImage("components/buttons/btn_red@2x.png",info.bounds,ScaleMode::NineSlice,margins);
+    cmdList.drawImage("components/buttons/btn_red.png",info.bounds,ScaleMode::NineSlice,margins);
     if (!info.text.empty())
     {
         IFontProvider* fontProvider = getFontProvider();
@@ -192,21 +193,34 @@ void ProtoolsClassicStyle::drawDestructiveButton(const ButtonDrawInfo& info, Ren
 }
 
 //==========================================================================================
+// [SECTION] - Knob
+void ProtoolsClassicStyle::drawKnob(const KnobDrawInfo& info, RenderList& cmdList)
+{
+    std::string resourcePath = "components/knob/classical/knob_";
+    if   (info.type == KnobType::Centered) {resourcePath += "centered_";}
+    else {resourcePath += "no_centered_";}
+    if   (info.isActive) {resourcePath += "active_29frames.png";}
+    else {resourcePath += "inactive_29frames.png";}
+    Rect sourceRect(0.0f,info.frameSize.y * info.currentFrame,info.frameSize.x,info.frameSize.y);
+    cmdList.drawImageRegion(resourcePath.c_str(), info.bounds, sourceRect, ScaleMode::Stretch);
+}
+
+//==========================================================================================
 // [SECTION] - Check Box
 void ProtoolsClassicStyle::drawCheckBox(const CheckBoxDrawInfo& info, RenderList& cmdList)
 {
     std::string resourcePath = "components/checkbox/classical/checkbox_";
     if (!info.isEnabled)
     {
-        resourcePath += (info.state == CheckBoxState::Checked)      ?  "checked_disabled@2x.png" :
-                        (info.state == CheckBoxState::Indeterminate) ? "indeterminate_disabled@2x.png" :
-                                                                       "unchecked_disabled@2x.png";
+        resourcePath += (info.state == CheckBoxState::Checked)      ?  "checked_disabled.png" :
+                        (info.state == CheckBoxState::Indeterminate) ? "indeterminate_disabled.png" :
+                                                                       "unchecked_disabled.png";
     }
     else
     {
-        resourcePath += (info.state == CheckBoxState::Checked)      ?  "checked@2x.png" :
-                        (info.state == CheckBoxState::Indeterminate) ? "indeterminate@2x.png" :
-                                                                       "unchecked@2x.png";
+        resourcePath += (info.state == CheckBoxState::Checked)      ?  "checked.png" :
+                        (info.state == CheckBoxState::Indeterminate) ? "indeterminate.png" :
+                                                                       "unchecked.png";
     }
     cmdList.drawImage(resourcePath.c_str(), info.bounds, ScaleMode::Original);
 }
@@ -215,8 +229,8 @@ void ProtoolsClassicStyle::drawCheckBox(const CheckBoxDrawInfo& info, RenderList
 // [SECTION] - Radio Button
 void ProtoolsClassicStyle::drawRadioButton(const RadioButtonDrawInfo& info, RenderList& cmdList) {
     std::string resourcePath = "components/radio/classical/radio_";
-    if (!info.isEnabled){ resourcePath += (info.isChecked) ? "checked_disabled@2x.png" : "unchecked_disabled@2x.png"; }
-    else { resourcePath += (info.isChecked) ? "checked@2x.png" : "unchecked@2x.png"; }
+    if (!info.isEnabled){ resourcePath += (info.isChecked) ? "checked_disabled.png" : "unchecked_disabled.png"; }
+    else { resourcePath += (info.isChecked) ? "checked.png" : "unchecked.png"; }
     cmdList.drawImage(resourcePath.c_str(), info.bounds, ScaleMode::Original);
 }
 
@@ -241,7 +255,7 @@ void ProtoolsClassicStyle::drawTextInput(const TextInputDrawInfo& info, RenderLi
     {
         FontMetrics metrics = fontProvider->getFontMetrics(labelFont, info.fontSize);
         float textY = info.textY + metrics.ascender;
-        cmdList.drawText(info.text.c_str(), Vec2(info.textX, textY),fallbackChain, info.fontSize, m_uiTextEnableColor);
+        cmdList.drawText(info.text.c_str(), Vec2(info.textX, textY),fallbackChain, info.fontSize, m_uiTextEnabledColor);
     }
     else if (!info.placeholder.empty() && !info.hasFocus)
     {
@@ -254,7 +268,7 @@ void ProtoolsClassicStyle::drawTextInput(const TextInputDrawInfo& info, RenderLi
     {
         float cursorY1 = info.bounds.y + (info.bounds.height - info.cursorHeight) * 0.5f;
         float cursorY2 = cursorY1 + info.cursorHeight;
-        cmdList.drawLine(Vec2(info.cursorX, cursorY1), Vec2(info.cursorX, cursorY2),m_uiTextEnableColor, 1.0f);
+        cmdList.drawLine(Vec2(info.cursorX, cursorY1), Vec2(info.cursorX, cursorY2),m_uiTextEnabledColor, 1.0f);
     }
     cmdList.popClipRect();
 }
@@ -275,20 +289,12 @@ void ProtoolsClassicStyle::drawSpinBox(const SpinBoxDrawInfo& info, RenderList& 
     if (info.isEditing)
     {
         Vec2 textSize = fontProvider->measureText(info.displayText.c_str(), info.fontSize);
-        
-        Rect textBgRect(
-            textX - 1.0f,
-            info.bounds.y + info.paddingTop + (contentHeight - metrics.lineHeight) * 0.5f - 1.0f,
-            textSize.x + 2.0f,
-            metrics.lineHeight + 2.0f
-        );
-        
+        Rect textBgRect(textX-1.0f,info.bounds.y+info.paddingTop+(contentHeight-metrics.lineHeight) * 0.5f-1.0f,textSize.x+2.0f,metrics.lineHeight+2.0f);
         cmdList.fillRect(textBgRect, m_uiThemeColorText);
         textColor = Vec4::FromRGBA(50, 50, 50, 255);
     }
     cmdList.drawText(info.displayText.c_str(), Vec2(textX, textY),info.fallbackChain, info.fontSize, textColor);
 }
-Vec4 ProtoolsClassicStyle::getDefaultScrollAreaBackground() const { return Vec4::FromRGBA(255, 255, 255, 219); }
 
 //==========================================================================================
 // [SECTION] - Combo Box
@@ -301,7 +307,7 @@ void ProtoolsClassicStyle::drawComboBox(const ComboBoxDrawInfo& info, RenderList
     static constexpr float ARROW_MARGIN_RIGHT = 3.0f;
     static constexpr float ARROW_MARGIN_TOP   = 4.0f;
     Vec4 textColor;
-    const char* backgroundResource = "components/dropdown/dropdown_background_grey.png";
+    const char* backgroundResource = "components/combobox/combobox_background_grey.png";
     textColor = Vec4::FromRGBA(0, 0, 0, 255);
     NineSliceMargins margins(NINE_SLICE_MARGIN, NINE_SLICE_MARGIN, NINE_SLICE_MARGIN, NINE_SLICE_MARGIN);
     cmdList.drawImage(backgroundResource, info.bounds, ScaleMode::NineSlice, margins);
@@ -319,7 +325,7 @@ void ProtoolsClassicStyle::drawComboBox(const ComboBoxDrawInfo& info, RenderList
     float arrowX = info.bounds.x + info.bounds.width - ARROW_MARGIN_RIGHT - ARROW_BASE_SIZE;
     float arrowY = info.bounds.y + ARROW_MARGIN_TOP;
     Rect arrowRect(arrowX, arrowY, ARROW_BASE_SIZE, ARROW_HIGHT_SIZE);
-    cmdList.drawImage("components/dropdown/dropdown_triangle.png", arrowRect, ScaleMode::Original);
+    cmdList.drawImage("components/combobox/combobox_triangle.png", arrowRect, ScaleMode::Original);
 }
 
 //==========================================================================================
@@ -383,6 +389,31 @@ void ProtoolsClassicStyle::drawScrollbarButton(const ScrollbarButtonDrawInfo& in
         default:                            triangleColor = Vec4::FromRGBA(100, 100, 100, 255); break;
     }
     cmdList.fillTriangle(p1, p2, p3, triangleColor);
+}
+Vec4 ProtoolsClassicStyle::getDefaultScrollAreaBackground() const { return Vec4::FromRGBA(255, 255, 255, 219); }
+
+//==========================================================================================
+// [SECTION] - Level Meter
+LevelMeterColors ProtoolsClassicStyle::getLevelMeterColors() const
+{
+    LevelMeterColors colors;
+    colors.levelNormal                  = Vec4::FromRGBA(37,  173, 0,  255);
+    colors.levelWarning                 = Vec4::FromRGBA(109, 250, 0,  255);
+    colors.levelPeak                    = Vec4::FromRGBA(253, 190, 0,  255);
+    colors.bgNormal                     = Vec4::FromRGBA(52,  69,  2,  255);
+    colors.bgWarning                    = Vec4::FromRGBA(70,  67,  2,  255);
+    colors.bgPeak                       = Vec4::FromRGBA(67,  60,  33, 255);
+    colors.border                       = Vec4::FromRGBA(0,   0,   0,  255);
+    colors.peakIndicatorActive          = Vec4::FromRGBA(253, 190, 0,  255);
+    colors.peakIndicatorInactive        = Vec4::FromRGBA(49,  4,   1,  255);
+    colors.scaleColor                   = Vec4::FromRGBA(255, 255, 255,178); // 70% Transparent white text
+    colors.internalScaleNormalActive    = Vec4::FromRGBA(81,  203, 40, 255);
+    colors.internalScaleNormalInactive  = Vec4::FromRGBA(34,  81,  3,  255);
+    colors.internalScaleWarningActive   = Vec4::FromRGBA(47,  118, 0,  255);
+    colors.internalScaleWarningInactive = Vec4::FromRGBA(109, 82,  1,  255);
+    colors.internalScalePeakActive      = Vec4::FromRGBA(233, 156, 1,  255);
+    colors.internalScalePeakInactive    = Vec4::FromRGBA(109, 66,  18, 255);
+    return colors;
 }
 
 } // namespace YuchenUI

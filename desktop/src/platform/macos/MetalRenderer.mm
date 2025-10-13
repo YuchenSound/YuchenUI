@@ -1442,17 +1442,9 @@ void MetalRenderer::renderImageBatch(const std::vector<size_t>& commandIndices,
     
     @autoreleasepool
     {
-        // Apply scissor once for entire batch
-        if (hasClip)
-        {
-            applyScissorRect(clipRect);
-        }
-        else
-        {
-            applyFullScreenScissor();
-        }
+        if (hasClip) applyScissorRect(clipRect);
+        else applyFullScreenScissor();
         
-        // Accumulate all vertices for this batch
         std::vector<float> vertexData;
         vertexData.reserve(commandIndices.size() * 24);
         
@@ -1460,54 +1452,60 @@ void MetalRenderer::renderImageBatch(const std::vector<size_t>& commandIndices,
         {
             const auto& cmd = commands[idx];
             
-            // Get texture dimensions
             uint32_t texWidth = 0, texHeight = 0;
             float designScale = 1.0f;
             m_textureCache->getTexture(cmd.text.c_str(), texWidth, texHeight, &designScale);
             
-            // Use full texture if source rect not specified
             Rect sourceRect = cmd.sourceRect;
             if (sourceRect.width == 0.0f || sourceRect.height == 0.0f)
+            {
                 sourceRect = Rect(0, 0, texWidth, texHeight);
+            }
+            else
+            {
+                sourceRect.x *= designScale;
+                sourceRect.y *= designScale;
+                sourceRect.width *= designScale;
+                sourceRect.height *= designScale;
+            }
             
             Rect destRect = cmd.rect;
             
-            // Handle different scale modes
             if (cmd.scaleMode == ScaleMode::Original)
             {
-                // Display at original size (accounting for design scale)
                 float logicalWidth = sourceRect.width / designScale;
                 float logicalHeight = sourceRect.height / designScale;
                 float centerX = destRect.x + destRect.width * 0.5f;
                 float centerY = destRect.y + destRect.height * 0.5f;
-                destRect = Rect(centerX - logicalWidth * 0.5f, centerY - logicalHeight * 0.5f,
+                destRect = Rect(centerX - logicalWidth * 0.5f,
+                               centerY - logicalHeight * 0.5f,
                                logicalWidth, logicalHeight);
             }
             else if (cmd.scaleMode == ScaleMode::Fill)
             {
-                // Scale to fill while maintaining aspect ratio
                 float destAspect = destRect.width / destRect.height;
                 float srcAspect = sourceRect.width / sourceRect.height;
                 if (srcAspect > destAspect)
                 {
                     float newHeight = destRect.width / srcAspect;
-                    destRect = Rect(destRect.x, destRect.y + (destRect.height - newHeight) * 0.5f,
+                    destRect = Rect(destRect.x,
+                                   destRect.y + (destRect.height - newHeight) * 0.5f,
                                    destRect.width, newHeight);
                 }
                 else
                 {
                     float newWidth = destRect.height * srcAspect;
-                    destRect = Rect(destRect.x + (destRect.width - newWidth) * 0.5f, destRect.y,
-                                   newWidth, destRect.height);
+                    destRect = Rect(destRect.x + (destRect.width - newWidth) * 0.5f,
+                                   destRect.y, newWidth, destRect.height);
                 }
             }
             
-            // Generate vertices
             if (cmd.scaleMode == ScaleMode::NineSlice)
             {
                 YUCHEN_PERF_NINE_SLICE();
-                generateNineSliceVertices(texture, destRect, sourceRect, cmd.nineSliceMargins,
-                                         designScale, texWidth, texHeight, vertexData);
+                generateNineSliceVertices(texture, destRect, sourceRect,
+                                         cmd.nineSliceMargins, designScale,
+                                         texWidth, texHeight, vertexData);
             }
             else
             {
@@ -1518,17 +1516,15 @@ void MetalRenderer::renderImageBatch(const std::vector<size_t>& commandIndices,
         
         if (vertexData.empty()) return;
         
-        size_t vertexCount = vertexData.size() / 4;  // 4 floats per vertex (pos + texcoord)
+        size_t vertexCount = vertexData.size() / 4;
         
         YUCHEN_PERF_BUFFER_CREATE();
         YUCHEN_PERF_VERTICES(vertexCount);
         
-        // Create and bind vertex buffer
         id<MTLBuffer> vertexBuffer = [m_device newBufferWithBytes:vertexData.data()
                                                            length:vertexData.size() * sizeof(float)
                                                           options:MTLResourceStorageModeShared];
         
-        // Bind texture and sampler
         TextureWrapper* wrapper = (__bridge TextureWrapper*)texture;
         id<MTLTexture> mtlTexture = wrapper.texture;
         
@@ -1536,7 +1532,6 @@ void MetalRenderer::renderImageBatch(const std::vector<size_t>& commandIndices,
         [m_renderEncoder setFragmentTexture:mtlTexture atIndex:0];
         [m_renderEncoder setFragmentSamplerState:m_imageSampler atIndex:0];
         
-        // Setup viewport uniforms
         ViewportUniforms uniforms = getViewportUniforms();
         id<MTLBuffer> uniformBuffer = [m_device newBufferWithBytes:&uniforms
                                                             length:sizeof(ViewportUniforms)
@@ -1546,7 +1541,9 @@ void MetalRenderer::renderImageBatch(const std::vector<size_t>& commandIndices,
         [m_renderEncoder setVertexBuffer:uniformBuffer offset:0 atIndex:1];
         
         YUCHEN_PERF_DRAW_CALL();
-        [m_renderEncoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:vertexCount];
+        [m_renderEncoder drawPrimitives:MTLPrimitiveTypeTriangle
+                             vertexStart:0
+                             vertexCount:vertexCount];
     }
 }
 

@@ -164,27 +164,12 @@ public:
     
     //======================================================================================
     // Default Font Access
-    
-    /**
-        Returns default regular font handle.
-        
-        @returns Default regular font (e.g., Arial Regular)
-    */
-    virtual FontHandle getDefaultFont() const = 0;
-    
-    /**
-        Returns default bold font handle.
-        
-        @returns Default bold font (e.g., Arial Bold)
-    */
-    virtual FontHandle getDefaultBoldFont() const = 0;
-    
-    /**
-        Returns default CJK font handle.
-        
-        @returns Default CJK font (e.g., PingFang SC or Microsoft YaHei)
-    */
-    virtual FontHandle getDefaultCJKFont() const = 0;
+
+    virtual FontHandle getDefaultFont()             const = 0;
+    virtual FontHandle getDefaultBoldFont()         const = 0;
+    virtual FontHandle getDefaultNarrowFont()       const = 0;
+    virtual FontHandle getDefaultNarrowBoldFont()   const = 0;
+    virtual FontHandle getDefaultCJKFont()          const = 0;
     
     //======================================================================================
     // Internal Access (used by rendering backend)

@@ -245,6 +245,8 @@ YUCHEN_PACK_END
 //==========================================================================================
 // Font system types
 
+// OLD: const FontHandle INVALID_FONT_HANDLE = 0;
+// NEW: Use SIZE_MAX as invalid handle, allowing handle to start from 0
 typedef size_t FontHandle;
 const FontHandle INVALID_FONT_HANDLE = SIZE_MAX;
 

@@ -122,15 +122,14 @@ static std::unordered_set<uint32_t> s_warnedMissingGlyphs;
 
 FontManager::FontManager()
     : m_isInitialized(false)
-    , m_nextHandle(1)
     , m_fonts()
     , m_freeTypeLibrary(nullptr)
-    , m_arialRegular(INVALID_FONT_HANDLE)
-    , m_arialBold(INVALID_FONT_HANDLE)
-    , m_arialNarrowRegular(INVALID_FONT_HANDLE)
-    , m_arialNarrowBold(INVALID_FONT_HANDLE)
-    , m_pingFangFont(INVALID_FONT_HANDLE)
-    , m_symbolFont(INVALID_FONT_HANDLE)
+    , m_defaultRegularFont(INVALID_FONT_HANDLE)
+    , m_defaultBoldFont(INVALID_FONT_HANDLE)
+    , m_defaultNarrowFont(INVALID_FONT_HANDLE)
+    , m_defaultNarrowBoldFont(INVALID_FONT_HANDLE)
+    , m_defaultCJKFont(INVALID_FONT_HANDLE)
+    , m_defaultSymbolFont(INVALID_FONT_HANDLE)
     , m_glyphAvailabilityCache()
 {
     m_fonts.reserve(Config::Font::MAX_FONTS);
@@ -151,10 +150,25 @@ bool FontManager::initialize()
         return false;
     }
 
+    if (!m_fontDatabase.initialize(m_freeTypeLibrary))
+    {
+        std::cerr << "[FontManager] Failed to initialize font database" << std::endl;
+        cleanupFreeType();
+        return false;
+    }
+
+    int discoveredCount = m_fontDatabase.discoverAndRegisterFonts(m_fonts);
+    std::cout << "[FontManager] Discovered " << discoveredCount << " fonts" << std::endl;
+
     initializeFonts();
     loadSymbolFont();
     
     m_isInitialized = true;
+    
+    std::cout << "[FontManager] Initialization complete" << std::endl;
+    std::cout << "  - Total fonts: " << m_fonts.size() << std::endl;  // No need to subtract 1!
+    std::cout << "  - Font families: " << m_fontDatabase.families().size() << std::endl;
+    
     return true;
 }
 
@@ -162,45 +176,23 @@ void FontManager::destroy()
 {
     if (!m_isInitialized) return;
 
-    // Clear global caches
     s_measureTextCache.clear();
     s_fontMetricsCache.clear();
     s_warnedMissingGlyphs.clear();
-    
-    // Clear glyph availability cache
     m_glyphAvailabilityCache.clear();
 
-    // Clear fonts (destroys FontFile, FontFace, FontCache)
+    m_fontDatabase.shutdown();
+
     m_fonts.clear();
-    m_arialRegular = m_arialBold = m_arialNarrowRegular = m_arialNarrowBold = INVALID_FONT_HANDLE;
-    m_pingFangFont = m_symbolFont = INVALID_FONT_HANDLE;
-    
-    // 改为：
-    m_pingFangFont = m_symbolFont = INVALID_FONT_HANDLE;
-    
-    // Reset counter
-    m_nextHandle = 1;
-    
+    m_defaultRegularFont = INVALID_FONT_HANDLE;
+    m_defaultBoldFont = INVALID_FONT_HANDLE;
+    m_defaultNarrowFont = INVALID_FONT_HANDLE;
+    m_defaultNarrowBoldFont = INVALID_FONT_HANDLE;
+    m_defaultCJKFont = INVALID_FONT_HANDLE;
+    m_defaultSymbolFont = INVALID_FONT_HANDLE;
+        
     cleanupFreeType();
     m_isInitialized = false;
-}
-
-//==========================================================================================
-// IFontProvider Default Font Access
-
-FontHandle FontManager::getDefaultFont() const
-{
-    return m_arialRegular;
-}
-
-FontHandle FontManager::getDefaultBoldFont() const
-{
-    return m_arialBold;
-}
-
-FontHandle FontManager::getDefaultCJKFont() const
-{
-    return m_pingFangFont;
 }
 
 //==========================================================================================
@@ -231,59 +223,61 @@ void FontManager::cleanupFreeType()
 
 void FontManager::initializeFonts()
 {
-    // Load embedded Arial fonts from resources
-    const Resources::ResourceData* arialRegularRes = Resources::findResource("fonts/Arial_Regular.ttf");
-    const Resources::ResourceData* arialBoldRes = Resources::findResource("fonts/Arial_Bold.ttf");
-    const Resources::ResourceData* arialNarrowRegularRes = Resources::findResource("fonts/ArialNarrow_Regular.ttf");
-    const Resources::ResourceData* arialNarrowBoldRes = Resources::findResource("fonts/ArialNarrow_Bold.ttf");
-    
-    YUCHEN_ASSERT_MSG(arialRegularRes != nullptr, "Arial Regular resource not found");
-    YUCHEN_ASSERT_MSG(arialBoldRes != nullptr, "Arial Bold resource not found");
-    YUCHEN_ASSERT_MSG(arialNarrowRegularRes != nullptr, "Arial Narrow Regular resource not found");
-    YUCHEN_ASSERT_MSG(arialNarrowBoldRes != nullptr, "Arial Narrow Bold resource not found");
-    
-    m_arialRegular = loadFontFromMemory(arialRegularRes->data, arialRegularRes->size, "Arial_Regular");
-    m_arialBold = loadFontFromMemory(arialBoldRes->data, arialBoldRes->size, "Arial_Bold");
-    m_arialNarrowRegular = loadFontFromMemory(arialNarrowRegularRes->data, arialNarrowRegularRes->size, "ArialNarrow_Regular");
-    m_arialNarrowBold = loadFontFromMemory(arialNarrowBoldRes->data, arialNarrowBoldRes->size, "ArialNarrow_Bold");
-    
-    YUCHEN_ASSERT_MSG(m_arialRegular != INVALID_FONT_HANDLE, "Failed to load Arial Regular");
-    YUCHEN_ASSERT_MSG(m_arialBold != INVALID_FONT_HANDLE, "Failed to load Arial Bold");
-    YUCHEN_ASSERT_MSG(m_arialNarrowRegular != INVALID_FONT_HANDLE, "Failed to load Arial Narrow Regular");
-    YUCHEN_ASSERT_MSG(m_arialNarrowBold != INVALID_FONT_HANDLE, "Failed to load Arial Narrow Bold");
-    
-    // Load platform-specific CJK font
-#ifdef __APPLE__
-    std::string pingFangPath = getCoreTextFontPath("PingFang SC Regular");
-    if (!pingFangPath.empty())
+    m_defaultRegularFont    = m_fontDatabase.getFontForRole(FontRole::DefaultRegular);
+    m_defaultBoldFont       = m_fontDatabase.getFontForRole(FontRole::DefaultBold);
+    m_defaultNarrowFont     = m_fontDatabase.getFontForRole(FontRole::DefaultNarrow);
+    m_defaultNarrowBoldFont = m_fontDatabase.getFontForRole(FontRole::DefaultNarrow);
+    m_defaultCJKFont        = m_fontDatabase.getFontForRole(FontRole::CJK);
+    if (m_defaultRegularFont == INVALID_FONT_HANDLE)
     {
-        m_pingFangFont = loadFontFromFile(pingFangPath.c_str(), "PingFang SC Regular");
+        std::cerr << "[FontManager] CRITICAL: No default regular font found!" << std::endl;
+        if (!m_fonts.empty() && m_fonts[0].isValid)
+        {
+            m_defaultRegularFont = 0;
+            std::cerr << "[FontManager] Using first available font as emergency fallback" << std::endl;
+        }
     }
-#elif defined(_WIN32)
-    const char* msyhPath = "C:\\Windows\\Fonts\\msyh.ttc";
-    m_pingFangFont = loadFontFromFile(msyhPath, "Microsoft YaHei");
-#endif
     
-    // Fallback to Arial if system font unavailable
-    if (m_pingFangFont == INVALID_FONT_HANDLE)
-    {
-        std::cerr << "[FontManager] Warning: System CJK font not found, using Arial as fallback" << std::endl;
-        m_pingFangFont = m_arialRegular;
-    }
+    if (m_defaultBoldFont == INVALID_FONT_HANDLE)m_defaultBoldFont              = m_defaultRegularFont;
+    if (m_defaultNarrowFont == INVALID_FONT_HANDLE)m_defaultNarrowFont          = m_defaultRegularFont;
+    if (m_defaultNarrowBoldFont == INVALID_FONT_HANDLE)m_defaultNarrowBoldFont  = m_defaultBoldFont;
+    if (m_defaultCJKFont == INVALID_FONT_HANDLE)m_defaultCJKFont                = m_defaultRegularFont;
+    YUCHEN_ASSERT_MSG(m_defaultRegularFont != INVALID_FONT_HANDLE,"Failed to assign default regular font");
+    std::cout << "[FontManager] Font role assignment complete" << std::endl;
 }
 
 void FontManager::loadSymbolFont()
 {
+    m_defaultSymbolFont = m_fontDatabase.getFontForRole(FontRole::Symbol);
+    
+    if (m_defaultSymbolFont == INVALID_FONT_HANDLE)
+    {
 #ifdef __APPLE__
-    std::string symbolPath = getCoreTextFontPath("Apple Symbols");
-    if (!symbolPath.empty())
-        m_symbolFont = loadFontFromFile(symbolPath.c_str(), "Apple Symbols");
+        std::string symbolPath = getCoreTextFontPath("Apple Symbols");
+        if (!symbolPath.empty())
+        {
+            size_t fontIndex = m_fonts.size();
+            m_fonts.emplace_back();
+            m_defaultSymbolFont = m_fontDatabase.registerFont(
+                symbolPath.c_str(), "Apple Symbols", &m_fonts[fontIndex]);
+        }
 #elif defined(_WIN32)
-    m_symbolFont = loadFontFromFile("C:\\Windows\\Fonts\\seguisym.ttf", "Segoe UI Symbol");
+        // NEW: No need to pre-allocate, just append
+        size_t fontIndex = m_fonts.size();
+        m_fonts.emplace_back();
+        m_defaultSymbolFont = m_fontDatabase.registerFont(
+            "C:\\Windows\\Fonts\\seguisym.ttf", "Segoe UI Symbol", &m_fonts[fontIndex]);
 #endif
-
-    if (m_symbolFont == INVALID_FONT_HANDLE)
-        std::cerr << "Warning: Failed to load symbol font" << std::endl;
+    }
+    
+    if (m_defaultSymbolFont == INVALID_FONT_HANDLE)
+    {
+        std::cout << "[FontManager] Symbol font not available" << std::endl;
+    }
+    else
+    {
+        std::cout << "[FontManager] Symbol font loaded" << std::endl;
+    }
 }
 
 #ifdef __APPLE__
@@ -341,12 +335,12 @@ FontFallbackChain FontManager::createDefaultFallbackChain() const
     YUCHEN_ASSERT_MSG(m_isInitialized, "FontManager not initialized");
     
     FontFallbackChain chain;
-    chain.addFont(m_arialRegular);
-    chain.addFont(m_pingFangFont);
+    chain.addFont(m_defaultRegularFont);
+    chain.addFont(m_defaultCJKFont);
 
-    if (m_symbolFont != INVALID_FONT_HANDLE)
+    if (m_defaultSymbolFont != INVALID_FONT_HANDLE)
     {
-        chain.addFont(m_symbolFont);
+        chain.addFont(m_defaultSymbolFont);
     }
     
     return chain;
@@ -357,12 +351,12 @@ FontFallbackChain FontManager::createBoldFallbackChain() const
     YUCHEN_ASSERT_MSG(m_isInitialized, "FontManager not initialized");
     
     FontFallbackChain chain;
-    chain.addFont(m_arialBold);
-    chain.addFont(m_pingFangFont);  // PingFang doesn't have separate bold, uses same font
+    chain.addFont(m_defaultBoldFont);
+    chain.addFont(m_defaultCJKFont);  // PingFang doesn't have separate bold, uses same font
 
-    if (m_symbolFont != INVALID_FONT_HANDLE)
+    if (m_defaultSymbolFont != INVALID_FONT_HANDLE)
     {
-        chain.addFont(m_symbolFont);
+        chain.addFont(m_defaultSymbolFont);
     }
     
     return chain;
@@ -481,16 +475,11 @@ FontHandle FontManager::loadFontFromFile(const char* path, const char* name)
 {
     YUCHEN_ASSERT(path != nullptr);
     YUCHEN_ASSERT_MSG(m_fonts.size() < Config::Font::MAX_FONTS, "Maximum number of fonts reached");
-
-    FontHandle handle = generateFontHandle();
     
-    // Expand font vector if necessary
-    while (m_fonts.size() <= handle)
-    {
-        m_fonts.emplace_back();
-    }
-
+    FontHandle handle = static_cast<FontHandle>(m_fonts.size());
+    m_fonts.emplace_back();
     FontEntry& entry = m_fonts[handle];
+    
     entry.file = std::make_unique<FontFile>();
     entry.face = std::make_unique<FontFace>(m_freeTypeLibrary);
     entry.cache = std::make_unique<FontCache>();
@@ -499,12 +488,14 @@ FontHandle FontManager::loadFontFromFile(const char* path, const char* name)
     if (!entry.file->loadFromFile(path, name))
     {
         std::cerr << "[FontManager] Failed to load font file: " << path << std::endl;
+        m_fonts.pop_back();
         return INVALID_FONT_HANDLE;
     }
     
     if (!entry.face->createFromFontFile(*entry.file))
     {
         std::cerr << "[FontManager] Failed to create font face: " << name << std::endl;
+        m_fonts.pop_back();
         return INVALID_FONT_HANDLE;
     }
 
@@ -518,15 +509,10 @@ FontHandle FontManager::loadFontFromMemory(const void* data, size_t size, const 
     YUCHEN_ASSERT(size > 0);
     YUCHEN_ASSERT_MSG(m_fonts.size() < Config::Font::MAX_FONTS, "Maximum number of fonts reached");
 
-    FontHandle handle = generateFontHandle();
-    
-    // Expand font vector if necessary
-    while (m_fonts.size() <= handle)
-    {
-        m_fonts.emplace_back();
-    }
-
+    FontHandle handle = static_cast<FontHandle>(m_fonts.size());
+    m_fonts.emplace_back();
     FontEntry& entry = m_fonts[handle];
+    
     entry.file = std::make_unique<FontFile>();
     entry.face = std::make_unique<FontFace>(m_freeTypeLibrary);
     entry.cache = std::make_unique<FontCache>();
@@ -712,23 +698,67 @@ void* FontManager::getHarfBuzzFont(FontHandle handle, float fontSize, float dpiS
     return static_cast<void*>(entry->cache->getHarfBuzzFont(*entry->face, scaledFontSize));
 }
 
-FontHandle FontManager::generateFontHandle()
-{
-    FontHandle handle = m_nextHandle++;
-    YUCHEN_ASSERT_MSG(handle != INVALID_FONT_HANDLE, "Font handle overflow");
-    return handle;
-}
-
 FontEntry* FontManager::getFontEntry(FontHandle handle)
 {
-    if (handle >= m_fonts.size() || handle == INVALID_FONT_HANDLE) return nullptr;
+    if (handle == INVALID_FONT_HANDLE) return nullptr;
+    if (handle >= m_fonts.size()) return nullptr;
     return &m_fonts[handle];
 }
 
 const FontEntry* FontManager::getFontEntry(FontHandle handle) const
 {
-    if (handle >= m_fonts.size() || handle == INVALID_FONT_HANDLE) return nullptr;
+    if (handle == INVALID_FONT_HANDLE) return nullptr;
+    if (handle >= m_fonts.size()) return nullptr;
     return &m_fonts[handle];
+}
+
+FontHandle FontManager::findFont(const char* familyName, FontWeight weight,
+                                  FontStyle style) const
+{
+    YUCHEN_ASSERT_MSG(m_isInitialized, "FontManager not initialized");
+    return m_fontDatabase.findFont(familyName, weight, style);
+}
+
+std::vector<std::string> FontManager::availableFontFamilies() const
+{
+    YUCHEN_ASSERT_MSG(m_isInitialized, "FontManager not initialized");
+    return m_fontDatabase.families();
+}
+
+std::vector<FontDescriptor> FontManager::fontsForFamily(const char* familyName) const
+{
+    YUCHEN_ASSERT_MSG(m_isInitialized, "FontManager not initialized");
+    return m_fontDatabase.fontsForFamily(familyName);
+}
+
+void FontManager::printAvailableFonts() const
+{
+    YUCHEN_ASSERT_MSG(m_isInitialized, "FontManager not initialized");
+    
+    auto families = m_fontDatabase.families();
+    
+    std::cout << "\n========== Available Fonts ==========" << std::endl;
+    std::cout << "Total families: " << families.size() << std::endl;
+    std::cout << "=====================================" << std::endl;
+    
+    for (const auto& family : families)
+    {
+        std::cout << "\nFamily: " << family << std::endl;
+        
+        auto fonts = m_fontDatabase.fontsForFamily(family.c_str());
+        for (const auto& font : fonts)
+        {
+            std::cout << "  - " << font.fullName
+                      << " (Weight: " << static_cast<int>(font.weight)
+                      << ", Style: " << (font.style == FontStyle::Italic ? "Italic" :
+                                        font.style == FontStyle::Oblique ? "Oblique" : "Normal")
+                      << ", Glyphs: " << font.numGlyphs
+                      << ", " << (font.hasColorGlyphs ? "Color" : "Monochrome")
+                      << ")" << std::endl;
+        }
+    }
+    
+    std::cout << "\n=====================================" << std::endl;
 }
 
 } // namespace YuchenUI

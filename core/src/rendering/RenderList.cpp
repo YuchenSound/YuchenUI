@@ -29,6 +29,10 @@
     - Added drawText() implementation with FontFallbackChain support
     - Updated validation logic for new text command format
     - Legacy drawText() converts to new format internally
+    
+    Version 2.1 Changes:
+    - Added drawImageRegion() for sprite sheet support
+    - Updated validation to handle both full image and region rendering
 */
 
 #include "YuchenUI/rendering/RenderList.h"
@@ -119,9 +123,33 @@ void RenderList::drawImage(const char* resourceIdentifier, const Rect& destRect,
     cmd.rect = destRect;
     cmd.text = resourceIdentifier;
     cmd.scaleMode = scaleMode;
-    cmd.sourceRect = Rect();
+    cmd.sourceRect = Rect();  // Empty rect indicates full texture
     cmd.textureHandle = nullptr;
     cmd.nineSliceMargins = nineSlice;
+    
+    validateCommand(cmd);
+    addCommand(cmd);
+}
+
+void RenderList::drawImageRegion(const char* resourceIdentifier,
+                                 const Rect& destRect,
+                                 const Rect& sourceRect,
+                                 ScaleMode scaleMode)
+{
+    YUCHEN_ASSERT(resourceIdentifier);
+    YUCHEN_ASSERT(destRect.isValid());
+    YUCHEN_ASSERT(sourceRect.isValid());
+    YUCHEN_ASSERT(sourceRect.width > 0.0f && sourceRect.height > 0.0f);
+    
+    // Create image command with explicit source rectangle
+    RenderCommand cmd;
+    cmd.type = RenderCommandType::DrawImage;
+    cmd.rect = destRect;
+    cmd.sourceRect = sourceRect;
+    cmd.text = resourceIdentifier;
+    cmd.scaleMode = scaleMode;
+    cmd.textureHandle = nullptr;
+    cmd.nineSliceMargins = NineSliceMargins();  // Nine-slice not supported with source rect
     
     validateCommand(cmd);
     addCommand(cmd);
@@ -272,6 +300,10 @@ bool RenderList::validate() const
             case RenderCommandType::DrawImage:
                 YUCHEN_ASSERT(!cmd.text.empty());
                 YUCHEN_ASSERT(Validation::ValidateRect(cmd.rect));
+                // Validate source rect if specified (non-zero indicates sprite sheet region)
+                if (cmd.sourceRect.width > 0.0f || cmd.sourceRect.height > 0.0f) {
+                    YUCHEN_ASSERT(Validation::ValidateRect(cmd.sourceRect));
+                }
                 if (cmd.scaleMode == ScaleMode::NineSlice) {
                     YUCHEN_ASSERT(cmd.nineSliceMargins.isValid());
                 }
@@ -350,6 +382,10 @@ void RenderList::validateCommand(const RenderCommand& cmd) const
         case RenderCommandType::DrawImage:
             YUCHEN_ASSERT(!cmd.text.empty());
             YUCHEN_ASSERT(Validation::ValidateRect(cmd.rect));
+            // Validate source rect if specified (non-zero indicates sprite sheet region)
+            if (cmd.sourceRect.width > 0.0f || cmd.sourceRect.height > 0.0f) {
+                YUCHEN_ASSERT(Validation::ValidateRect(cmd.sourceRect));
+            }
             if (cmd.scaleMode == ScaleMode::NineSlice) {
                 YUCHEN_ASSERT(cmd.nineSliceMargins.isValid());
             }

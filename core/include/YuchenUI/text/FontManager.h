@@ -17,6 +17,7 @@
 
 #include "YuchenUI/core/Types.h"
 #include "YuchenUI/text/IFontProvider.h"
+#include "YuchenUI/text/FontDatabase.h"
 #include "YuchenUI/text/Font.h"
 #include <ft2build.h>
 #include FT_FREETYPE_H
@@ -243,53 +244,13 @@ public:
         uint32_t codepoint,
         const FontFallbackChain& fallbackChain
     ) const override;
+
+    FontHandle getDefaultFont()           const override { return m_defaultRegularFont;    }
+    FontHandle getDefaultBoldFont()       const override { return m_defaultBoldFont;       }
+    FontHandle getDefaultCJKFont()        const override { return m_defaultCJKFont;        }
+    FontHandle getDefaultNarrowFont()     const override { return m_defaultNarrowFont;     }
+    FontHandle getDefaultNarrowBoldFont() const override { return m_defaultNarrowBoldFont; }
     
-    /**
-        Returns default regular font handle.
-        
-        Desktop Implementation: Returns Arial Regular
-        
-        Use this method in Core layer code instead of getArialRegular()
-        to maintain platform independence.
-        
-        @returns Default regular font handle
-    */
-    FontHandle getDefaultFont() const override;
-    
-    /**
-        Returns default bold font handle.
-        
-        Desktop Implementation: Returns Arial Bold
-        
-        Use this method in Core layer code instead of getArialBold()
-        to maintain platform independence.
-        
-        @returns Default bold font handle
-    */
-    FontHandle getDefaultBoldFont() const override;
-    
-    /**
-        Returns default CJK font handle.
-        
-        Desktop Implementation:
-        - macOS: PingFang SC
-        - Windows: Microsoft YaHei
-        
-        Use this method in Core layer code instead of getPingFangFont()
-        to maintain platform independence.
-        
-        @returns Default CJK font handle
-    */
-    FontHandle getDefaultCJKFont() const override;
-    
-    /**
-        Returns opaque FreeType face handle for font.
-        
-        Internal use only. Cast to FT_Face in implementation.
-        
-        @param handle  Font handle
-        @returns Opaque FreeType face pointer
-    */
     void* getFontFace(FontHandle handle) const override;
     
     /**
@@ -339,83 +300,55 @@ public:
         @returns Title fallback chain
     */
     FontFallbackChain createTitleFallbackChain() const;
-    
+
     //======================================================================================
-    // Desktop-specific Font Access
-    //
-    // WARNING: These methods are Desktop platform specific and should NOT be used in
-    // Core layer code (IUIContent implementations). They exist for:
-    // 1. Desktop-specific application code that needs direct font access
-    // 2. Internal implementation of IFontProvider interface methods
-    //
-    // For Core layer code, use the IFontProvider interface methods above:
-    // - getDefaultFont() instead of getArialRegular()
-    // - getDefaultBoldFont() instead of getArialBold()
-    // - getDefaultCJKFont() instead of getPingFangFont()
-    // - getDefaultEmojiFont() instead of getEmojiFont()
-    
-    /**
-        Returns Arial Regular font handle.
-        
-        Direct access to Arial Regular font. Desktop-specific method.
-        Core layer code should use getDefaultFont() instead.
-        
-        @returns Arial Regular font handle
-    */
-    FontHandle getArialRegular() const { return m_arialRegular; }
-    
-    /**
-        Returns Arial Bold font handle.
-        
-        Direct access to Arial Bold font. Desktop-specific method.
-        Core layer code should use getDefaultBoldFont() instead.
-        
-        @returns Arial Bold font handle
-    */
-    FontHandle getArialBold() const { return m_arialBold; }
-    
-    /**
-        Returns Arial Narrow Regular font handle.
-        
-        Direct access to Arial Narrow Regular font. Desktop-specific method.
-        
-        @returns Arial Narrow Regular font handle
-    */
-    FontHandle getArialNarrowRegular() const { return m_arialNarrowRegular; }
-    
-    /**
-        Returns Arial Narrow Bold font handle.
-        
-        Direct access to Arial Narrow Bold font. Desktop-specific method.
-        
-        @returns Arial Narrow Bold font handle
-    */
-    FontHandle getArialNarrowBold() const { return m_arialNarrowBold; }
-    
-    /**
-        Returns PingFang/YaHei font handle.
-        
-        Direct access to CJK font. Desktop-specific method.
-        Core layer code should use getDefaultCJKFont() instead.
-        
-        Platform: PingFang SC (macOS), Microsoft YaHei (Windows)
-        
-        @returns CJK font handle
-    */
-    FontHandle getPingFangFont() const { return m_pingFangFont; }
-    
-    /**
-        Returns default symbol font handle.
-        
-        Direct access to symbol font. Desktop-specific method.
-        
-        Platform: Apple Symbols (macOS), Segoe UI Symbol (Windows)
-        
-        @returns Symbol font handle, or INVALID_FONT_HANDLE if not available
-    */
-    FontHandle getSymbolFont() const { return m_symbolFont; }
+    // Font Database Integration (New in v3.0)
 
+    /**
+        Returns reference to internal font database.
+        
+        Provides access to advanced font query and metadata APIs.
+        
+        @returns Font database reference
+    */
+    FontDatabase& getFontDatabase() { return m_fontDatabase; }
+    const FontDatabase& getFontDatabase() const { return m_fontDatabase; }
 
+    /**
+        Finds font by family name and properties.
+        
+        Uses intelligent matching with fallback logic.
+        
+        @param familyName  Font family name (case-insensitive)
+        @param weight      Desired weight (default: Normal)
+        @param style       Desired style (default: Normal)
+        @returns Font handle, or INVALID_FONT_HANDLE if no match
+    */
+    FontHandle findFont(const char* familyName,
+                        FontWeight weight = FontWeight::Normal,
+                        FontStyle style = FontStyle::Normal) const;
+
+    /**
+        Lists all registered font families.
+        
+        @returns Vector of family names
+    */
+    std::vector<std::string> availableFontFamilies() const;
+
+    /**
+        Returns all font variants for a family.
+        
+        @param familyName  Font family name
+        @returns Vector of font descriptors
+    */
+    std::vector<FontDescriptor> fontsForFamily(const char* familyName) const;
+
+    /**
+        Prints all registered fonts to console.
+        
+        Useful for debugging font discovery.
+    */
+    void printAvailableFonts() const;
 private:
     //======================================================================================
     bool initializeFreeType();
@@ -427,7 +360,6 @@ private:
     std::string getCoreTextFontPath(const char* fontName) const;
 #endif
 
-    FontHandle generateFontHandle();
     FontEntry* getFontEntry(FontHandle handle);
     const FontEntry* getFontEntry(FontHandle handle) const;
     
@@ -445,18 +377,18 @@ private:
     
     //======================================================================================
     bool m_isInitialized;
-    FontHandle m_nextHandle;
     std::vector<FontEntry> m_fonts;
     FT_Library m_freeTypeLibrary;
 
     // Desktop platform font handles
-    FontHandle m_arialRegular;
-    FontHandle m_arialBold;
-    FontHandle m_arialNarrowRegular;
-    FontHandle m_arialNarrowBold;
-    FontHandle m_pingFangFont;
-    FontHandle m_symbolFont;   // New: Symbol font support
-    
+    FontHandle m_defaultRegularFont;
+    FontHandle m_defaultBoldFont;
+    FontHandle m_defaultNarrowFont;
+    FontHandle m_defaultNarrowBoldFont;
+    FontHandle m_defaultCJKFont;
+    FontHandle m_defaultSymbolFont;
+    FontDatabase m_fontDatabase;  ///< Font database for metadata and role assignment
+
     // Glyph availability cache for performance
     // Key: (FontHandle << 32) | codepoint, Value: has glyph
     mutable std::unordered_map<uint64_t, bool> m_glyphAvailabilityCache;

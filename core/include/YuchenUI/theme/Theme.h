@@ -2,6 +2,7 @@
 
 #include "YuchenUI/core/Types.h"
 #include "YuchenUI/text/IFontProvider.h"
+#include "YuchenUI/widgets/WidgetsType.h"
 #include <string>
 
 namespace YuchenUI {
@@ -83,22 +84,6 @@ struct FocusIndicatorDrawInfo {
     FocusIndicatorDrawInfo() : bounds(), cornerRadius() {}
 };
 
-enum class ScrollbarOrientation {
-    Vertical,
-    Horizontal
-};
-
-enum class ScrollbarButtonType {
-    UpLeft,
-    DownRight
-};
-
-enum class ScrollbarButtonState {
-    Normal,
-    Hovered,
-    Pressed
-};
-
 struct ScrollbarTrackDrawInfo {
     Rect bounds;
     ScrollbarOrientation orientation;
@@ -166,121 +151,70 @@ struct RadioButtonDrawInfo {
     bool isEnabled;
 };
 
-//==========================================================================================
-/**
-    Abstract base class for UI visual styles.
-    
-    UIStyle defines the rendering interface for all UI components. Concrete styles
-    implement platform-specific or themed rendering.
-    
-    Version 3.0 Changes (Qt-style Font System):
-    - Replaced getDefaultButtonFont() → getDefaultButtonFontChain()
-    - Replaced getDefaultLabelFont() → getDefaultLabelFontChain()
-    - Replaced getDefaultTitleFont() → getDefaultTitleFontChain()
-    - All methods now return complete FontFallbackChain with emoji support
-    
-    Font Provider Integration:
-    - Styles need font access for text rendering
-    - Call setFontProvider() after creating style instance
-    - If not set, falls back to FontManager singleton (deprecated)
-    
-    Usage:
-    @code
-    auto style = std::make_unique<ProtoolsDarkStyle>();
-    style->setFontProvider(fontProvider);  // Inject font provider
-    themeManager.setStyle(std::move(style));
-    @endcode
-*/
+struct KnobDrawInfo {
+    Rect bounds;
+    int currentFrame;
+    int frameCount;
+    Vec2 frameSize;
+    KnobType type;
+    bool isActive;
+    bool isEnabled;
+};
+
+struct LevelMeterColors {
+    Vec4 levelNormal;
+    Vec4 levelWarning;
+    Vec4 levelPeak;
+    Vec4 bgNormal;
+    Vec4 bgWarning;
+    Vec4 bgPeak;
+    Vec4 border;
+    Vec4 peakIndicatorActive;
+    Vec4 peakIndicatorInactive;
+    Vec4 scaleColor;
+    Vec4 internalScaleNormalActive;
+    Vec4 internalScaleNormalInactive;
+    Vec4 internalScaleWarningActive;
+    Vec4 internalScaleWarningInactive;
+    Vec4 internalScalePeakActive;
+    Vec4 internalScalePeakInactive;
+};
+
 class UIStyle {
 public:
     virtual ~UIStyle() = default;
     static constexpr float FOCUS_INDICATOR_BORDER_WIDTH = 1.0f;
-
     virtual void drawNormalButton(const ButtonDrawInfo& info, RenderList& cmdList) = 0;
     virtual void drawPrimaryButton(const ButtonDrawInfo& info, RenderList& cmdList) = 0;
     virtual void drawDestructiveButton(const ButtonDrawInfo& info, RenderList& cmdList) = 0;
     virtual void drawFrame(const FrameDrawInfo& info, RenderList& cmdList) = 0;
     virtual void drawGroupBox(const GroupBoxDrawInfo& info, RenderList& cmdList) = 0;
-    
     virtual void drawScrollbarTrack(const ScrollbarTrackDrawInfo& info, RenderList& cmdList) = 0;
     virtual void drawScrollbarThumb(const ScrollbarThumbDrawInfo& info, RenderList& cmdList) = 0;
     virtual void drawScrollbarButton(const ScrollbarButtonDrawInfo& info, RenderList& cmdList) = 0;
-    
     virtual void drawTextInput(const TextInputDrawInfo& info, RenderList& cmdList) = 0;
     virtual void drawSpinBox(const SpinBoxDrawInfo& info, RenderList& cmdList) = 0;
-    
     virtual void drawComboBox(const ComboBoxDrawInfo& info, RenderList& cmdList) = 0;
     virtual void drawFocusIndicator(const FocusIndicatorDrawInfo& info, RenderList& cmdList) = 0;
+    virtual void drawCheckBox(const CheckBoxDrawInfo& info, RenderList& cmdList) = 0;
+    virtual void drawRadioButton(const RadioButtonDrawInfo& info, RenderList& cmdList) = 0;
+    virtual void drawKnob(const KnobDrawInfo& info, RenderList& cmdList) = 0;
     virtual Vec4 getWindowBackground(WindowType type) const = 0;
-
     virtual Vec4 getDefaultTextColor() const = 0;
-    
-    //======================================================================================
-    // Font Chain API (New in v3.0 - Qt-style)
-    
-    /**
-        Returns default font chain for buttons.
-        
-        Includes proper fallback for Western, CJK, and emoji characters.
-        
-        @returns Complete font fallback chain
-    */
     virtual FontFallbackChain getDefaultButtonFontChain() const = 0;
-    
-    /**
-        Returns default font chain for labels and text.
-        
-        Includes proper fallback for Western, CJK, and emoji characters.
-        
-        @returns Complete font fallback chain
-    */
     virtual FontFallbackChain getDefaultLabelFontChain() const = 0;
-    
-    /**
-        Returns default font chain for titles (usually bold).
-        
-        Includes proper fallback for Western, CJK, and emoji characters.
-        
-        @returns Complete font fallback chain
-    */
     virtual FontFallbackChain getDefaultTitleFontChain() const = 0;
-    
-    //======================================================================================
-    
     virtual Vec4 getDefaultFrameBackground() const = 0;
     virtual Vec4 getDefaultFrameBorder() const = 0;
     virtual Vec4 getDefaultGroupBoxBackground() const = 0;
     virtual Vec4 getDefaultGroupBoxBorder() const = 0;
     virtual Vec4 getDefaultScrollAreaBackground() const = 0;
-    
     virtual float getGroupBoxTitleBarHeight() const = 0;
-    
-    virtual void drawCheckBox(const CheckBoxDrawInfo& info, RenderList& cmdList) = 0;
-    virtual void drawRadioButton(const RadioButtonDrawInfo& info, RenderList& cmdList) = 0;
-    
-    //======================================================================================
-    // Font Provider Access
-    
-    /**
-        Sets the font provider for this style.
-        
-        Must be called after creating style instance to inject font provider.
-        If not set, style will fall back to FontManager::getInstance() (deprecated).
-        
-        @param provider  Font provider interface (must not be null)
-    */
     virtual void setFontProvider(IFontProvider* provider) { m_fontProvider = provider; }
-    
-    /**
-        Returns the font provider for this style.
-        
-        Returns the injected font provider. If no provider was set, this will trigger
-        an assertion failure in debug builds.
-        
-        @returns Font provider interface (never null if setFontProvider was called)
-    */
+
     virtual IFontProvider* getFontProvider() const;
     
+    virtual LevelMeterColors getLevelMeterColors() const = 0;
 protected:
     IFontProvider* m_fontProvider = nullptr;
 };
@@ -293,18 +227,19 @@ public:
     void drawNormalButton(const ButtonDrawInfo& info, RenderList& cmdList) override;
     void drawPrimaryButton(const ButtonDrawInfo& info, RenderList& cmdList) override;
     void drawDestructiveButton(const ButtonDrawInfo& info, RenderList& cmdList) override;
-    
     void drawFrame(const FrameDrawInfo& info, RenderList& cmdList) override;
     void drawGroupBox(const GroupBoxDrawInfo& info, RenderList& cmdList) override;
-    
     void drawScrollbarTrack(const ScrollbarTrackDrawInfo& info, RenderList& cmdList) override;
     void drawScrollbarThumb(const ScrollbarThumbDrawInfo& info, RenderList& cmdList) override;
     void drawScrollbarButton(const ScrollbarButtonDrawInfo& info, RenderList& cmdList) override;
-    
     void drawTextInput(const TextInputDrawInfo& info, RenderList& cmdList) override;
     void drawComboBox(const ComboBoxDrawInfo& info, RenderList& cmdList) override;
     void drawFocusIndicator(const FocusIndicatorDrawInfo& info, RenderList& cmdList) override;
     void drawSpinBox(const SpinBoxDrawInfo& info, RenderList& cmdList) override;
+    void drawCheckBox(const CheckBoxDrawInfo& info, RenderList& cmdList) override;
+    void drawRadioButton(const RadioButtonDrawInfo& info, RenderList& cmdList) override;
+    void drawKnob(const KnobDrawInfo& info, RenderList& cmdList) override;
+    
     Vec4 getWindowBackground(WindowType type) const override;
     Vec4 getDefaultTextColor() const override;
     FontFallbackChain getDefaultButtonFontChain() const override;
@@ -316,62 +251,16 @@ public:
     Vec4 getDefaultGroupBoxBackground() const override;
     Vec4 getDefaultGroupBoxBorder() const override;
     Vec4 getDefaultScrollAreaBackground() const override;
-    
+    LevelMeterColors getLevelMeterColors() const override;
     float getGroupBoxTitleBarHeight() const override;
-    void drawCheckBox(const CheckBoxDrawInfo& info, RenderList& cmdList) override;
-    void drawRadioButton(const RadioButtonDrawInfo& info, RenderList& cmdList) override;
 
 private:
-    Vec4 m_mainWindowBg;
-    Vec4 m_dialogBg;
-    Vec4 m_toolWindowBg;
-    Vec4 m_uiTextColor;
-    Vec4 m_textDisabledColor;
-    
-    Vec4 m_buttonNormal;
-    Vec4 m_buttonHover;
-    Vec4 m_buttonPressed;
-    Vec4 m_buttonDisabled;
-    
-    Vec4 m_confirmNormal;
-    Vec4 m_confirmHover;
-    Vec4 m_confirmPressed;
-    
-    Vec4 m_borderNormal;
-    Vec4 m_borderHover;
-    Vec4 m_borderPressed;
-    
-    Vec4 m_frameBg;
-    Vec4 m_frameBorder;
-    Vec4 m_groupBoxBg;
-    Vec4 m_groupBoxBorder;
-    
-    Vec4 m_scrollAreaBg;
-
-    Vec4 m_scrollbarBackground;
-    Vec4 m_scrollbarThumb;
-    Vec4 m_scrollbarThumbHovered;
-    Vec4 m_scrollbarButtonNormal;
-    Vec4 m_scrollbarButtonHovered;
-    Vec4 m_scrollbarButtonPressed;
-    Vec4 m_scrollbarButtonBorder;
-    Vec4 m_scrollbarTriangleNormal;
-    Vec4 m_scrollbarTriangleHovered;
-    Vec4 m_scrollbarTrianglePressed;
-    
-    Vec4 m_spinBoxTextNormal;
-    Vec4 m_spinBoxTextEditing;
-    Vec4 m_spinBoxEditingBg;
-    Vec4 m_spinBoxCursor;
-    
-    float m_groupBoxTitleBarHeight;
-
-    void drawButtonInternal(const ButtonDrawInfo& info, RenderList& cmdList,
-                           const Vec4& normalColor, const Vec4& hoverColor,
-                           const Vec4& pressedColor, const Vec4& disabledColor,
-                           const Vec4& borderNormal, const Vec4& borderHover,
-                           const Vec4& borderPressed);
+    Vec4 m_uiTextEnabledColor;
+    Vec4 m_uiTextDisabledColor;
+    Vec4 m_uiThemeColorText;
 };
+
+
 
 class ProtoolsClassicStyle : public UIStyle {
 public:
@@ -390,6 +279,11 @@ public:
     void drawComboBox(const ComboBoxDrawInfo& info, RenderList& cmdList) override;
     void drawFocusIndicator(const FocusIndicatorDrawInfo& info, RenderList& cmdList) override;
     void drawSpinBox(const SpinBoxDrawInfo& info, RenderList& cmdList) override;
+    
+    void drawCheckBox(const CheckBoxDrawInfo& info, RenderList& cmdList) override;
+    void drawRadioButton(const RadioButtonDrawInfo& info, RenderList& cmdList) override;
+    void drawKnob(const KnobDrawInfo& info, RenderList& cmdList) override;
+    
     Vec4 getWindowBackground(WindowType type) const override;
     Vec4 getDefaultTextColor() const override;
     FontFallbackChain getDefaultButtonFontChain() const override;
@@ -400,14 +294,13 @@ public:
     Vec4 getDefaultGroupBoxBackground() const override;
     Vec4 getDefaultGroupBoxBorder() const override;
     Vec4 getDefaultScrollAreaBackground() const override;
+    LevelMeterColors getLevelMeterColors() const override;
     float getGroupBoxTitleBarHeight() const override;
-    void drawCheckBox(const CheckBoxDrawInfo& info, RenderList& cmdList) override;
-    void drawRadioButton(const RadioButtonDrawInfo& info, RenderList& cmdList) override;
+
 private:
-    Vec4 m_uiTextEnableColor;
+    Vec4 m_uiTextEnabledColor;
     Vec4 m_uiTextDisabledColor;
     Vec4 m_uiThemeColorText;
-
 };
 
 }

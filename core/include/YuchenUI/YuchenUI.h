@@ -3,6 +3,7 @@
 #include "YuchenUI/rendering/RenderList.h"
 #include "YuchenUI/core/Types.h"
 
+#include "YuchenUI/widgets/Knob.h"
 #include "YuchenUI/widgets/Button.h"
 #include "YuchenUI/widgets/TextLabel.h"
 #include "YuchenUI/widgets/TextBlock.h"
@@ -16,6 +17,7 @@
 #include "YuchenUI/widgets/SpinBox.h"
 #include "YuchenUI/widgets/CheckBox.h"
 #include "YuchenUI/widgets/RadioButton.h"
+#include "YuchenUI/widgets/LevelMeter.h"
 
 #include "YuchenUI/utils/Clipboard.h"
 
