@@ -40,6 +40,7 @@
 #include "YuchenUI/core/Config.h"
 #include "../generated/embedded_resources.h"
 #include <unordered_map>
+#include <unordered_set>
 #include <functional>
 #include <iostream>
 
@@ -114,6 +115,7 @@ struct FontMetricsKeyHash
 // Global caches (cleared on FontManager::destroy())
 static std::unordered_map<MeasureTextKey, Vec2, MeasureTextKeyHash> s_measureTextCache;
 static std::unordered_map<FontMetricsKey, FontMetrics, FontMetricsKeyHash> s_fontMetricsCache;
+static std::unordered_set<uint32_t> s_warnedMissingGlyphs;
 
 //==========================================================================================
 // Lifecycle
@@ -128,7 +130,6 @@ FontManager::FontManager()
     , m_arialNarrowRegular(INVALID_FONT_HANDLE)
     , m_arialNarrowBold(INVALID_FONT_HANDLE)
     , m_pingFangFont(INVALID_FONT_HANDLE)
-    , m_emojiFont(INVALID_FONT_HANDLE)
     , m_symbolFont(INVALID_FONT_HANDLE)
     , m_glyphAvailabilityCache()
 {
@@ -151,7 +152,6 @@ bool FontManager::initialize()
     }
 
     initializeFonts();
-    loadEmojiFont();
     loadSymbolFont();
     
     m_isInitialized = true;
@@ -165,6 +165,7 @@ void FontManager::destroy()
     // Clear global caches
     s_measureTextCache.clear();
     s_fontMetricsCache.clear();
+    s_warnedMissingGlyphs.clear();
     
     // Clear glyph availability cache
     m_glyphAvailabilityCache.clear();
@@ -172,7 +173,10 @@ void FontManager::destroy()
     // Clear fonts (destroys FontFile, FontFace, FontCache)
     m_fonts.clear();
     m_arialRegular = m_arialBold = m_arialNarrowRegular = m_arialNarrowBold = INVALID_FONT_HANDLE;
-    m_pingFangFont = m_emojiFont = m_symbolFont = INVALID_FONT_HANDLE;
+    m_pingFangFont = m_symbolFont = INVALID_FONT_HANDLE;
+    
+    // 改为：
+    m_pingFangFont = m_symbolFont = INVALID_FONT_HANDLE;
     
     // Reset counter
     m_nextHandle = 1;
@@ -268,70 +272,18 @@ void FontManager::initializeFonts()
     }
 }
 
-void FontManager::loadEmojiFont()
-{
-#ifdef __APPLE__
-    // macOS: Apple Color Emoji
-    std::string emojiPath = getCoreTextFontPath("Apple Color Emoji");
-    if (!emojiPath.empty())
-    {
-        m_emojiFont = loadFontFromFile(emojiPath.c_str(), "Apple Color Emoji");
-        if (m_emojiFont != INVALID_FONT_HANDLE)
-        {
-            std::cout << "[FontManager] Loaded Apple Color Emoji font" << std::endl;
-        }
-    }
-    else
-    {
-        std::cerr << "[FontManager] Warning: Apple Color Emoji font not found" << std::endl;
-    }
-#elif defined(_WIN32)
-    // Windows: Segoe UI Emoji
-    const char* emojiPath = "C:\\Windows\\Fonts\\seguiemj.ttf";
-    m_emojiFont = loadFontFromFile(emojiPath, "Segoe UI Emoji");
-    if (m_emojiFont != INVALID_FONT_HANDLE)
-    {
-        std::cout << "[FontManager] Loaded Segoe UI Emoji font" << std::endl;
-    }
-    else
-    {
-        std::cerr << "[FontManager] Warning: Segoe UI Emoji font not found" << std::endl;
-    }
-#endif
-
-    if (m_emojiFont == INVALID_FONT_HANDLE)
-    {
-        std::cerr << "[FontManager] Warning: No emoji font available" << std::endl;
-    }
-}
-
 void FontManager::loadSymbolFont()
 {
 #ifdef __APPLE__
-    // macOS: Apple Symbols
     std::string symbolPath = getCoreTextFontPath("Apple Symbols");
     if (!symbolPath.empty())
-    {
         m_symbolFont = loadFontFromFile(symbolPath.c_str(), "Apple Symbols");
-        if (m_symbolFont != INVALID_FONT_HANDLE)
-        {
-            std::cout << "[FontManager] Loaded Apple Symbols font" << std::endl;
-        }
-    }
 #elif defined(_WIN32)
-    // Windows: Segoe UI Symbol
-    const char* symbolPath = "C:\\Windows\\Fonts\\seguisym.ttf";
-    m_symbolFont = loadFontFromFile(symbolPath, "Segoe UI Symbol");
-    if (m_symbolFont != INVALID_FONT_HANDLE)
-    {
-        std::cout << "[FontManager] Loaded Segoe UI Symbol font" << std::endl;
-    }
+    m_symbolFont = loadFontFromFile("C:\\Windows\\Fonts\\seguisym.ttf", "Segoe UI Symbol");
 #endif
 
     if (m_symbolFont == INVALID_FONT_HANDLE)
-    {
-        std::cerr << "[FontManager] Warning: No symbol font available" << std::endl;
-    }
+        std::cerr << "Warning: Failed to load symbol font" << std::endl;
 }
 
 #ifdef __APPLE__
@@ -391,12 +343,7 @@ FontFallbackChain FontManager::createDefaultFallbackChain() const
     FontFallbackChain chain;
     chain.addFont(m_arialRegular);
     chain.addFont(m_pingFangFont);
-    
-    if (m_emojiFont != INVALID_FONT_HANDLE)
-    {
-        chain.addFont(m_emojiFont);
-    }
-    
+
     if (m_symbolFont != INVALID_FONT_HANDLE)
     {
         chain.addFont(m_symbolFont);
@@ -412,12 +359,7 @@ FontFallbackChain FontManager::createBoldFallbackChain() const
     FontFallbackChain chain;
     chain.addFont(m_arialBold);
     chain.addFont(m_pingFangFont);  // PingFang doesn't have separate bold, uses same font
-    
-    if (m_emojiFont != INVALID_FONT_HANDLE)
-    {
-        chain.addFont(m_emojiFont);
-    }
-    
+
     if (m_symbolFont != INVALID_FONT_HANDLE)
     {
         chain.addFont(m_symbolFont);
@@ -496,8 +438,39 @@ FontHandle FontManager::selectFontForCodepoint(
         }
     }
     
-    // No font supports this character, return primary font
-    // (will render as .notdef glyph)
+    // No font supports this character - log warning (deduplicated)
+    if (s_warnedMissingGlyphs.find(codepoint) == s_warnedMissingGlyphs.end())
+    {
+        s_warnedMissingGlyphs.insert(codepoint);
+        
+        // Determine character type
+        const char* charType = "Unknown";
+        if (TextUtils::isEmojiCharacter(codepoint))
+        {
+            charType = "Emoji";
+        }
+        else if (TextUtils::isSymbolCharacter(codepoint))
+        {
+            charType = "Symbol";
+        }
+        else if (TextUtils::isChineseCharacter(codepoint))
+        {
+            charType = "CJK";
+        }
+        else if (TextUtils::isWesternCharacter(codepoint))
+        {
+            charType = "Western";
+        }
+        
+        std::cerr << "[FontManager] Warning: No font in fallback chain supports "
+                  << charType << " character U+"
+                  << std::hex << std::uppercase << codepoint << std::dec
+                  << " ('" << TextUtils::encodeUTF8(codepoint) << "'). "
+                  << "Character will render as .notdef glyph."
+                  << std::endl;
+    }
+    
+    // Return primary font (will render as .notdef glyph)
     return fallbackChain.getPrimary();
 }
 

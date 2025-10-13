@@ -196,9 +196,9 @@ public:
     virtual ~UIStyle() = default;
     static constexpr float FOCUS_INDICATOR_BORDER_WIDTH = 1.0f;
 
-    virtual void drawButton(const ButtonDrawInfo& info, RenderList& cmdList) = 0;
-    virtual void drawConfirmButton(const ButtonDrawInfo& info, RenderList& cmdList) = 0;
-    virtual void drawCancelButton(const ButtonDrawInfo& info, RenderList& cmdList) = 0;
+    virtual void drawNormalButton(const ButtonDrawInfo& info, RenderList& cmdList) = 0;
+    virtual void drawPrimaryButton(const ButtonDrawInfo& info, RenderList& cmdList) = 0;
+    virtual void drawDestructiveButton(const ButtonDrawInfo& info, RenderList& cmdList) = 0;
     virtual void drawFrame(const FrameDrawInfo& info, RenderList& cmdList) = 0;
     virtual void drawGroupBox(const GroupBoxDrawInfo& info, RenderList& cmdList) = 0;
     
@@ -290,9 +290,10 @@ public:
     ProtoolsDarkStyle();
     ~ProtoolsDarkStyle() override = default;
     
-    void drawButton(const ButtonDrawInfo& info, RenderList& cmdList) override;
-    void drawConfirmButton(const ButtonDrawInfo& info, RenderList& cmdList) override;
-    void drawCancelButton(const ButtonDrawInfo& info, RenderList& cmdList) override;
+    void drawNormalButton(const ButtonDrawInfo& info, RenderList& cmdList) override;
+    void drawPrimaryButton(const ButtonDrawInfo& info, RenderList& cmdList) override;
+    void drawDestructiveButton(const ButtonDrawInfo& info, RenderList& cmdList) override;
+    
     void drawFrame(const FrameDrawInfo& info, RenderList& cmdList) override;
     void drawGroupBox(const GroupBoxDrawInfo& info, RenderList& cmdList) override;
     
@@ -377,16 +378,14 @@ public:
     ProtoolsClassicStyle();
     ~ProtoolsClassicStyle() override = default;
     
-    void drawButton(const ButtonDrawInfo& info, RenderList& cmdList) override;
-    void drawConfirmButton(const ButtonDrawInfo& info, RenderList& cmdList) override;
-    void drawCancelButton(const ButtonDrawInfo& info, RenderList& cmdList) override;
+    void drawNormalButton(const ButtonDrawInfo& info, RenderList& cmdList) override;
+    void drawPrimaryButton(const ButtonDrawInfo& info, RenderList& cmdList) override;
+    void drawDestructiveButton(const ButtonDrawInfo& info, RenderList& cmdList) override;
     void drawFrame(const FrameDrawInfo& info, RenderList& cmdList) override;
     void drawGroupBox(const GroupBoxDrawInfo& info, RenderList& cmdList) override;
-    
     void drawScrollbarTrack(const ScrollbarTrackDrawInfo& info, RenderList& cmdList) override;
     void drawScrollbarThumb(const ScrollbarThumbDrawInfo& info, RenderList& cmdList) override;
     void drawScrollbarButton(const ScrollbarButtonDrawInfo& info, RenderList& cmdList) override;
-    
     void drawTextInput(const TextInputDrawInfo& info, RenderList& cmdList) override;
     void drawComboBox(const ComboBoxDrawInfo& info, RenderList& cmdList) override;
     void drawFocusIndicator(const FocusIndicatorDrawInfo& info, RenderList& cmdList) override;
@@ -396,61 +395,19 @@ public:
     FontFallbackChain getDefaultButtonFontChain() const override;
     FontFallbackChain getDefaultLabelFontChain() const override;
     FontFallbackChain getDefaultTitleFontChain() const override;
-    
     Vec4 getDefaultFrameBackground() const override;
     Vec4 getDefaultFrameBorder() const override;
     Vec4 getDefaultGroupBoxBackground() const override;
     Vec4 getDefaultGroupBoxBorder() const override;
     Vec4 getDefaultScrollAreaBackground() const override;
-    
     float getGroupBoxTitleBarHeight() const override;
     void drawCheckBox(const CheckBoxDrawInfo& info, RenderList& cmdList) override;
     void drawRadioButton(const RadioButtonDrawInfo& info, RenderList& cmdList) override;
-
 private:
-    Vec4 m_mainWindowBg;
-    Vec4 m_dialogBg;
-    Vec4 m_toolWindowBg;
-    Vec4 m_uiTextColor;
-    Vec4 m_textDisabledColor;
-    
-    Vec4 m_buttonNormal;
-    Vec4 m_buttonHover;
-    Vec4 m_buttonPressed;
-    Vec4 m_buttonDisabled;
-    
-    Vec4 m_confirmNormal;
-    Vec4 m_confirmHover;
-    Vec4 m_confirmPressed;
-    
-    Vec4 m_borderNormal;
-    Vec4 m_borderHover;
-    Vec4 m_borderPressed;
-    
-    Vec4 m_frameBg;
-    Vec4 m_frameBorder;
-    Vec4 m_groupBoxBg;
-    Vec4 m_groupBoxBorder;
-    
-    Vec4 m_scrollAreaBg;
+    Vec4 m_uiTextEnableColor;
+    Vec4 m_uiTextDisabledColor;
+    Vec4 m_uiThemeColorText;
 
-    Vec4 m_scrollbarBackground;
-    Vec4 m_scrollbarThumb;
-    Vec4 m_scrollbarThumbHovered;
-    Vec4 m_scrollbarButtonNormal;
-    Vec4 m_scrollbarButtonHovered;
-    Vec4 m_scrollbarButtonPressed;
-    Vec4 m_scrollbarButtonBorder;
-    Vec4 m_scrollbarTriangleNormal;
-    Vec4 m_scrollbarTriangleHovered;
-    Vec4 m_scrollbarTrianglePressed;
-    
-    Vec4 m_spinBoxTextNormal;
-    Vec4 m_spinBoxTextEditing;
-    Vec4 m_spinBoxEditingBg;
-    Vec4 m_spinBoxCursor;
-    
-    float m_groupBoxTitleBarHeight;
 };
 
 }

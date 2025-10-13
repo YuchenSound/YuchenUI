@@ -93,7 +93,7 @@ public:
     
 private:
     std::string m_text;
-    FontFallbackChain m_fontChain;  // ✅ 新：统一的字体链
+    FontFallbackChain m_fontChain;
     float m_fontSize;
     Vec4 m_textColor;
     Rect m_bounds;
@@ -104,7 +104,7 @@ private:
     float m_paddingRight;
     float m_paddingBottom;
     
-    bool m_hasCustomFont;        // ✅ 新：简化为一个标志
+    bool m_hasCustomFont;
     bool m_hasCustomTextColor;
 };
 

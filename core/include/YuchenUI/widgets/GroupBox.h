@@ -94,7 +94,7 @@ public:
 
 private:
     std::string m_title;
-    FontFallbackChain m_titleFontChain;  // ✅ 新：统一的字体链
+    FontFallbackChain m_titleFontChain;
     float m_titleFontSize;
     Vec4 m_titleColor;
     Vec4 m_backgroundColor;
@@ -102,7 +102,7 @@ private:
     float m_borderWidth;
     CornerRadius m_cornerRadius;
     
-    bool m_hasCustomTitleFont;   // ✅ 新：简化为一个标志
+    bool m_hasCustomTitleFont;
     bool m_hasCustomTitleColor;
     bool m_hasCustomBackground;
     bool m_hasCustomBorderColor;

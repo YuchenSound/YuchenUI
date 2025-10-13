@@ -94,6 +94,16 @@ public:
     */
     static uint32_t decodeUTF8(const char*& text);
     
+    /**
+        Encodes Unicode code point to UTF-8 string.
+        
+        Converts a single Unicode code point to its UTF-8 byte sequence.
+        Used for displaying character values in debug output.
+        
+        @param codepoint  Unicode code point (U+0000 to U+10FFFF)
+        @returns UTF-8 encoded string (1-4 bytes)
+    */
+    static std::string encodeUTF8(uint32_t codepoint);
     //======================================================================================
     // Character Classification
     

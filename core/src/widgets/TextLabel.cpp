@@ -10,7 +10,7 @@ namespace YuchenUI {
 
 TextLabel::TextLabel(const Rect& bounds)
     : m_text()
-    , m_fontChain()              // ✅ 新：统一的字体链
+    , m_fontChain()
     , m_fontSize(Config::Font::DEFAULT_SIZE)
     , m_textColor()
     , m_bounds(bounds)
@@ -20,7 +20,7 @@ TextLabel::TextLabel(const Rect& bounds)
     , m_paddingTop(Config::Text::DEFAULT_PADDING)
     , m_paddingRight(Config::Text::DEFAULT_PADDING)
     , m_paddingBottom(Config::Text::DEFAULT_PADDING)
-    , m_hasCustomFont(false)     // ✅ 新：统一的标志
+    , m_hasCustomFont(false)
     , m_hasCustomTextColor(false)
 {
     Validation::AssertRect(bounds);
@@ -38,7 +38,6 @@ void TextLabel::addDrawCommands(RenderList& commandList, const Vec2& offset) con
     YUCHEN_ASSERT(style);
     YUCHEN_ASSERT(fontProvider);
     
-    // ✅ 使用新 API：直接获取 fallback chain
     FontFallbackChain fallbackChain = m_hasCustomFont
         ? m_fontChain
         : style->getDefaultLabelFontChain();

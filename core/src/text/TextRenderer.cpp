@@ -326,23 +326,16 @@ void TextRenderer::generateTextVertices(const ShapedText& shaped,
 {
     vertices.clear();
     vertices.reserve(shaped.glyphs.size() * 4);
-    
     Vec2 atlasSize = m_glyphCache->getCurrentAtlasSize();
     
-    // Generate quad for each glyph
     for (const auto& glyph : shaped.glyphs)
     {
-        if (glyph.glyphIndex == 0) continue;  // Skip invalid glyphs
-        
-        // ✅ 使用 glyph 自带的 fontHandle（shapeText 已经选择了正确的字体）
+        if (glyph.glyphIndex == 0) continue;
         FontHandle actualFontHandle = glyph.fontHandle;
-        
-        // Create glyph cache key
         float scaledFontSize = fontSize * m_dpiScale;
         GlyphKey key(actualFontHandle, glyph.glyphIndex, scaledFontSize);
         const GlyphCacheEntry* entry = m_glyphCache->getGlyph(key);
         
-        // Rasterize and cache if not present
         if (!entry)
         {
             const void* bitmapData = nullptr;
@@ -355,22 +348,14 @@ void TextRenderer::generateTextVertices(const ShapedText& shaped,
             m_glyphCache->cacheGlyph(key, bitmapData, glyphSize, bearing, advance);
             entry = m_glyphCache->getGlyph(key);
         }
-        
-        // Skip empty glyphs (e.g., space)
-        if (!entry || entry->textureRect.width <= 0.0f || entry->textureRect.height <= 0.0f)
-            continue;
-        
-        // Calculate screen position with bearing offset
+        if (!entry || entry->textureRect.width <= 0.0f || entry->textureRect.height <= 0.0f) continue;
         Vec2 glyphPos = Vec2(
             position.x + glyph.position.x + (entry->bearing.x / m_dpiScale),
             position.y + glyph.position.y - (entry->bearing.y / m_dpiScale)
         );
-        
-        // Calculate glyph dimensions
         float glyphWidth = entry->textureRect.width / m_dpiScale;
         float glyphHeight = entry->textureRect.height / m_dpiScale;
         
-        // Calculate texture coordinates (normalized to 0-1)
         Vec2 texCoordMin = Vec2(
             entry->textureRect.x / atlasSize.x,
             entry->textureRect.y / atlasSize.y
@@ -380,7 +365,6 @@ void TextRenderer::generateTextVertices(const ShapedText& shaped,
             (entry->textureRect.y + entry->textureRect.height) / atlasSize.y
         );
         
-        // Create quad vertices (two triangles)
         TextVertex topLeft(
             Vec2(glyphPos.x, glyphPos.y),
             Vec2(texCoordMin.x, texCoordMin.y),

@@ -1,4 +1,3 @@
-// Button.cpp
 #include "YuchenUI/widgets/Button.h"
 #include "YuchenUI/text/IFontProvider.h"
 #include "YuchenUI/theme/IThemeProvider.h"
@@ -27,136 +26,116 @@ Button::Button(const Rect& bounds)
     setFocusPolicy(FocusPolicy::StrongFocus);
 }
 
-Button::~Button() {
+Button::~Button()
+{
 }
 
-void Button::addDrawCommands(RenderList& commandList, const Vec2& offset) const {
+void Button::addDrawCommands(RenderList& commandList, const Vec2& offset) const
+{
     YUCHEN_ASSERT(isValid());
-    
     if (!m_isVisible) return;
-    
     UIStyle* style = m_ownerContext ? m_ownerContext->getCurrentStyle() : nullptr;
-    IFontProvider* fontProvider = m_ownerContext ? m_ownerContext->getFontProvider() : nullptr;
-    YUCHEN_ASSERT(style);
-    YUCHEN_ASSERT(fontProvider);
-    
     ButtonDrawInfo info;
-    info.bounds = Rect(m_bounds.x + offset.x, m_bounds.y + offset.y,
-                      m_bounds.width, m_bounds.height);
+    info.bounds = Rect(m_bounds.x + offset.x, m_bounds.y + offset.y,m_bounds.width, m_bounds.height);
     info.text = m_text;
-    
-    // ✅ 使用新 API：直接获取 fallback chain
-    info.fallbackChain = m_hasCustomFont
-        ? m_fontChain
-        : style->getDefaultButtonFontChain();
-    
-    info.textColor = m_hasCustomTextColor ? m_textColor
-                                          : style->getDefaultTextColor();
-    
+    info.fallbackChain = m_hasCustomFont ? m_fontChain : style->getDefaultButtonFontChain();
+    info.textColor = m_hasCustomTextColor ? m_textColor : style->getDefaultTextColor();
     info.fontSize = m_fontSize;
     info.isHovered = m_isHovered;
     info.isPressed = m_isPressed;
     info.isEnabled = m_isEnabled;
-    
-    switch (m_role) {
-        case ButtonRole::Confirm:
-            style->drawConfirmButton(info, commandList);
-            break;
-        case ButtonRole::Cancel:
-            style->drawCancelButton(info, commandList);
-            break;
-        default:
-            style->drawButton(info, commandList);
-            break;
+    switch (m_role)
+    {
+        case ButtonRole::Primary:       style->drawPrimaryButton(info, commandList); break;
+        case ButtonRole::Destructive:   break; // TODO: This is a Red Button,Need to expand the reasoure library!
+        default:                        style->drawNormalButton(info, commandList);        break;
     }
     drawFocusIndicator(commandList, offset);
 }
 
-void Button::setText(const std::string& text) {
+void Button::setText(const std::string& text)
+{
     m_text = text;
 }
 
-void Button::setText(const char* text) {
+void Button::setText(const char* text)
+{
     m_text = text;
 }
 
-void Button::setFont(FontHandle fontHandle) {
+void Button::setFont(FontHandle fontHandle)
+{
     IFontProvider* fontProvider = m_ownerContext ? m_ownerContext->getFontProvider() : nullptr;
-    UIStyle* style = m_ownerContext ? m_ownerContext->getCurrentStyle() : nullptr;
-    
-    if (!fontProvider || !fontProvider->isValidFont(fontHandle)) {
-        return;
-    }
-    
-    // 自动构建带 CJK fallback 的链
+    if (!fontProvider || !fontProvider->isValidFont(fontHandle)) return;
     FontHandle cjkFont = fontProvider->getDefaultCJKFont();
     m_fontChain = FontFallbackChain(fontHandle, cjkFont);
     m_hasCustomFont = true;
 }
 
-void Button::setFontChain(const FontFallbackChain& chain) {
-    if (!chain.isValid()) {
-        return;
-    }
+void Button::setFontChain(const FontFallbackChain& chain)
+{
+    if (!chain.isValid()) return;
     
     m_fontChain = chain;
     m_hasCustomFont = true;
 }
 
-FontFallbackChain Button::getFontChain() const {
-    if (m_hasCustomFont) {
-        return m_fontChain;
-    }
-    
+FontFallbackChain Button::getFontChain() const
+{
+    if (m_hasCustomFont) return m_fontChain;
     UIStyle* style = m_ownerContext ? m_ownerContext->getCurrentStyle() : nullptr;
     return style ? style->getDefaultButtonFontChain() : FontFallbackChain();
 }
 
-void Button::resetFont() {
+void Button::resetFont()
+{
     m_fontChain.clear();
     m_hasCustomFont = false;
 }
 
-void Button::setFontSize(float fontSize) {
-    if (fontSize >= Config::Font::MIN_SIZE && fontSize <= Config::Font::MAX_SIZE) {
-        m_fontSize = fontSize;
-    }
+void Button::setFontSize(float fontSize)
+{
+    if (fontSize >= Config::Font::MIN_SIZE && fontSize <= Config::Font::MAX_SIZE) m_fontSize = fontSize;
 }
 
-void Button::setTextColor(const Vec4& color) {
+void Button::setTextColor(const Vec4& color)
+{
     Validation::AssertColor(color);
     m_textColor = color;
     m_hasCustomTextColor = true;
 }
 
-Vec4 Button::getTextColor() const {
-    if (m_hasCustomTextColor) {
-        return m_textColor;
-    }
-    // Get default color via UIContext instead of deprecated singleton
+Vec4 Button::getTextColor() const
+{
+    if (m_hasCustomTextColor) return m_textColor;
     UIStyle* style = m_ownerContext ? m_ownerContext->getCurrentStyle() : nullptr;
     return style ? style->getDefaultTextColor() : Vec4();
 }
 
-void Button::resetTextColor() {
+void Button::resetTextColor()
+{
     m_hasCustomTextColor = false;
     m_textColor = Vec4();
 }
 
-void Button::setBounds(const Rect& bounds) {
+void Button::setBounds(const Rect& bounds)
+{
     Validation::AssertRect(bounds);
     m_bounds = bounds;
 }
 
-void Button::setRole(ButtonRole role) {
+void Button::setRole(ButtonRole role)
+{
     m_role = role;
 }
 
-void Button::setClickCallback(ButtonClickCallback callback) {
+void Button::setClickCallback(ButtonClickCallback callback)
+{
     m_clickCallback = callback;
 }
 
-bool Button::handleMouseMove(const Vec2& position, const Vec2& offset) {
+bool Button::handleMouseMove(const Vec2& position, const Vec2& offset)
+{
     if (!m_isEnabled || !m_isVisible) return false;
     
     Vec2 absPos(m_bounds.x + offset.x, m_bounds.y + offset.y);
@@ -168,7 +147,8 @@ bool Button::handleMouseMove(const Vec2& position, const Vec2& offset) {
     return wasHovered != m_isHovered;
 }
 
-bool Button::handleMouseClick(const Vec2& position, bool pressed, const Vec2& offset) {
+bool Button::handleMouseClick(const Vec2& position, bool pressed, const Vec2& offset)
+{
     if (!m_isEnabled || !m_isVisible) return false;
     
     Vec2 absPos(m_bounds.x + offset.x, m_bounds.y + offset.y);
@@ -176,21 +156,22 @@ bool Button::handleMouseClick(const Vec2& position, bool pressed, const Vec2& of
     
     bool isInBounds = absRect.contains(position);
     
-    if (pressed && isInBounds) {
+    if (pressed && isInBounds)
+    {
         m_isPressed = true;
         return true;
-    } else if (!pressed && m_isPressed) {
+    }
+    else if (!pressed && m_isPressed)
+    {
         m_isPressed = false;
-        if (isInBounds && m_clickCallback) {
-            m_clickCallback();
-        }
+        if (isInBounds && m_clickCallback) m_clickCallback();
         return true;
     }
-    
     return false;
 }
 
-bool Button::isValid() const {
+bool Button::isValid() const
+{
     return m_bounds.isValid() &&
            m_fontSize >= Config::Font::MIN_SIZE &&
            m_fontSize <= Config::Font::MAX_SIZE;

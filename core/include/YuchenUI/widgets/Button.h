@@ -12,9 +12,9 @@ class RenderList;
 using ButtonClickCallback = std::function<void()>;
 
 enum class ButtonRole {
-    Normal,
-    Confirm,
-    Cancel
+    Normal,       // 普通次级按钮
+    Primary,      // 主按钮（蓝色的）
+    Destructive   // 破坏性操作（比如删除）
 };
 
 /**
@@ -124,11 +124,11 @@ public:
     bool isValid() const;
     
 protected:
-    CornerRadius getFocusIndicatorCornerRadius() const override { return CornerRadius(2.0f); }
+    CornerRadius getFocusIndicatorCornerRadius() const override { return CornerRadius(3.0f); }
     
 private:
     std::string m_text;
-    FontFallbackChain m_fontChain;  // ✅ 新：统一的字体链
+    FontFallbackChain m_fontChain;
     float m_fontSize;
     Vec4 m_textColor;
     
@@ -140,7 +140,7 @@ private:
     
     ButtonClickCallback m_clickCallback;
     
-    bool m_hasCustomFont;        // ✅ 新：简化为一个标志
+    bool m_hasCustomFont;
     bool m_hasCustomTextColor;
 };
 

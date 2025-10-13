@@ -10,44 +10,6 @@
 
 namespace YuchenUI {
 
-ProtoolsDarkStyle::ProtoolsDarkStyle()
-    : m_mainWindowBg(Vec4::FromRGBA(75, 75, 75, 255))
-    , m_dialogBg(Vec4::FromRGBA(30, 30, 30, 255))
-    , m_toolWindowBg(Vec4::FromRGBA(48, 48, 48, 255))
-    , m_uiTextColor(Vec4::FromRGBA(255, 255, 255, 196))
-    , m_textDisabledColor(Vec4::FromRGBA(120, 120, 120, 255))
-    , m_buttonNormal(Vec4::FromRGBA(100, 100, 100, 255))
-    , m_buttonHover(Vec4::FromRGBA(120, 120, 120, 255))
-    , m_buttonPressed(Vec4::FromRGBA(80, 80, 80, 255))
-    , m_buttonDisabled(Vec4::FromRGBA(60, 60, 60, 255))
-    , m_confirmNormal(Vec4::FromRGBA(46, 152, 209, 128))
-    , m_confirmHover(Vec4::FromRGBA(46, 152, 209, 192))
-    , m_confirmPressed(Vec4::FromRGBA(46, 152, 209, 255))
-    , m_borderNormal(Vec4::FromRGBA(128, 128, 128, 255))
-    , m_borderHover(Vec4::FromRGBA(150, 150, 150, 255))
-    , m_borderPressed(Vec4::FromRGBA(100, 100, 100, 255))
-    , m_frameBg(Vec4::FromRGBA(255, 255, 255, 51))
-    , m_frameBorder(Vec4::FromRGBA(128, 128, 128, 255))
-    , m_groupBoxBg(Vec4::FromRGBA(30, 30, 30, 255))
-    , m_groupBoxBorder(Vec4::FromRGBA(128, 128, 128, 255))
-    , m_scrollAreaBg(Vec4::FromRGBA(47, 47, 47, 255))
-    , m_scrollbarBackground(Vec4::FromRGBA(31, 31, 31, 255))
-    , m_scrollbarThumb(Vec4::FromRGBA(56, 56, 56, 255))
-    , m_scrollbarThumbHovered(Vec4::FromRGBA(69, 69, 69, 255))
-    , m_scrollbarButtonNormal(Vec4::FromRGBA(56, 56, 56, 255))
-    , m_scrollbarButtonHovered(Vec4::FromRGBA(69, 69, 69, 255))
-    , m_scrollbarButtonPressed(Vec4::FromRGBA(99, 99, 99, 255))
-    , m_scrollbarButtonBorder(Vec4::FromRGBA(79, 79, 79, 255))
-    , m_scrollbarTriangleNormal(Vec4::FromRGBA(150, 150, 150, 255))
-    , m_scrollbarTriangleHovered(Vec4::FromRGBA(181, 181, 181, 255))
-    , m_scrollbarTrianglePressed(Vec4::FromRGBA(255, 255, 255, 255))
-    , m_spinBoxTextNormal(Vec4::FromRGBA(56, 209, 119, 255))
-    , m_spinBoxTextEditing(Vec4::FromRGBA(0, 0, 0, 255))
-    , m_spinBoxEditingBg(Vec4::FromRGBA(56, 209, 119, 255))
-    , m_spinBoxCursor(Vec4::FromRGBA(0, 0, 0, 255))
-    , m_groupBoxTitleBarHeight(20.0f)
-{
-}
 
 Vec4 ProtoolsDarkStyle::getDefaultFrameBackground() const {
     return m_frameBg;
@@ -86,24 +48,31 @@ Vec4 ProtoolsDarkStyle::getDefaultTextColor() const {
     return m_uiTextColor;
 }
 
-void ProtoolsDarkStyle::drawButton(const ButtonDrawInfo& info, RenderList& cmdList) {
+void ProtoolsDarkStyle::drawNormalButton(const ButtonDrawInfo& info, RenderList& cmdList) {
+    Vec4 cancelNormal = Vec4::FromRGBA(255, 255, 255, 30);
+    Vec4 cancelHover = Vec4::FromRGBA(255, 255, 255, 60);
+    Vec4 cancelPressed = Vec4::FromRGBA(255, 255, 255, 128);
+    Vec4 cancelBorder = Vec4::FromRGBA(255, 255, 255, 128);
+    
     drawButtonInternal(info, cmdList,
-                      m_buttonNormal, m_buttonHover, m_buttonPressed, m_buttonDisabled,
-                      m_borderNormal, m_borderHover, m_borderPressed);
+                      cancelNormal, cancelHover, cancelPressed, m_buttonDisabled,
+                      cancelBorder, cancelBorder, cancelBorder);
 }
 
-void ProtoolsDarkStyle::drawConfirmButton(const ButtonDrawInfo& info, RenderList& cmdList) {
+void ProtoolsDarkStyle::drawPrimaryButton(const ButtonDrawInfo& info, RenderList& cmdList)
+{
     Vec4 confirmBorder = Vec4::FromRGBA(46, 152, 209, 255);
     drawButtonInternal(info, cmdList,
                       m_confirmNormal, m_confirmHover, m_confirmPressed, m_buttonDisabled,
                       confirmBorder, confirmBorder, confirmBorder);
 }
 
-void ProtoolsDarkStyle::drawCancelButton(const ButtonDrawInfo& info, RenderList& cmdList) {
-    Vec4 cancelNormal = Vec4::FromRGBA(255, 255, 255, 30);
-    Vec4 cancelHover = Vec4::FromRGBA(255, 255, 255, 60);
-    Vec4 cancelPressed = Vec4::FromRGBA(255, 255, 255, 128);
-    Vec4 cancelBorder = Vec4::FromRGBA(255, 255, 255, 128);
+void ProtoolsDarkStyle::drawDestructiveButton(const ButtonDrawInfo &info, RenderList &cmdList)
+{
+    Vec4 cancelNormal = Vec4::FromRGBA(255, 0, 0, 30);
+    Vec4 cancelHover = Vec4::FromRGBA(255, 0, 0, 60);
+    Vec4 cancelPressed = Vec4::FromRGBA(255, 0, 0, 128);
+    Vec4 cancelBorder = Vec4::FromRGBA(255, 0, 0, 128);
     
     drawButtonInternal(info, cmdList,
                       cancelNormal, cancelHover, cancelPressed, m_buttonDisabled,
@@ -460,7 +429,7 @@ void ProtoolsDarkStyle::drawRadioButton(const RadioButtonDrawInfo& info, RenderL
 FontFallbackChain ProtoolsDarkStyle::getDefaultButtonFontChain() const {
     IFontProvider* provider = getFontProvider();
     return FontFallbackChain(
-        provider->getDefaultFont(),      // Arial Regular
+        provider->getDefaultBoldFont(),  // Arial Regular
         provider->getDefaultCJKFont()    // PingFang SC / Microsoft YaHei
     );
 }
@@ -479,6 +448,45 @@ FontFallbackChain ProtoolsDarkStyle::getDefaultTitleFontChain() const {
         provider->getDefaultBoldFont(),  // Arial Bold
         provider->getDefaultCJKFont()    // PingFang SC / Microsoft YaHei
     );
+}
+
+ProtoolsDarkStyle::ProtoolsDarkStyle()
+    : m_mainWindowBg(Vec4::FromRGBA(75, 75, 75, 255))
+    , m_dialogBg(Vec4::FromRGBA(30, 30, 30, 255))
+    , m_toolWindowBg(Vec4::FromRGBA(48, 48, 48, 255))
+    , m_uiTextColor(Vec4::FromRGBA(255, 255, 255, 196))
+    , m_textDisabledColor(Vec4::FromRGBA(120, 120, 120, 255))
+    , m_buttonNormal()
+    , m_buttonHover()
+    , m_buttonPressed()
+    , m_buttonDisabled()
+    , m_confirmNormal(Vec4::FromRGBA(46, 152, 209, 128))
+    , m_confirmHover(Vec4::FromRGBA(46, 152, 209, 192))
+    , m_confirmPressed(Vec4::FromRGBA(46, 152, 209, 255))
+    , m_borderNormal(Vec4::FromRGBA(128, 128, 128, 255))
+    , m_borderHover(Vec4::FromRGBA(150, 150, 150, 255))
+    , m_borderPressed(Vec4::FromRGBA(100, 100, 100, 255))
+    , m_frameBg(Vec4::FromRGBA(255, 255, 255, 51))
+    , m_frameBorder(Vec4::FromRGBA(128, 128, 128, 255))
+    , m_groupBoxBg(Vec4::FromRGBA(30, 30, 30, 255))
+    , m_groupBoxBorder(Vec4::FromRGBA(128, 128, 128, 255))
+    , m_scrollAreaBg(Vec4::FromRGBA(47, 47, 47, 255))
+    , m_scrollbarBackground(Vec4::FromRGBA(31, 31, 31, 255))
+    , m_scrollbarThumb(Vec4::FromRGBA(56, 56, 56, 255))
+    , m_scrollbarThumbHovered(Vec4::FromRGBA(69, 69, 69, 255))
+    , m_scrollbarButtonNormal(Vec4::FromRGBA(56, 56, 56, 255))
+    , m_scrollbarButtonHovered(Vec4::FromRGBA(69, 69, 69, 255))
+    , m_scrollbarButtonPressed(Vec4::FromRGBA(99, 99, 99, 255))
+    , m_scrollbarButtonBorder(Vec4::FromRGBA(79, 79, 79, 255))
+    , m_scrollbarTriangleNormal(Vec4::FromRGBA(150, 150, 150, 255))
+    , m_scrollbarTriangleHovered(Vec4::FromRGBA(181, 181, 181, 255))
+    , m_scrollbarTrianglePressed(Vec4::FromRGBA(255, 255, 255, 255))
+    , m_spinBoxTextNormal(Vec4::FromRGBA(56, 209, 119, 255))
+    , m_spinBoxTextEditing(Vec4::FromRGBA(0, 0, 0, 255))
+    , m_spinBoxEditingBg(Vec4::FromRGBA(56, 209, 119, 255))
+    , m_spinBoxCursor(Vec4::FromRGBA(0, 0, 0, 255))
+    , m_groupBoxTitleBarHeight(20.0f)
+{
 }
 
 }

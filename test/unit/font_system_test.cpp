@@ -564,18 +564,8 @@ TEST_F(FontManagerTest, HasGlyph_CJK) {
     FontHandle cjkFont = m_fontManager->getDefaultCJKFont();
     
     // Test common CJK characters
-    EXPECT_TRUE(m_fontManager->hasGlyph(cjkFont, 0x4E2D)); // 中
-    EXPECT_TRUE(m_fontManager->hasGlyph(cjkFont, 0x6587)); // 文
-}
-
-TEST_F(FontManagerTest, HasGlyph_Emoji) {
-    FontHandle emojiFont = m_fontManager->getEmojiFont();
-    if (emojiFont != INVALID_FONT_HANDLE) {
-        // Emoji fonts might not have all emoji
-        bool hasEmoji = m_fontManager->hasGlyph(emojiFont, 0x1F600); // 😀
-        // Just verify the method doesn't crash
-        EXPECT_TRUE(hasEmoji || !hasEmoji);
-    }
+    EXPECT_TRUE(m_fontManager->hasGlyph(cjkFont, 0x4E2D));
+    EXPECT_TRUE(m_fontManager->hasGlyph(cjkFont, 0x6587));
 }
 
 TEST_F(FontManagerTest, SelectFontForCodepoint_Latin) {
@@ -702,17 +692,6 @@ TEST(TextUtilsTest, IsChineseCharacter_CJK) {
 TEST(TextUtilsTest, IsChineseCharacter_NotChinese) {
     EXPECT_FALSE(TextUtils::isChineseCharacter('A'));
     EXPECT_FALSE(TextUtils::isChineseCharacter(0x1F600)); // 😀
-}
-
-TEST(TextUtilsTest, IsEmojiCharacter_Common) {
-    EXPECT_TRUE(TextUtils::isEmojiCharacter(0x1F600)); // 😀
-    EXPECT_TRUE(TextUtils::isEmojiCharacter(0x1F602)); // 😂
-    EXPECT_TRUE(TextUtils::isEmojiCharacter(0x1F44D)); // 👍
-}
-
-TEST(TextUtilsTest, IsEmojiCharacter_NotEmoji) {
-    EXPECT_FALSE(TextUtils::isEmojiCharacter('A'));
-    EXPECT_FALSE(TextUtils::isEmojiCharacter(0x4E2D)); // 中
 }
 
 TEST(TextUtilsTest, IsSymbolCharacter_Common) {

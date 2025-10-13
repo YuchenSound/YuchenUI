@@ -11,7 +11,7 @@ namespace YuchenUI {
 
 TextBlock::TextBlock(const Rect& bounds)
     : m_text()
-    , m_fontChain()              // ✅ 新：统一的字体链
+    , m_fontChain()
     , m_fontSize(Config::Font::DEFAULT_SIZE)
     , m_textColor()
     , m_bounds(bounds)
@@ -23,7 +23,7 @@ TextBlock::TextBlock(const Rect& bounds)
     , m_paddingBottom(Config::Text::DEFAULT_PADDING)
     , m_lineHeightMultiplier(1.2f)
     , m_paragraphSpacing(0.0f)
-    , m_hasCustomFont(false)     // ✅ 新：统一的标志
+    , m_hasCustomFont(false)
     , m_hasCustomTextColor(false)
     , m_cachedLines()
     , m_needsLayout(true)

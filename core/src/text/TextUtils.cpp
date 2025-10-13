@@ -107,6 +107,40 @@ uint32_t TextUtils::decodeUTF8(const char*& text)
     return codepoint;
 }
 
+std::string TextUtils::encodeUTF8(uint32_t codepoint)
+{
+    std::string result;
+    
+    if (codepoint <= 0x7F)
+    {
+        // 1-byte sequence: 0xxxxxxx
+        result += static_cast<char>(codepoint);
+    }
+    else if (codepoint <= 0x7FF)
+    {
+        // 2-byte sequence: 110xxxxx 10xxxxxx
+        result += static_cast<char>(0xC0 | (codepoint >> 6));
+        result += static_cast<char>(0x80 | (codepoint & 0x3F));
+    }
+    else if (codepoint <= 0xFFFF)
+    {
+        // 3-byte sequence: 1110xxxx 10xxxxxx 10xxxxxx
+        result += static_cast<char>(0xE0 | (codepoint >> 12));
+        result += static_cast<char>(0x80 | ((codepoint >> 6) & 0x3F));
+        result += static_cast<char>(0x80 | (codepoint & 0x3F));
+    }
+    else if (codepoint <= 0x10FFFF)
+    {
+        // 4-byte sequence: 11110xxx 10xxxxxx 10xxxxxx 10xxxxxx
+        result += static_cast<char>(0xF0 | (codepoint >> 18));
+        result += static_cast<char>(0x80 | ((codepoint >> 12) & 0x3F));
+        result += static_cast<char>(0x80 | ((codepoint >> 6) & 0x3F));
+        result += static_cast<char>(0x80 | (codepoint & 0x3F));
+    }
+    
+    return result;
+}
+
 //==========================================================================================
 // Character Classification
 

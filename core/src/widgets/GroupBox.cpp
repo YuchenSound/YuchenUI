@@ -14,14 +14,14 @@ namespace YuchenUI {
 GroupBox::GroupBox(const Rect& bounds)
     : Widget(bounds)
     , m_title()
-    , m_titleFontChain()         // ✅ 新：统一的字体链
+    , m_titleFontChain()
     , m_titleFontSize(Config::Font::DEFAULT_SIZE)
     , m_titleColor()
     , m_backgroundColor()
     , m_borderColor()
     , m_borderWidth(1.0f)
     , m_cornerRadius()
-    , m_hasCustomTitleFont(false)  // ✅ 新：统一的标志
+    , m_hasCustomTitleFont(false)
     , m_hasCustomTitleColor(false)
     , m_hasCustomBackground(false)
     , m_hasCustomBorderColor(false)
@@ -45,7 +45,6 @@ void GroupBox::addDrawCommands(RenderList& commandList, const Vec2& offset) cons
     info.bounds = Rect(absPos.x, absPos.y, m_bounds.width, m_bounds.height);
     info.title = m_title;
     
-    // ✅ 使用新 API：直接获取 fallback chain
     info.titleFallbackChain = m_hasCustomTitleFont
         ? m_titleFontChain
         : style->getDefaultTitleFontChain();

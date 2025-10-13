@@ -405,17 +405,6 @@ public:
     FontHandle getPingFangFont() const { return m_pingFangFont; }
     
     /**
-        Returns default emoji font handle.
-        
-        Direct access to emoji font. Desktop-specific method.
-        
-        Platform: Apple Color Emoji (macOS), Segoe UI Emoji (Windows)
-        
-        @returns Emoji font handle, or INVALID_FONT_HANDLE if not available
-    */
-    FontHandle getEmojiFont() const { return m_emojiFont; }
-    
-    /**
         Returns default symbol font handle.
         
         Direct access to symbol font. Desktop-specific method.
@@ -432,7 +421,6 @@ private:
     bool initializeFreeType();
     void cleanupFreeType();
     void initializeFonts();
-    void loadEmojiFont();
     void loadSymbolFont();
     
 #ifdef __APPLE__
@@ -467,7 +455,6 @@ private:
     FontHandle m_arialNarrowRegular;
     FontHandle m_arialNarrowBold;
     FontHandle m_pingFangFont;
-    FontHandle m_emojiFont;    // New: Emoji font support
     FontHandle m_symbolFont;   // New: Symbol font support
     
     // Glyph availability cache for performance
