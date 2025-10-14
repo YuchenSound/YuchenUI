@@ -76,6 +76,8 @@ public:
     const UIContext& getUIContext() const { return m_uiContext; }
     void setFontProvider(IFontProvider* provider);
 
+    void setAffectsAppLifetime(bool affects);
+    bool affectsAppLifetime() const { return m_affectsAppLifetime; }
 protected:
     IGraphicsBackend* getGraphicsBackend() { return m_backend.get(); }
     virtual void onWindowReady() {}
@@ -97,6 +99,8 @@ protected:
     int m_width;
     int m_height;
     float m_dpiScale;
+
+    bool m_affectsAppLifetime;
 
     std::unique_ptr<EventManager> m_eventManager;
     

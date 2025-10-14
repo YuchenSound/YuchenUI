@@ -177,62 +177,6 @@ void WindowManager::quit()
     Platform::quitEventLoop();
 }
 
-//==========================================================================================
-// Main Window Management
-
-void WindowManager::closeMainWindow(BaseWindow* mainWindow)
-{
-    YUCHEN_ASSERT(mainWindow);
-
-    auto it = std::find_if(m_mainWindows.begin(), m_mainWindows.end(),
-        [mainWindow](const std::unique_ptr<BaseWindow>& ptr) {
-            return ptr.get() == mainWindow;
-        });
-
-    YUCHEN_ASSERT_MSG(it != m_mainWindows.end(), "Main window not found in list");
-
-    unregisterWindow(static_cast<Window*>(mainWindow));
-    (*it)->destroy();
-    m_mainWindows.erase(it);
-
-    // Quit when last main window closes
-    if (m_mainWindows.empty())
-    {
-        quit();
-    }
-}
-
-bool WindowManager::isMainWindow(const BaseWindow* window) const
-{
-    if (!window)
-        return false;
-
-    return std::any_of(m_mainWindows.begin(), m_mainWindows.end(),
-        [window](const std::unique_ptr<BaseWindow>& ptr) {
-            return ptr.get() == window;
-        });
-}
-
-//==========================================================================================
-// Dialog Management
-
-void WindowManager::closeDialog(BaseWindow* dialog)
-{
-    YUCHEN_ASSERT(dialog);
-
-    auto it = std::find_if(m_dialogs.begin(), m_dialogs.end(),
-        [dialog](const std::unique_ptr<BaseWindow>& ptr) {
-            return ptr.get() == dialog;
-        });
-
-    if (it != m_dialogs.end())
-    {
-        unregisterWindow(static_cast<Window*>(dialog));
-        (*it)->destroy();
-        m_dialogs.erase(it);
-    }
-}
-
 void WindowManager::scheduleDialogDestruction(BaseWindow* dialog)
 {
     YUCHEN_ASSERT(dialog);
@@ -249,29 +193,10 @@ void WindowManager::processScheduledDestructions()
 
     for (BaseWindow* dialog : toDestroy)
     {
-        closeDialog(dialog);
+        closeWindow(dialog);
     }
 }
 
-//==========================================================================================
-// Tool Window Management
-
-void WindowManager::closeToolWindow(BaseWindow* toolWindow)
-{
-    YUCHEN_ASSERT(toolWindow);
-
-    auto it = std::find_if(m_toolWindows.begin(), m_toolWindows.end(),
-        [toolWindow](const std::unique_ptr<BaseWindow>& ptr) {
-            return ptr.get() == toolWindow;
-        });
-
-    if (it != m_toolWindows.end())
-    {
-        unregisterWindow(static_cast<Window*>(toolWindow));
-        (*it)->destroy();
-        m_toolWindows.erase(it);
-    }
-}
 
 //==========================================================================================
 // Window Registry
@@ -295,6 +220,48 @@ void WindowManager::unregisterWindow(Window* window)
     if (it != m_allWindows.end())
     {
         m_allWindows.erase(it);
+    }
+}
+
+//==========================================================================================
+// Unified Window Closing
+
+void WindowManager::closeWindow(BaseWindow* window)
+{
+    YUCHEN_ASSERT(window);
+    
+    // Determine which collection this window belongs to
+    auto findAndRemove = [window, this](auto& collection) -> bool {
+        auto it = std::find_if(collection.begin(), collection.end(),
+            [window](const std::unique_ptr<BaseWindow>& ptr) {
+                return ptr.get() == window;
+            });
+        
+        if (it != collection.end())
+        {
+            unregisterWindow(static_cast<Window*>(window));
+            (*it)->destroy();
+            collection.erase(it);
+            return true;
+        }
+        return false;
+    };
+    
+    // Try to remove from appropriate collection
+    bool removed = findAndRemove(m_mainWindows) ||
+                   findAndRemove(m_dialogs) ||
+                   findAndRemove(m_toolWindows);
+    
+    YUCHEN_ASSERT_MSG(removed, "Window not found in any collection");
+    
+    // Check if we should quit after this window closes
+    if (window->affectsAppLifetime())
+    {
+        // Count remaining windows that affect app lifetime
+        if (getLifetimeAffectingWindowCount() == 0)
+        {
+            quit();
+        }
     }
 }
 
@@ -334,6 +301,35 @@ void WindowManager::closeAllWindows()
     m_toolWindows.clear();
 
     m_allWindows.clear();
+}
+
+
+size_t WindowManager::getLifetimeAffectingWindowCount() const
+{
+    size_t count = 0;
+    
+    // Count in main windows
+    for (const auto& window : m_mainWindows)
+    {
+        if (window && window->affectsAppLifetime())
+            ++count;
+    }
+    
+    // Count in dialogs
+    for (const auto& window : m_dialogs)
+    {
+        if (window && window->affectsAppLifetime())
+            ++count;
+    }
+    
+    // Count in tool windows
+    for (const auto& window : m_toolWindows)
+    {
+        if (window && window->affectsAppLifetime())
+            ++count;
+    }
+    
+    return count;
 }
 
 //==========================================================================================

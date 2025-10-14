@@ -113,22 +113,30 @@ public:
     //======================================================================================
     /** Creates a main application window with content.
         
-        Main windows keep the application running. When all main windows close,
-        the application quits.
+        Creates a window with WindowType::Main. By default, Main windows affect
+        application lifetime (app quits when no lifetime-affecting windows remain).
         
-        Correct initialization order:
+        To create a Main-type window that doesn't affect app exit:
+        @code
+        auto* window = wm.createMainWindow<Content>(...);
+        window->setAffectsAppLifetime(false);
+        @endcode
+        
+        Initialization order:
         1. Create window
         2. Inject font provider (initializes renderer)
         3. Inject theme provider (into UIContext)
         4. Set content (calls onCreate with initialized context)
         
-        @tparam ContentType  The IWindowContent-derived class to create
+        @tparam ContentType  The IUIContent-derived class to create
         @param width         Window width in pixels
         @param height        Window height in pixels
         @param title         Window title text
         @param args          Arguments forwarded to ContentType constructor
         
         @returns Pointer to the created window, or nullptr on failure
+        
+        @see setAffectsAppLifetime(), createDialog(), createToolWindow()
     */
     template<typename ContentType, typename... Args>
     BaseWindow* createMainWindow(int width, int height, const char* title, Args&&... args)
@@ -169,20 +177,6 @@ public:
         
         return mainWindowPtr;
     }
-    
-    /** Returns the number of main windows currently open. */
-    size_t getMainWindowCount() const { return m_mainWindows.size(); }
-    
-    /** Closes a main window.
-        
-        If this is the last main window, the application will quit.
-        
-        @param mainWindow  The window to close
-    */
-    void closeMainWindow(BaseWindow* mainWindow);
-    
-    /** Returns true if the specified window is a main window. */
-    bool isMainWindow(const BaseWindow* window) const;
     
     //======================================================================================
     /** Creates a modal dialog window with content.
@@ -303,20 +297,23 @@ public:
         return toolWindowPtr;
     }
     
-    /** Closes a dialog window.
+    //======================================================================================
+    /** Closes any window (main, dialog, or tool window).
         
-        @param dialog  The dialog to close
-    */
-    void closeDialog(BaseWindow* dialog);
-    
-    /** Closes a tool window.
+        This is the unified method for closing windows. It checks the window's
+        affectsAppLifetime property to determine if app should quit.
         
-        @param toolWindow  The tool window to close
+        @param window  The window to close (must not be null)
     */
-    void closeToolWindow(BaseWindow* toolWindow);
+    void closeWindow(BaseWindow* window);
     
     /** Closes all windows (main, dialog, and tool windows). */
     void closeAllWindows();
+    
+    /** Returns the number of windows that affect application lifetime.
+        @returns Count of windows with affectsAppLifetime = true
+    */
+    size_t getLifetimeAffectingWindowCount() const;
     
     //======================================================================================
     /** Returns the shared rendering device handle.

@@ -79,8 +79,8 @@ BaseWindow::BaseWindow(WindowType type)
     , m_resultCallback(nullptr)
     , m_isModal(false)
     , m_capturedComponent(nullptr)
+    , m_affectsAppLifetime(type == WindowType::Main)
 {
-    // Create platform-specific window implementation
     m_impl.reset(WindowImplFactory::create());
     YUCHEN_ASSERT(m_impl);
 }
@@ -255,20 +255,15 @@ void BaseWindow::closeModal()
 void BaseWindow::closeWithResult(WindowContentResult result)
 {
     WindowManager& wm = WindowManager::getInstance();
-
+    
     if (m_windowType == WindowType::Dialog)
     {
         closeModal();
     }
-    else if (wm.isMainWindow(this))
+    else
     {
         m_shouldClose = true;
-        wm.closeMainWindow(this);
-    }
-    else if (m_windowType == WindowType::ToolWindow)
-    {
-        m_shouldClose = true;
-        wm.closeToolWindow(this);
+        wm.closeWindow(this);
     }
 }
 
@@ -529,11 +524,7 @@ void BaseWindow::handleEvent(const Event& event)
         case EventType::WindowClosed:
         {
             m_shouldClose = true;
-            WindowManager& wm = WindowManager::getInstance();
-            if (wm.isMainWindow(this))
-            {
-                wm.closeMainWindow(this);
-            }
+            WindowManager::getInstance().closeWindow(this);
             break;
         }
         case EventType::WindowResized:
@@ -682,5 +673,14 @@ void BaseWindow::setupUserInterface()
 {
     // UIContext internally manages content, no additional setup needed at window level
 }
+
+//==========================================================================================
+// Application Lifetime Control
+
+void BaseWindow::setAffectsAppLifetime(bool affects)
+{
+    m_affectsAppLifetime = affects;
+}
+
 
 } // namespace YuchenUI
