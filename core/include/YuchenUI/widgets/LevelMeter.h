@@ -256,23 +256,19 @@ private:
 class BlendedColorCache
 {
 public:
+    BlendedColorCache();
+    
     void initialize(size_t totalChannelCount);
-    void invalidate() { initialized_ = false; blendCache_.clear(); }
     bool isInitialized() const { return initialized_; }
-    
-    // Returns blended color for x position within channel (simulates curved surface)
     Vec4 getBlendedColor(const Vec4& baseColor, float x, bool isWarningRegion) const;
-    
 private:
-    struct TextureData
-    {
-        std::array<Vec4, 12> pixels;  // 1D texture for lighting gradient
-    };
-    
+    struct TextureData { std::vector<Vec4> pixels; };
     TextureData normalTexture_;
     TextureData warningTexture_;
     float channelWidth_;
-    bool initialized_ = false;
+    int blendTexturePixelCount_;         // Number of pixels in blend texture
+    size_t initializedForChannelCount_;  // Track which channel count we initialized for
+    bool initialized_;
     mutable std::unordered_map<uint64_t, Vec4> blendCache_;  // Cache key: (color, x, region)
     
     void initializeTextures();
@@ -304,17 +300,12 @@ public:
     
     void setContext(UIContext* context) { m_context = context; }
     void setScale(const MeterScale* scale) { scale_ = scale; }
-    void setConfig(const MeterConfig* config) { config_ = config; blendCache_.invalidate(); }
+    void setConfig(const MeterConfig* config) { config_ = config; }
     
     void renderChannels(RenderList& cmdList, const Vec2& startPos, const Vec2& totalSize,
                        const LevelDataManager& levelData, bool showControlVoltage = true);
     void renderScale(RenderList& cmdList, const Rect& scaleRect, const Rect& referenceRect);
-    
-    // Pre-calculates all channel positions (called by renderChannels and addDrawCommands)
-    std::vector<ChannelRenderInfo> calculateChannelLayout(const Vec2& startPos,
-                                                          const Vec2& totalSize,
-                                                          const LevelDataManager& levelData) const;
-    
+    std::vector<ChannelRenderInfo> calculateChannelLayout(const Vec2& startPos,const Vec2& totalSize,const LevelDataManager& levelData) const;
 private:
     UIContext* m_context;
     const MeterScale* scale_;
@@ -330,7 +321,7 @@ private:
     void renderPeakIndicator(RenderList& cmdList, const Rect& rect, bool isActive);
     void renderPeakIndicatorFrame(RenderList& cmdList, const Rect& rect);
     void renderControlVoltage(RenderList& cmdList, const Vec2& startPos, const Vec2& totalSize, const LevelDataManager& levelData);
-    
+
     Vec4 getLevelColor(float db) const;
     float dbToPosition01(float db) const;
     float getWarningThreshold01() const;

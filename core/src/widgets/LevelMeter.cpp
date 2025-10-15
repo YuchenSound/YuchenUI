@@ -427,36 +427,75 @@ void LevelDataManager::clearControlVoltage()
 
 //==========================================================================================
 // BlendedColorCache Implementation
+BlendedColorCache::BlendedColorCache()
+    : channelWidth_(0.0f)
+    , blendTexturePixelCount_(0)
+    , initializedForChannelCount_(0)
+    , initialized_(false)
+{
+}
+
 void BlendedColorCache::initialize(size_t totalChannelCount)
 {
+    if (initialized_ && initializedForChannelCount_ == totalChannelCount) return;
     channelWidth_ = MeterDimensions::getChannelWidth(totalChannelCount);
-    initialized_ = true;
+
+    // Calculate inner width (excluding 1px borders on each side)
+    float innerWidth = channelWidth_ - 2.0f;
+    blendTexturePixelCount_ = static_cast<int>(innerWidth * 2.0f);
     blendCache_.clear();
+    initializedForChannelCount_ = totalChannelCount;
+    initialized_ = true;
     initializeTextures();
 }
 
 void BlendedColorCache::initializeTextures()
 {
-    std::array<std::array<uint8_t, 3>, 12> warningData = {{
-        {255, 207, 205}, {251, 213, 211}, {251, 222, 221}, {252, 231, 229},
-        {255, 255, 255}, {255, 255, 255}, {255, 255, 255}, {255, 255, 255},
-        {252, 231, 229}, {251, 222, 221}, {251, 213, 211}, {255, 207, 205}
-    }};
-    std::array<std::array<uint8_t, 3>, 12> normalData = {{
-        {204, 204, 204}, {211, 211, 211}, {222, 222, 222}, {232, 232, 232},
-        {255, 255, 255}, {255, 255, 255}, {255, 255, 255}, {255, 255, 255},
-        {232, 232, 232}, {222, 222, 222}, {211, 211, 211}, {204, 204, 204}
-    }};
-    for (size_t i = 0; i < 12; ++i)
+    const float normalEdge = 204.0f;
+    const float normalCenter = 255.0f;
+    
+    const float warningEdgeR = 255.0f;
+    const float warningEdgeG = 207.0f;
+    const float warningEdgeB = 205.0f;
+    const float warningCenterR = 255.0f;
+    const float warningCenterG = 255.0f;
+    const float warningCenterB = 255.0f;
+    
+    constexpr float PI = 3.14159265359f;
+    
+    normalTexture_.pixels.resize(blendTexturePixelCount_);
+    warningTexture_.pixels.resize(blendTexturePixelCount_);
+    
+    float center = (blendTexturePixelCount_ - 1) * 0.5f;
+    
+    for (int i = 0; i < blendTexturePixelCount_; ++i)
     {
-        warningTexture_.pixels[i] = Vec4::FromRGBA(warningData[i][0], warningData[i][1], warningData[i][2], 255);
-        normalTexture_.pixels[i] = Vec4::FromRGBA(normalData[i][0], normalData[i][1], normalData[i][2], 255);
+        float distanceFromCenter = std::abs(i - center) / center;
+        float cosineWeight = (1.0f + std::cos(distanceFromCenter * PI)) * 0.5f;
+        float normalValue = normalEdge + (normalCenter - normalEdge) * cosineWeight;
+        normalTexture_.pixels[i] = Vec4::FromRGBA(
+            static_cast<uint8_t>(std::round(normalValue)),
+            static_cast<uint8_t>(std::round(normalValue)),
+            static_cast<uint8_t>(std::round(normalValue)),
+            255
+        );
+        
+        // Warning texture
+        float warningR = warningEdgeR + (warningCenterR - warningEdgeR) * cosineWeight;
+        float warningG = warningEdgeG + (warningCenterG - warningEdgeG) * cosineWeight;
+        float warningB = warningEdgeB + (warningCenterB - warningEdgeB) * cosineWeight;
+        
+        warningTexture_.pixels[i] = Vec4::FromRGBA(
+            static_cast<uint8_t>(std::round(warningR)),
+            static_cast<uint8_t>(std::round(warningG)),
+            static_cast<uint8_t>(std::round(warningB)),
+            255
+        );
     }
 }
 
 Vec4 BlendedColorCache::getBlendedColor(const Vec4& baseColor, float x, bool isWarningRegion) const
 {
-    if (!initialized_) return baseColor;
     uint64_t key = getCacheKey(baseColor, x, isWarningRegion);
     auto it = blendCache_.find(key);
     if (it != blendCache_.end()) return it->second;
@@ -467,22 +506,16 @@ Vec4 BlendedColorCache::getBlendedColor(const Vec4& baseColor, float x, bool isW
     blendCache_[key] = result;
     return result;
 }
+
 Vec4 BlendedColorCache::sampleTexture(const TextureData& texture, float logicalX) const
 {
-    float maxLogicalX = channelWidth_ - (2.0f * 1.5f);
+    float maxLogicalX = channelWidth_ - 2.0f;
     float normalizedX = logicalX / maxLogicalX;
     normalizedX = std::clamp(normalizedX, 0.0f, 1.0f);
-    
-    float compressionFactor = 0.4f;
-    float centerWeight = 4.0f * normalizedX * (1.0f - normalizedX);
-    float nonlinearX = normalizedX + compressionFactor * centerWeight * (0.5f - normalizedX);
-    
-    float physicalX = nonlinearX * 11.0f;
-    physicalX = std::clamp(physicalX, 0.0f, 11.999f);
-    int textureIndex = static_cast<int>(std::round(physicalX));
-    textureIndex = std::clamp(textureIndex, 0, 11);
-    
-    return texture.pixels[static_cast<size_t>(textureIndex)];
+    float physicalX = normalizedX * blendTexturePixelCount_;
+    int textureIndex = static_cast<int>(std::floor(physicalX));
+    textureIndex = std::clamp(textureIndex, 0, blendTexturePixelCount_ - 1);
+    return texture.pixels[textureIndex];
 }
 Vec4 BlendedColorCache::multiplyBlend(const Vec4& baseColor, const Vec4& overlayColor) const
 {
@@ -568,6 +601,7 @@ std::vector<ChannelRenderInfo> MeterRenderer::calculateChannelLayout(const Vec2&
     }
     return infos;
 }
+
 void MeterRenderer::renderChannelBackground(RenderList& cmdList, const Rect& rect,
                                            float displayLevelDb, size_t totalChannelCount)
 {
@@ -575,19 +609,22 @@ void MeterRenderer::renderChannelBackground(RenderList& cmdList, const Rect& rec
     UIStyle* style = m_context ? m_context->getCurrentStyle() : nullptr;
     if (!style) return;
     LevelMeterColors colors = style->getLevelMeterColors();
-    Rect innerRect(rect.x + 1.0f, rect.y + 1.0f,rect.width - 2.0f, rect.height - 2.0f);
+    
+    Rect innerRect(rect.x + 1.0f, rect.y + 1.0f, rect.width - 2.0f, rect.height - 2.0f);
     if (innerRect.width <= 0 || innerRect.height <= 0) return;
+    
     float peakThreshold01 = getPeakThreshold01();
     float warningThreshold01 = getWarningThreshold01();
     float normalHeight = warningThreshold01 * innerRect.height;
     float warningHeight = (peakThreshold01 - warningThreshold01) * innerRect.height;
     float peakHeight = (1.0f - peakThreshold01) * innerRect.height;
+    constexpr float PIXEL_STEP = 1.0f;
     if (normalHeight > 0.0f)
     {
         Rect normalRect(innerRect.x, innerRect.y + innerRect.height - normalHeight,innerRect.width, normalHeight);
-        for (float x = normalRect.x; x < normalRect.x + normalRect.width; x += 1.0f)
+        for (float x = normalRect.x; x < normalRect.x + normalRect.width; x += PIXEL_STEP)
         {
-            float pixelWidth = std::min(1.0f, normalRect.x + normalRect.width - x);
+            float pixelWidth = std::min(PIXEL_STEP, normalRect.x + normalRect.width - x);
             Rect pixelRect(x, normalRect.y, pixelWidth, normalRect.height);
             Vec4 blendedColor = blendCache_.getBlendedColor(colors.bgNormal, x - innerRect.x, false);
             cmdList.fillRect(pixelRect, blendedColor);
@@ -595,22 +632,21 @@ void MeterRenderer::renderChannelBackground(RenderList& cmdList, const Rect& rec
     }
     if (warningHeight > 0.0f)
     {
-        Rect warningRect(innerRect.x, innerRect.y + innerRect.height - normalHeight - warningHeight, innerRect.width, warningHeight);
-        for (float x = warningRect.x; x < warningRect.x + warningRect.width; x += 1.0f)
+        Rect warningRect(innerRect.x, innerRect.y + innerRect.height - normalHeight - warningHeight,innerRect.width, warningHeight);
+        for (float x = warningRect.x; x < warningRect.x + warningRect.width; x += PIXEL_STEP)
         {
-            float pixelWidth = std::min(1.0f, warningRect.x + warningRect.width - x);
+            float pixelWidth = std::min(PIXEL_STEP, warningRect.x + warningRect.width - x);
             Rect pixelRect(x, warningRect.y, pixelWidth, warningRect.height);
             Vec4 blendedColor = blendCache_.getBlendedColor(colors.bgWarning, x - innerRect.x, false);
             cmdList.fillRect(pixelRect, blendedColor);
         }
     }
-    
     if (peakHeight > 0.0f)
     {
         Rect peakRect(innerRect.x, innerRect.y, innerRect.width, peakHeight);
-        for (float x = peakRect.x; x < peakRect.x + peakRect.width; x += 1.0f)
+        for (float x = peakRect.x; x < peakRect.x + peakRect.width; x += PIXEL_STEP)
         {
-            float pixelWidth = std::min(1.0f, peakRect.x + peakRect.width - x);
+            float pixelWidth = std::min(PIXEL_STEP, peakRect.x + peakRect.width - x);
             Rect pixelRect(x, peakRect.y, pixelWidth, peakRect.height);
             Vec4 blendedColor = blendCache_.getBlendedColor(colors.bgPeak, x - innerRect.x, true);
             cmdList.fillRect(pixelRect, blendedColor);
@@ -630,23 +666,24 @@ void MeterRenderer::renderChannelFill(RenderList& cmdList, const Rect& rect, flo
     float warningThreshold01 = getWarningThreshold01();
     float peakThreshold01 = getPeakThreshold01();
     float currentBottom = innerRect.y + innerRect.height;
+    constexpr float PIXEL_STEP = 1.0f;
     if (level01 > 0.0f && warningThreshold01 > 0.0f)
     {
         float normalFill = std::min(level01, warningThreshold01);
         if (normalFill > 0.0f)
         {
             float normalHeight = normalFill * innerRect.height;
-            Rect normalFillRect(innerRect.x, currentBottom - normalHeight,innerRect.width, normalHeight);
-            for (float x = normalFillRect.x; x < normalFillRect.x + normalFillRect.width; x += 1.0f)
+            Rect normalFillRect(innerRect.x, currentBottom - normalHeight, innerRect.width, normalHeight);
+            
+            for (float x = normalFillRect.x; x < normalFillRect.x + normalFillRect.width; x += PIXEL_STEP)
             {
-                float pixelWidth = std::min(1.0f, normalFillRect.x + normalFillRect.width - x);
+                float pixelWidth = std::min(PIXEL_STEP, normalFillRect.x + normalFillRect.width - x);
                 Rect pixelRect(x, normalFillRect.y, pixelWidth, normalFillRect.height);
                 Vec4 blendedColor = blendCache_.getBlendedColor(colors.levelNormal, x - innerRect.x, false);
                 cmdList.fillRect(pixelRect, blendedColor);
             }
         }
     }
-    
     if (level01 > warningThreshold01 && peakThreshold01 > warningThreshold01)
     {
         float warningFill = std::min(level01, peakThreshold01) - warningThreshold01;
@@ -657,16 +694,15 @@ void MeterRenderer::renderChannelFill(RenderList& cmdList, const Rect& rect, flo
                                 currentBottom - (warningThreshold01 * innerRect.height) - warningHeight,
                                 innerRect.width, warningHeight);
             
-            for (float x = warningFillRect.x; x < warningFillRect.x + warningFillRect.width; x += 1.0f)
+            for (float x = warningFillRect.x; x < warningFillRect.x + warningFillRect.width; x += PIXEL_STEP)
             {
-                float pixelWidth = std::min(1.0f, warningFillRect.x + warningFillRect.width - x);
+                float pixelWidth = std::min(PIXEL_STEP, warningFillRect.x + warningFillRect.width - x);
                 Rect pixelRect(x, warningFillRect.y, pixelWidth, warningFillRect.height);
                 Vec4 blendedColor = blendCache_.getBlendedColor(colors.levelWarning, x - innerRect.x, false);
                 cmdList.fillRect(pixelRect, blendedColor);
             }
         }
     }
-    
     if (level01 > peakThreshold01)
     {
         float peakFill = level01 - peakThreshold01;
@@ -677,9 +713,9 @@ void MeterRenderer::renderChannelFill(RenderList& cmdList, const Rect& rect, flo
                              currentBottom - (peakThreshold01 * innerRect.height) - peakHeight,
                              innerRect.width, peakHeight);
             
-            for (float x = peakFillRect.x; x < peakFillRect.x + peakFillRect.width; x += 1.0f)
+            for (float x = peakFillRect.x; x < peakFillRect.x + peakFillRect.width; x += PIXEL_STEP)
             {
-                float pixelWidth = std::min(1.0f, peakFillRect.x + peakFillRect.width - x);
+                float pixelWidth = std::min(PIXEL_STEP, peakFillRect.x + peakFillRect.width - x);
                 Rect pixelRect(x, peakFillRect.y, pixelWidth, peakFillRect.height);
                 Vec4 blendedColor = blendCache_.getBlendedColor(colors.levelPeak, x - innerRect.x, true);
                 cmdList.fillRect(pixelRect, blendedColor);
@@ -811,7 +847,7 @@ float MeterRenderer::getPeakThreshold01() const
 }
 void MeterRenderer::updateBlendCache(size_t totalChannelCount)
 {
-    if (!blendCache_.isInitialized()) blendCache_.initialize(totalChannelCount);
+    blendCache_.initialize(totalChannelCount);
 }
 bool MeterRenderer::isReady() const
 {
@@ -833,10 +869,12 @@ void MeterRenderer::drawInternalScaleTicks(RenderList& cmdList, const Rect& rect
     UIStyle* style = m_context ? m_context->getCurrentStyle() : nullptr;
     if (!style) return;
     LevelMeterColors colors = style->getLevelMeterColors();
+    
     constexpr float topBuffer = 2.0f;
     constexpr float bottomBuffer = 2.0f;
     constexpr float lineThickness = 0.5f;
     constexpr float leftOffset = 1.0f;
+    constexpr float VERTICAL_OFFSET = 0.5f;
     float channelWidth = MeterDimensions::getChannelWidth(totalChannelCount);
     float tickLength = channelWidth - 2.0f;
     tickLength = std::max(tickLength, 2.0f);
@@ -844,6 +882,7 @@ void MeterRenderer::drawInternalScaleTicks(RenderList& cmdList, const Rect& rect
     for (const auto& tick : ticks) {
         if (tick.db < scale_->getMinDb() || tick.db > scale_->getMaxDb()) continue;
         float tickY = rect.y + rect.height - (tick.position * rect.height);
+        tickY += VERTICAL_OFFSET;
         if (tickY < rect.y + topBuffer || tickY > rect.y + rect.height - bottomBuffer) continue;
         bool isActive = currentDisplayLevel >= tick.db;
         Vec4 scaleColor;
@@ -869,27 +908,32 @@ void MeterRenderer::drawScaleTicks(RenderList& cmdList, const Rect& scaleRect,
     IFontProvider* fontProvider = m_context ? m_context->getFontProvider() : nullptr;
     if (!style || !fontProvider) return;
     LevelMeterColors colors = style->getLevelMeterColors();
+    
     float tickLength = 3.0f;
     float tickThickness = 0.5f;
+    constexpr float VERTICAL_OFFSET = 0.5f;
     FontFallbackChain fallbackChain(fontProvider->getDefaultNarrowBoldFont());
     float fontSize = 9.0f;
     for (const auto& tick : ticks)
     {
         float tickY = meterRect.y + meterRect.height - (tick.position * meterRect.height);
+        tickY += VERTICAL_OFFSET;
         if (tickY < meterRect.y || tickY > meterRect.y + meterRect.height) continue;
         float tickStart = meterRect.x - tickLength;
         float tickEnd = meterRect.x;
-        if (tickStart >= scaleRect.x) { cmdList.drawLine(Vec2(tickStart, tickY), Vec2(tickEnd, tickY),colors.scaleColor, tickThickness); }
+        if (tickStart >= scaleRect.x) cmdList.drawLine(Vec2(tickStart, tickY), Vec2(tickEnd, tickY), colors.scaleColor, tickThickness);
         if (!tick.label.empty())
         {
             FontHandle primaryFont = fallbackChain.getPrimary();
             FontMetrics metrics = fontProvider->getFontMetrics(primaryFont, fontSize);
             Vec2 textSize = fontProvider->measureText(tick.label.c_str(), fontSize);
+            
             float rightEdge = tickStart - 2.0f;
             float textX = rightEdge - textSize.x;
             float textY = tickY - textSize.y * 0.5f + metrics.ascender;
+            textY += VERTICAL_OFFSET;
             Vec2 alignedPos(std::round(textX), std::round(textY));
-            cmdList.drawText(tick.label.c_str(), alignedPos, fallbackChain, fontSize,colors.scaleColor);
+            cmdList.drawText(tick.label.c_str(), alignedPos, fallbackChain, fontSize, colors.scaleColor);
         }
     }
 }
