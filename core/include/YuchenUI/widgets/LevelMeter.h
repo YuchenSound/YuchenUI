@@ -264,7 +264,8 @@ public:
     Vec4 getBlendedColor(const Vec4& baseColor, float x, bool isWarningRegion) const;
     
 private:
-    struct TextureData {
+    struct TextureData
+    {
         std::array<Vec4, 12> pixels;  // 1D texture for lighting gradient
     };
     

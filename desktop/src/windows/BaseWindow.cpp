@@ -75,11 +75,11 @@ BaseWindow::BaseWindow(WindowType type)
     , m_width(0)
     , m_height(0)
     , m_dpiScale(1.0f)
+    , m_affectsAppLifetime(type == WindowType::Main)
     , m_eventManager(nullptr)
     , m_resultCallback(nullptr)
     , m_isModal(false)
     , m_capturedComponent(nullptr)
-    , m_affectsAppLifetime(type == WindowType::Main)
     , m_targetFPS(Config::Rendering::DEFAULT_FPS)
 {
     m_impl.reset(WindowImplFactory::create());

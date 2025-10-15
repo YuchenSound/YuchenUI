@@ -32,6 +32,7 @@
 
 #include "YuchenUI/rendering/IGraphicsBackend.h"
 #include "YuchenUI/rendering/RenderList.h"
+#include "ShaderSources.h"
 #include <memory>
 #include <vector>
 #include <map>
@@ -226,6 +227,18 @@ public:
     void destroyTexture(void* texture) override;
 
 private:
+    //======================================================================================
+    // Shader Compilation
+    
+    /** Compiles Metal shader source code at runtime.
+        
+        @param source       Shader source code string
+        @param label        Label for debugging
+        @param outError     Error output (if compilation fails)
+        @returns Compiled library or nil on failure
+    */
+    id<MTLLibrary> compileShaderLibrary(const char* source, const char* label, NSError** outError);
+    
     //======================================================================================
     // Initialization
     

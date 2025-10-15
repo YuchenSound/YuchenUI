@@ -131,6 +131,24 @@ uint64_t computeClipHash(const ClipState& state)
 namespace YuchenUI {
 
 //==========================================================================================
+// Shader Compilation Helper
+
+id<MTLLibrary> MetalRenderer::compileShaderLibrary(const char* source, const char* label, NSError** outError)
+{
+    @autoreleasepool
+    {
+        NSString* sourceString = [NSString stringWithUTF8String:source];
+        MTLCompileOptions* options = [[MTLCompileOptions alloc] init];
+        if (@available(macOS 12.0, *)) { options.languageVersion = MTLLanguageVersion2_4; }
+        options.fastMathEnabled = YES;
+        id<MTLLibrary> library = [m_device newLibraryWithSource:sourceString options:options error:outError];
+        if (library && label) { library.label = [NSString stringWithUTF8String:label]; }
+        if (*outError) { NSLog(@"[YuchenUI] Shader compilation error (%s): %@", label, *outError); }
+        return library;
+    }
+}
+
+//==========================================================================================
 // [SECTION] Lifecycle
 
 MetalRenderer::MetalRenderer()
@@ -375,14 +393,25 @@ bool MetalRenderer::setupRenderPipeline()
     {
         NSError* error = nil;
         
-        // Load compiled Metal library for basic rendering
-        NSString* metallibPath = [[NSBundle mainBundle] pathForResource:@"Basic" ofType:@"metallib"];
-        NSURL* url = [NSURL fileURLWithPath:metallibPath];
-        id<MTLLibrary> library = [m_device newLibraryWithURL:url error:&error];
+        // Compile Basic shaders from source
+        id<MTLLibrary> library = compileShaderLibrary(ShaderSources::BasicShaders,
+                                                      "Basic Shader Library",
+                                                      &error);
+        if (!library || error)
+        {
+            NSLog(@"[YuchenUI] Failed to compile Basic shaders");
+            return false;
+        }
         
         // Get vertex and fragment shader functions
         id<MTLFunction> vertexFunction = [library newFunctionWithName:@"vertex_rect"];
         id<MTLFunction> fragmentFunction = [library newFunctionWithName:@"fragment_rect"];
+        
+        if (!vertexFunction || !fragmentFunction)
+        {
+            NSLog(@"[YuchenUI] Failed to get shader functions from Basic library");
+            return false;
+        }
         
         // Create pipeline descriptor
         MTLRenderPipelineDescriptor* descriptor = [[MTLRenderPipelineDescriptor alloc] init];
@@ -403,6 +432,13 @@ bool MetalRenderer::setupRenderPipeline()
         
         error = nil;
         m_renderPipeline = [m_device newRenderPipelineStateWithDescriptor:descriptor error:&error];
+        
+        if (!m_renderPipeline || error)
+        {
+            NSLog(@"[YuchenUI] Failed to create Rectangle pipeline state: %@", error);
+            return false;
+        }
+        
         return true;
     }
 }
@@ -413,14 +449,25 @@ bool MetalRenderer::setupTextRenderPipeline()
     {
         NSError* error = nil;
         
-        // Load compiled Metal library for text rendering
-        NSString* metallibPath = [[NSBundle mainBundle] pathForResource:@"Text" ofType:@"metallib"];
-        NSURL* url = [NSURL fileURLWithPath:metallibPath];
-        id<MTLLibrary> library = [m_device newLibraryWithURL:url error:&error];
+        // Compile Text shaders from source
+        id<MTLLibrary> library = compileShaderLibrary(ShaderSources::TextShaders,
+                                                      "Text Shader Library",
+                                                      &error);
+        if (!library || error)
+        {
+            NSLog(@"[YuchenUI] Failed to compile Text shaders");
+            return false;
+        }
         
         // Get shader functions
         id<MTLFunction> vertexFunction = [library newFunctionWithName:@"vertex_text"];
         id<MTLFunction> fragmentFunction = [library newFunctionWithName:@"fragment_text"];
+        
+        if (!vertexFunction || !fragmentFunction)
+        {
+            NSLog(@"[YuchenUI] Failed to get shader functions from Text library");
+            return false;
+        }
         
         MTLRenderPipelineDescriptor* descriptor = [[MTLRenderPipelineDescriptor alloc] init];
         descriptor.label = @"YuchenUI Text Pipeline";
@@ -463,6 +510,13 @@ bool MetalRenderer::setupTextRenderPipeline()
         
         error = nil;
         m_textRenderPipeline = [m_device newRenderPipelineStateWithDescriptor:descriptor error:&error];
+        
+        if (!m_textRenderPipeline || error)
+        {
+            NSLog(@"[YuchenUI] Failed to create Text pipeline state: %@", error);
+            return false;
+        }
+        
         return true;
     }
 }
@@ -519,13 +573,24 @@ bool MetalRenderer::setupImageRenderPipeline()
     {
         NSError* error = nil;
         
-        // Load compiled Metal library for image rendering
-        NSString* metallibPath = [[NSBundle mainBundle] pathForResource:@"Image" ofType:@"metallib"];
-        NSURL* url = [NSURL fileURLWithPath:metallibPath];
-        id<MTLLibrary> library = [m_device newLibraryWithURL:url error:&error];
+        // Compile Image shaders from source
+        id<MTLLibrary> library = compileShaderLibrary(ShaderSources::ImageShaders,
+                                                      "Image Shader Library",
+                                                      &error);
+        if (!library || error)
+        {
+            NSLog(@"[YuchenUI] Failed to compile Image shaders");
+            return false;
+        }
         
         id<MTLFunction> vertexFunction = [library newFunctionWithName:@"vertex_image"];
         id<MTLFunction> fragmentFunction = [library newFunctionWithName:@"fragment_image"];
+        
+        if (!vertexFunction || !fragmentFunction)
+        {
+            NSLog(@"[YuchenUI] Failed to get shader functions from Image library");
+            return false;
+        }
         
         MTLRenderPipelineDescriptor* descriptor = [[MTLRenderPipelineDescriptor alloc] init];
         descriptor.label = @"YuchenUI Image Pipeline";
@@ -558,6 +623,13 @@ bool MetalRenderer::setupImageRenderPipeline()
         
         error = nil;
         m_imageRenderPipeline = [m_device newRenderPipelineStateWithDescriptor:descriptor error:&error];
+        
+        if (!m_imageRenderPipeline || error)
+        {
+            NSLog(@"[YuchenUI] Failed to create Image pipeline state: %@", error);
+            return false;
+        }
+        
         return true;
     }
 }
@@ -583,13 +655,24 @@ bool MetalRenderer::setupShapePipeline()
     {
         NSError* error = nil;
         
-        // Load compiled Metal library for shape rendering
-        NSString* metallibPath = [[NSBundle mainBundle] pathForResource:@"Shape" ofType:@"metallib"];
-        NSURL* url = [NSURL fileURLWithPath:metallibPath];
-        id<MTLLibrary> library = [m_device newLibraryWithURL:url error:&error];
+        // Compile Shape shaders from source
+        id<MTLLibrary> library = compileShaderLibrary(ShaderSources::ShapeShaders,
+                                                      "Shape Shader Library",
+                                                      &error);
+        if (!library || error)
+        {
+            NSLog(@"[YuchenUI] Failed to compile Shape shaders");
+            return false;
+        }
         
         id<MTLFunction> vertexFunction = [library newFunctionWithName:@"vertex_shape"];
         id<MTLFunction> fragmentFunction = [library newFunctionWithName:@"fragment_shape"];
+        
+        if (!vertexFunction || !fragmentFunction)
+        {
+            NSLog(@"[YuchenUI] Failed to get shader functions from Shape library");
+            return false;
+        }
         
         MTLRenderPipelineDescriptor* descriptor = [[MTLRenderPipelineDescriptor alloc] init];
         descriptor.label = @"YuchenUI Shape Pipeline";
@@ -620,6 +703,13 @@ bool MetalRenderer::setupShapePipeline()
         
         error = nil;
         m_shapePipeline = [m_device newRenderPipelineStateWithDescriptor:descriptor error:&error];
+        
+        if (!m_shapePipeline || error)
+        {
+            NSLog(@"[YuchenUI] Failed to create Shape pipeline state: %@", error);
+            return false;
+        }
+        
         return true;
     }
 }
@@ -630,13 +720,24 @@ bool MetalRenderer::setupCirclePipeline()
     {
         NSError* error = nil;
         
-        // Load compiled Metal library (same as shapes)
-        NSString* metallibPath = [[NSBundle mainBundle] pathForResource:@"Shape" ofType:@"metallib"];
-        NSURL* url = [NSURL fileURLWithPath:metallibPath];
-        id<MTLLibrary> library = [m_device newLibraryWithURL:url error:&error];
+        // Compile Shape shaders from source (same library contains circle shaders)
+        id<MTLLibrary> library = compileShaderLibrary(ShaderSources::ShapeShaders,
+                                                      "Circle Shader Library",
+                                                      &error);
+        if (!library || error)
+        {
+            NSLog(@"[YuchenUI] Failed to compile Circle shaders");
+            return false;
+        }
         
         id<MTLFunction> vertexFunction = [library newFunctionWithName:@"vertex_circle"];
         id<MTLFunction> fragmentFunction = [library newFunctionWithName:@"fragment_circle"];
+        
+        if (!vertexFunction || !fragmentFunction)
+        {
+            NSLog(@"[YuchenUI] Failed to get shader functions from Circle library");
+            return false;
+        }
         
         MTLRenderPipelineDescriptor* descriptor = [[MTLRenderPipelineDescriptor alloc] init];
         descriptor.label = @"YuchenUI Circle Pipeline";
@@ -676,6 +777,13 @@ bool MetalRenderer::setupCirclePipeline()
         
         error = nil;
         m_circlePipeline = [m_device newRenderPipelineStateWithDescriptor:descriptor error:&error];
+        
+        if (!m_circlePipeline || error)
+        {
+            NSLog(@"[YuchenUI] Failed to create Circle pipeline state: %@", error);
+            return false;
+        }
+        
         return true;
     }
 }

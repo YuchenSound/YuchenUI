@@ -159,13 +159,13 @@ void MeterScale::initializeK12() {
         {12.0f,  dbToPos_(12.0f),  "+12", true},
         {6.0f,   dbToPos_(6.0f),    "+6", true},
         {0.0f,   dbToPos_(0.0f),     "0", true},
-        {-6.0f,  dbToPos_(-6.0f),   "-6", true},
-        {-12.0f, dbToPos_(-12.0f), "-12", true},
-        {-18.0f, dbToPos_(-18.0f), "-18", true},
-        {-24.0f, dbToPos_(-24.0f), "-24", true},
-        {-36.0f, dbToPos_(-36.0f), "-36", true},
-        {-48.0f, dbToPos_(-48.0f), "-48", true},
-        {-60.0f, dbToPos_(-60.0f), "-60", true}
+        {-6.0f,  dbToPos_(-6.0f),   "6", true},
+        {-12.0f, dbToPos_(-12.0f), "12", true},
+        {-18.0f, dbToPos_(-18.0f), "18", true},
+        {-24.0f, dbToPos_(-24.0f), "24", true},
+        {-36.0f, dbToPos_(-36.0f), "36", true},
+        {-48.0f, dbToPos_(-48.0f), "48", true},
+        {-60.0f, dbToPos_(-60.0f), "60", true}
     };
 }
 void MeterScale::initializeK14()
@@ -189,14 +189,14 @@ void MeterScale::initializeK14()
     {
         {14.0f,  dbToPos_(14.0f),  "+14", true},
         {6.0f,   dbToPos_(6.0f),   "+6",  true},
-        {-2.0f,  dbToPos_(-2.0f),  "-2",  true},
-        {-8.0f,  dbToPos_(-8.0f),  "-8",  true},
-        {-14.0f, dbToPos_(-14.0f), "-14", true},
-        {-18.0f, dbToPos_(-18.0f), "-18", true},
-        {-24.0f, dbToPos_(-24.0f), "-24", true},
-        {-36.0f, dbToPos_(-36.0f), "-36", true},
-        {-48.0f, dbToPos_(-48.0f), "-48", true},
-        {-60.0f, dbToPos_(-60.0f), "-60", true}
+        {-2.0f,  dbToPos_(-2.0f),  "2",  true},
+        {-8.0f,  dbToPos_(-8.0f),  "8",  true},
+        {-14.0f, dbToPos_(-14.0f), "14", true},
+        {-18.0f, dbToPos_(-18.0f), "18", true},
+        {-24.0f, dbToPos_(-24.0f), "24", true},
+        {-36.0f, dbToPos_(-36.0f), "36", true},
+        {-48.0f, dbToPos_(-48.0f), "48", true},
+        {-60.0f, dbToPos_(-60.0f), "60", true}
     };
 }
 void MeterScale::initializeVU()
@@ -222,12 +222,12 @@ void MeterScale::initializeVU()
         {2.0f,   dbToPos_(2.0f),    "+2", true},
         {1.0f,   dbToPos_(1.0f),    "+1", true},
         {0.0f,   dbToPos_(0.0f),     "0", true},
-        {-1.0f,  dbToPos_(-1.0f),   "-1", true},
-        {-3.0f,  dbToPos_(-3.0f),   "-3", true},
-        {-5.0f,  dbToPos_(-5.0f),   "-5", true},
-        {-7.0f,  dbToPos_(-7.0f),   "-7", true},
-        {-10.0f, dbToPos_(-10.0f), "-10", true},
-        {-20.0f, dbToPos_(-20.0f), "-20", true}
+        {-1.0f,  dbToPos_(-1.0f),   "1", true},
+        {-3.0f,  dbToPos_(-3.0f),   "3", true},
+        {-5.0f,  dbToPos_(-5.0f),   "5", true},
+        {-7.0f,  dbToPos_(-7.0f),   "7", true},
+        {-10.0f, dbToPos_(-10.0f), "10", true},
+        {-20.0f, dbToPos_(-20.0f), "20", true}
     };
 }
 void MeterScale::initializeLinearDb()
@@ -849,9 +849,9 @@ void MeterRenderer::drawInternalScaleTicks(RenderList& cmdList, const Rect& rect
         Vec4 scaleColor;
         switch (thresholds.getRegion(tick.db))
         {
-            case MeterThresholds::PEAK:     scaleColor = isActive ? colors.internalScalePeakActive :    colors.internalScalePeakInactive;    break;
+            case MeterThresholds::PEAK:     scaleColor = isActive ? colors.internalScalePeakActive    : colors.internalScalePeakInactive;    break;
             case MeterThresholds::WARNING:  scaleColor = isActive ? colors.internalScaleWarningActive : colors.internalScaleWarningInactive; break;
-            default:                        scaleColor = isActive ? colors.internalScaleNormalActive :  colors.internalScaleNormalInactive;  break;
+            default:                        scaleColor = isActive ? colors.internalScaleNormalActive  : colors.internalScaleNormalInactive;  break;
         }
         float startX = rect.x + leftOffset;
         float endX = rect.x + leftOffset + tickLength;
@@ -885,11 +885,11 @@ void MeterRenderer::drawScaleTicks(RenderList& cmdList, const Rect& scaleRect,
             FontHandle primaryFont = fallbackChain.getPrimary();
             FontMetrics metrics = fontProvider->getFontMetrics(primaryFont, fontSize);
             Vec2 textSize = fontProvider->measureText(tick.label.c_str(), fontSize);
-            float textX = tickStart - textSize.x - 2.0f;
-            if (textX < scaleRect.x) textX = scaleRect.x;
+            float rightEdge = tickStart - 2.0f;
+            float textX = rightEdge - textSize.x;
             float textY = tickY - textSize.y * 0.5f + metrics.ascender;
             Vec2 alignedPos(std::round(textX), std::round(textY));
-            cmdList.drawText(tick.label.c_str(), alignedPos, fallbackChain, fontSize, colors.scaleColor);
+            cmdList.drawText(tick.label.c_str(), alignedPos, fallbackChain, fontSize,colors.scaleColor);
         }
     }
 }

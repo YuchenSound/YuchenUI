@@ -74,13 +74,11 @@ void DemoApplication::onShowLevelMeterClick() {
     }
     else
     {
-        m_levelMeterWindow = windowManager.createToolWindow<LevelMeterWindowContent>(89,554,"Level Meter Test",m_mainWindow,30);
+        m_levelMeterWindow = windowManager.createToolWindow<LevelMeterWindowContent>(550,554,"Level Meter Test",m_mainWindow,30); // 89,554
         m_levelMeterWindow->show();
     }
 }
 
-// ============================================================================
-// æ··éŸ³å™¨æŒ‰é’®ç‚¹å‡»å›žè°ƒ - å®Œæ•´å®žçŽ°
 // ============================================================================
 void DemoApplication::onShowMixerClick() {
     WindowManager& windowManager = m_frameworkApp.getWindowManager();
@@ -168,11 +166,8 @@ void MainWindowContent::createTitleLabel() {
 }
 
 // ============================================================================
-// åˆ›å»ºåŠ¨ä½œæŒ‰é’® - å®Œæ•´å®žçŽ°ï¼ˆåŒ…å«æ··éŸ³å™¨æŒ‰é’®ï¼‰
-// ============================================================================
 void MainWindowContent::createActionButtons() {
-    // Level Meter æŒ‰é’®
-    YuchenUI::Rect levelMeterBounds(20.0f, 60.0f, 98.0f, 17.0f);
+    YuchenUI::Rect levelMeterBounds(20.0f, 60.0f, 72.0f, 17.0f);
     m_levelMeterButton = std::make_unique<Button>(levelMeterBounds);
     m_levelMeterButton->setText("Level Meter");
     m_levelMeterButton->setRole(ButtonRole::Normal);
@@ -181,8 +176,7 @@ void MainWindowContent::createActionButtons() {
     });
     addComponent(m_levelMeterButton.get());
 
-    // æ··éŸ³å™¨æŒ‰é’®ï¼ˆæ–°å¢žï¼‰
-    YuchenUI::Rect mixerBounds(130.0f, 60.0f, 98.0f, 17.0f);
+    YuchenUI::Rect mixerBounds(100.0f, 60.0f, 72.0f, 17.0f);
     m_mixerButton = std::make_unique<Button>(mixerBounds);
     m_mixerButton->setText("Mixer");
     m_mixerButton->setRole(ButtonRole::Normal);
@@ -191,8 +185,7 @@ void MainWindowContent::createActionButtons() {
     });
     addComponent(m_mixerButton.get());
 
-    // Dialog æŒ‰é’®ï¼ˆä½ç½®è°ƒæ•´ï¼‰
-    YuchenUI::Rect dialogBounds(240.0f, 60.0f, 98.0f, 17.0f);
+    YuchenUI::Rect dialogBounds(180.0f, 60.0f, 72.0f, 17.0f);
     m_dialogButton = std::make_unique<Button>(dialogBounds);
     m_dialogButton->setText("Dialog");
     m_dialogButton->setRole(ButtonRole::Primary);
@@ -201,8 +194,7 @@ void MainWindowContent::createActionButtons() {
     });
     addComponent(m_dialogButton.get());
 
-    // Toggle Theme æŒ‰é’®ï¼ˆä½ç½®è°ƒæ•´ï¼‰
-    YuchenUI::Rect themeBounds(350.0f, 60.0f, 108.0f, 17.0f);
+    YuchenUI::Rect themeBounds(260.0f, 60.0f, 88.0f, 17.0f);
     m_themeButton = std::make_unique<Button>(themeBounds);
     m_themeButton->setText("Toggle Theme");
     m_themeButton->setRole(ButtonRole::Normal);

@@ -4,7 +4,7 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../cmake")
 
 include(Compiler)
 include(Dependencies)
-include(Shaders)
+# REMOVED: include(Shaders) - No longer needed with embedded shaders
 
 # Scan cross-platform sources
 file(GLOB_RECURSE YUCHEN_DESKTOP_SOURCES
@@ -46,7 +46,7 @@ file(GLOB_RECURSE YUCHEN_DESKTOP_HEADERS
     "${CMAKE_CURRENT_SOURCE_DIR}/include/YuchenUI-Desktop/*.h"
 )
 
-# Create library target
+
 add_library(YuchenUI-Desktop STATIC
     ${YUCHEN_DESKTOP_SOURCES}
     ${YUCHEN_PLATFORM_SOURCES}
@@ -55,9 +55,10 @@ add_library(YuchenUI-Desktop STATIC
 
 yuchen_configure_target(YuchenUI-Desktop)
 yuchen_link_dependencies(YuchenUI-Desktop)
-yuchen_compile_shaders(YuchenUI-Desktop)
+
 
 target_link_libraries(YuchenUI-Desktop PUBLIC YuchenUI)
+
 
 # Public headers
 target_include_directories(YuchenUI-Desktop PUBLIC
@@ -70,6 +71,7 @@ target_include_directories(YuchenUI-Desktop PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src/windows
 )
 
+# IDE Organization
 # Source groups for IDE
 source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}/include"
              PREFIX "Header Files"
