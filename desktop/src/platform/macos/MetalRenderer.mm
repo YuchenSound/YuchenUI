@@ -1195,6 +1195,7 @@ void MetalRenderer::executeRenderCommands(const RenderList& commandList)
                 m_textRenderer->shapeText(cmd.text.c_str(),
                                           cmd.fontFallbackChain,
                                           cmd.fontSize,
+                                          cmd.letterSpacing,
                                           shapedText);
                 if (!shapedText.isEmpty())
                 {

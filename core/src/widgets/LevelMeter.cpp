@@ -902,38 +902,35 @@ void MeterRenderer::drawInternalScaleTicks(RenderList& cmdList, const Rect& rect
 void MeterRenderer::drawScaleTicks(RenderList& cmdList, const Rect& scaleRect,
                                   const Rect& meterRect, const std::vector<ScaleTick>& ticks)
 {
-    if (scaleRect.width <= 0 || scaleRect.height <= 0) return;
-    if (meterRect.width <= 0 || meterRect.height <= 0) return;
+    if (scaleRect.width <= 0 || scaleRect.height <= 0 || meterRect.width <= 0 || meterRect.height <= 0) return;
+    
     UIStyle* style = m_context ? m_context->getCurrentStyle() : nullptr;
     IFontProvider* fontProvider = m_context ? m_context->getFontProvider() : nullptr;
     if (!style || !fontProvider) return;
-    LevelMeterColors colors = style->getLevelMeterColors();
     
-    float tickLength = 3.0f;
-    float tickThickness = 0.5f;
-    constexpr float VERTICAL_OFFSET = 0.5f;
+    LevelMeterColors colors = style->getLevelMeterColors();
     FontFallbackChain fallbackChain(fontProvider->getDefaultNarrowBoldFont());
-    float fontSize = 9.0f;
+    constexpr float tickLength = 3.0f, tickThickness = 0.5f, VERTICAL_OFFSET = 0.5f, fontSize = 9.0f, letterSpacing = -50.0f;
+    
     for (const auto& tick : ticks)
     {
-        float tickY = meterRect.y + meterRect.height - (tick.position * meterRect.height);
-        tickY += VERTICAL_OFFSET;
+        float tickY = meterRect.y + meterRect.height - (tick.position * meterRect.height) + VERTICAL_OFFSET;
         if (tickY < meterRect.y || tickY > meterRect.y + meterRect.height) continue;
+
         float tickStart = meterRect.x - tickLength;
-        float tickEnd = meterRect.x;
-        if (tickStart >= scaleRect.x) cmdList.drawLine(Vec2(tickStart, tickY), Vec2(tickEnd, tickY), colors.scaleColor, tickThickness);
+        if (tickStart >= scaleRect.x) cmdList.drawLine({tickStart, tickY}, {meterRect.x, tickY}, colors.scaleColor, tickThickness);
+        
         if (!tick.label.empty())
         {
             FontHandle primaryFont = fallbackChain.getPrimary();
             FontMetrics metrics = fontProvider->getFontMetrics(primaryFont, fontSize);
             Vec2 textSize = fontProvider->measureText(tick.label.c_str(), fontSize);
-            
+            size_t charCount = std::count_if(tick.label.begin(), tick.label.end(), [](char c) { return (c & 0xC0) != 0x80; });
+            float adjustedWidth = textSize.x + ((charCount > 1) ? (letterSpacing / 1000.0f) * fontSize * (charCount - 1) : 0);
+
             float rightEdge = tickStart - 2.0f;
-            float textX = rightEdge - textSize.x;
-            float textY = tickY - textSize.y * 0.5f + metrics.ascender;
-            textY += VERTICAL_OFFSET;
-            Vec2 alignedPos(std::round(textX), std::round(textY));
-            cmdList.drawText(tick.label.c_str(), alignedPos, fallbackChain, fontSize, colors.scaleColor);
+            float textX = rightEdge - adjustedWidth, textY = tickY - textSize.y * 0.5f + metrics.ascender + VERTICAL_OFFSET;
+            cmdList.drawText(tick.label.c_str(), {std::round(textX), std::round(textY)}, fallbackChain, fontSize, colors.scaleColor, letterSpacing);
         }
     }
 }

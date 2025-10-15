@@ -629,6 +629,7 @@ struct RenderCommand
     
     // Text commands (new - fallback chain)
     FontFallbackChain fontFallbackChain;  ///< Font fallback chain for text rendering
+    float letterSpacing;  ///< Letter spacing in thousandths of em (-1000 to 1000, 0 = normal)
 
     // Image commands
     void* textureHandle;
@@ -661,6 +662,7 @@ struct RenderCommand
         , fontSize(11.0f)
         , textColor()
         , fontFallbackChain()
+        , letterSpacing(0.0f)
         , textureHandle(nullptr)
         , sourceRect()
         , scaleMode(ScaleMode::Stretch)
@@ -709,21 +711,20 @@ struct RenderCommand
         return cmd;
     }
 
-    /** Creates text rendering command with fallback chain (recommended).
+    /** Creates text rendering command with fallback chain and letter spacing.
         
-        This is the new preferred way to create text commands. The fallback chain
-        allows proper rendering of mixed scripts and emoji.
-        
-        @param text                Text string to render
-        @param position            Position to render at
-        @param fallbackChain       Font fallback chain
-        @param fontSize            Font size in points
-        @param textColor           Text color
+        @param text              Text string to render
+        @param position          Position to render at
+        @param fallbackChain     Font fallback chain
+        @param fontSize          Font size in points
+        @param textColor         Text color
+        @param letterSpacing     Letter spacing in thousandths of em (-1000 to 1000, 0 = normal)
         @returns Render command for text drawing
     */
     static RenderCommand CreateDrawText(const char* text, const Vec2& position,
         const FontFallbackChain& fallbackChain,
-        float fontSize, const Vec4& textColor)
+        float fontSize, const Vec4& textColor,
+        float letterSpacing = 0.0f)
     {
         if (!text || !position.isValid() || fontSize <= 0.0f || !textColor.isValid()) {
             RenderCommand cmd;
@@ -738,12 +739,11 @@ struct RenderCommand
         cmd.fontFallbackChain = fallbackChain;
         cmd.fontSize = fontSize;
         cmd.textColor = textColor;
-        
-        // Set legacy fields for compatibility
-        cmd.fontFallbackChain.getPrimary();
+        cmd.letterSpacing = letterSpacing;
         
         return cmd;
     }
+
 
     static RenderCommand CreateDrawImage(void* textureHandle, const Rect& destRect,
         const Rect& sourceRect, ScaleMode scaleMode,

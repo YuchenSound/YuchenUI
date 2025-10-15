@@ -62,15 +62,19 @@ class IFontProvider;
     Combines text content, fonts, and size into 64-bit hash for fast lookup.
 */
 struct TextCacheKey {
-    uint64_t hash;  ///< Combined hash of text, fonts, and size
+    uint64_t hash;
     
-    /** Creates cache key from text rendering parameters (new fallback chain version).
+    /** Creates cache key from text rendering parameters.
         
-        @param text           UTF-8 text string
-        @param fallbackChain  Font fallback chain
-        @param fontSize       Font size in points
+        Letter spacing is quantized to integer values to improve cache hit rate.
+        
+        @param text              UTF-8 text string
+        @param fallbackChain     Font fallback chain
+        @param fontSize          Font size in points
+        @param letterSpacing     Letter spacing in thousandths of em
     */
-    TextCacheKey(const char* text, const FontFallbackChain& fallbackChain, float fontSize);
+    TextCacheKey(const char* text, const FontFallbackChain& fallbackChain,
+                 float fontSize, float letterSpacing = 0.0f);
     
     bool operator==(const TextCacheKey& other) const { return hash == other.hash; }
 };
@@ -151,35 +155,30 @@ public:
     // Text Shaping (New API with Font Fallback)
     
     /**
-        Shapes text string with font fallback chain.
+        Shapes text string with font fallback chain and letter spacing.
         
-        This is the new recommended API for text shaping. It supports:
-        - Per-character font selection from fallback chain
-        - Proper emoji and symbol rendering
-        - Mixed-script text (Western + CJK + Emoji)
-        
-        Process:
-        1. Check shaped text cache
-        2. Segment text by font fallback (per-character font selection)
-        3. Shape each segment with HarfBuzz
-        4. Combine segments with proper positioning
-        5. Cache result for future use
+        Letter spacing is applied after HarfBuzz shaping by adjusting glyph
+        advances. The spacing value is in thousandths of em:
+        - 0 = normal spacing
+        - 100 = add 0.1em between characters
+        - -100 = reduce spacing by 0.1em
         
         Example:
         @code
-        FontFallbackChain chain = fontManager.createDefaultFallbackChain();
         ShapedText shaped;
-        renderer.shapeText("Hello世界😊", chain, 14.0f, shaped);
+        renderer.shapeText("Hello", chain, 14.0f, 100.0f, shaped);  // +0.1em spacing
         @endcode
         
-        @param text            UTF-8 text string
-        @param fallbackChain   Font fallback chain
-        @param fontSize        Font size in points
-        @param outShapedText   Output shaped text result
+        @param text              UTF-8 text string
+        @param fallbackChain     Font fallback chain
+        @param fontSize          Font size in points
+        @param letterSpacing     Letter spacing in thousandths of em (-1000 to 1000)
+        @param outShapedText     Output shaped text result
     */
     void shapeText(const char* text,
                    const FontFallbackChain& fallbackChain,
                    float fontSize,
+                   float letterSpacing,
                    ShapedText& outShapedText);
     
     //======================================================================================
@@ -218,20 +217,20 @@ private:
     /** Destroys HarfBuzz buffer and releases resources. */
     void cleanupResources();
     
-    /** Shapes text segment with HarfBuzz.
+    /**
+        Shapes text segment with HarfBuzz and applies letter spacing.
         
-        Performs Unicode normalization, script detection, and bidi analysis
-        automatically via HarfBuzz. Applies kerning features.
-        
-        @param text          UTF-8 text segment
-        @param fontHandle    Font handle for segment
-        @param fontSize      Font size in points
-        @param outShapedText Output shaped glyphs
+        @param text              UTF-8 text segment
+        @param fontHandle        Font handle for segment
+        @param fontSize          Font size in points
+        @param letterSpacing     Letter spacing in thousandths of em
+        @param outShapedText     Output shaped glyphs
         @returns True if shaping succeeded
     */
     bool shapeTextWithHarfBuzz(const char* text,
                                FontHandle fontHandle,
                                float fontSize,
+                               float letterSpacing,
                                ShapedText& outShapedText);
     
     /** Rasterizes glyph with FreeType.

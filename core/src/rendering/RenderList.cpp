@@ -92,21 +92,32 @@ void RenderList::drawRect(const Rect& rect, const Vec4& color, float borderWidth
 
 void RenderList::drawText(const char* text, const Vec2& position,
                           const FontFallbackChain& fallbackChain,
-                          float fontSize, const Vec4& color)
+                          float fontSize, const Vec4& color,
+                          float letterSpacing)
 {
-    YUCHEN_ASSERT(text);
-    YUCHEN_ASSERT(position.isValid());
-    YUCHEN_ASSERT(!fallbackChain.isEmpty());
-    YUCHEN_ASSERT(fontSize > 0.0f);
-    YUCHEN_ASSERT(color.isValid());
+    YUCHEN_ASSERT_MSG(text != nullptr, "Text cannot be null");
+    YUCHEN_ASSERT_MSG(position.isValid(), "Position is invalid");
+    YUCHEN_ASSERT_MSG(!fallbackChain.isEmpty(), "Fallback chain is empty");
+    YUCHEN_ASSERT_MSG(fontSize >= Config::Font::MIN_SIZE && fontSize <= Config::Font::MAX_SIZE,
+                      "Font size out of range");
+    YUCHEN_ASSERT_MSG(color.isValid(), "Color is invalid");
     
-    size_t textLength [[maybe_unused]] = strlen(text);
-    YUCHEN_ASSERT(textLength > 0 && textLength <= Config::Text::MAX_LENGTH);
+    if (!text || *text == '\0') return;
     
-    RenderCommand cmd = RenderCommand::CreateDrawText(text, position, fallbackChain, fontSize, color);
-    addCommand(cmd);
+    // Apply current clip rect offset if active
+    Vec2 adjustedPosition = position;
+    if (!m_clipStack.empty()) {
+        const Rect& currentClip = m_clipStack.back();
+        adjustedPosition = Vec2(position.x, position.y);
+    }
+    
+    // Create command with letter spacing
+    RenderCommand cmd = RenderCommand::CreateDrawText(
+        text, adjustedPosition, fallbackChain, fontSize, color, letterSpacing
+    );
+    
+    m_commands.push_back(cmd);
 }
-
 
 //==========================================================================================
 // Image Drawing

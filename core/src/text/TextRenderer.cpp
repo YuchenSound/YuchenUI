@@ -50,12 +50,13 @@ namespace YuchenUI {
 //==========================================================================================
 // TextCacheKey Implementation
 
-TextCacheKey::TextCacheKey(const char* text, const FontFallbackChain& fallbackChain, float fontSize)
+TextCacheKey::TextCacheKey(const char* text, const FontFallbackChain& fallbackChain,
+                           float fontSize, float letterSpacing)
 {
-    // Combine all parameters into single hash
     std::string textStr(text);
     std::hash<std::string> stringHasher;
     std::hash<float> floatHasher;
+    std::hash<int> intHasher;
     
     // Start with text hash
     hash = stringHasher(textStr);
@@ -69,6 +70,9 @@ TextCacheKey::TextCacheKey(const char* text, const FontFallbackChain& fallbackCh
     
     // XOR with font size
     hash ^= (floatHasher(fontSize) << 24);
+    
+    int quantizedSpacing = static_cast<int>(letterSpacing / 10.0f) * 10;
+    hash ^= (intHasher(quantizedSpacing) << 40);
 }
 
 //==========================================================================================
@@ -164,6 +168,7 @@ void TextRenderer::beginFrame()
 void TextRenderer::shapeText(const char* text,
                              const FontFallbackChain& fallbackChain,
                              float fontSize,
+                             float letterSpacing,
                              ShapedText& outShapedText)
 {
     YUCHEN_ASSERT_MSG(m_isInitialized, "Not initialized");
@@ -178,8 +183,11 @@ void TextRenderer::shapeText(const char* text,
     size_t textLength = strlen(text);
     if (textLength == 0 || textLength > Config::Text::MAX_LENGTH) return;
     
-    // Check shaped text cache
-    TextCacheKey cacheKey(text, fallbackChain, fontSize);
+    // Clamp letter spacing to reasonable range
+    letterSpacing = std::max(-1000.0f, std::min(1000.0f, letterSpacing));
+    
+    // Check shaped text cache with letter spacing
+    TextCacheKey cacheKey(text, fallbackChain, fontSize, letterSpacing);
     auto it = m_shapedTextCache.find(cacheKey);
     if (it != m_shapedTextCache.end())
     {
@@ -199,11 +207,12 @@ void TextRenderer::shapeText(const char* text,
     float totalAdvance = 0.0f;
     float maxHeight = fontSize;
     
-    // Shape each segment and combine results
+    // Shape each segment and combine results with letter spacing
     for (const auto& segment : segments)
     {
         ShapedText segmentShaped;
-        if (shapeTextWithHarfBuzz(segment.text.c_str(), segment.fontHandle, fontSize, segmentShaped))
+        if (shapeTextWithHarfBuzz(segment.text.c_str(), segment.fontHandle,
+                                  fontSize, letterSpacing, segmentShaped))
         {
             // Offset segment glyphs by accumulated advance
             for (auto& glyph : segmentShaped.glyphs)
@@ -230,6 +239,7 @@ void TextRenderer::shapeText(const char* text,
 bool TextRenderer::shapeTextWithHarfBuzz(const char* text,
                                          FontHandle fontHandle,
                                          float fontSize,
+                                         float letterSpacing,
                                          ShapedText& outShapedText)
 {
     YUCHEN_ASSERT_MSG(text != nullptr, "Text cannot be null");
@@ -258,7 +268,7 @@ bool TextRenderer::shapeTextWithHarfBuzz(const char* text,
     hb_buffer_set_script(m_harfBuzzBuffer, dominantScript);
     hb_buffer_set_language(m_harfBuzzBuffer, language);
     
-    // Disable kerning for consistent rendering
+    // IMPORTANT: Disable kerning (as per user requirement - kerning is unstable)
     hb_feature_t features[1];
     features[0].tag = HB_TAG('k','e','r','n');
     features[0].value = 0;
@@ -280,10 +290,13 @@ bool TextRenderer::shapeTextWithHarfBuzz(const char* text,
     
     outShapedText.glyphs.reserve(glyphCount);
     
+    // Calculate letter spacing in pixels (em = fontSize)
+    float spacingPixels = (letterSpacing / 1000.0f) * fontSize * m_dpiScale;
+    
     float penX = 0.0f;
     float penY = 0.0f;
     
-    // Convert HarfBuzz glyph data to ShapedGlyph format
+    // Convert HarfBuzz glyph data to ShapedGlyph format with letter spacing
     for (unsigned int i = 0; i < glyphCount; ++i)
     {
         ShapedGlyph glyph;
@@ -297,6 +310,8 @@ bool TextRenderer::shapeTextWithHarfBuzz(const char* text,
         float xAdvance = glyphPositions[i].x_advance / 64.0f;
         float yAdvance = glyphPositions[i].y_advance / 64.0f;
         
+        if (i < glyphCount - 1) xAdvance += spacingPixels;
+    
         // Scale back from DPI-scaled coordinates
         glyph.position = Vec2((penX + xOffset) / m_dpiScale, (penY + yOffset) / m_dpiScale);
         glyph.advance = xAdvance / m_dpiScale;

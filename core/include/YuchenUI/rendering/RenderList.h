@@ -119,17 +119,17 @@ public:
         cmdList.drawText("Hello世界😊", position, chain, 14.0f, textColor);
         @endcode
         
-        @param text           UTF-8 text string
-        @param position       Text baseline position
-        @param fallbackChain  Font fallback chain
-        @param fontSize       Font size in points
-        @param color          Text color (RGBA)
-    */
+        @param text              UTF-8 text string
+        @param position          Position to render at
+        @param fallbackChain     Font fallback chain
+        @param fontSize          Font size in points
+        @param color             Text color
+        @param letterSpacing     Letter spacing in thousandths of em (-1000 to 1000, 0 = normal)
+     */
     void drawText(const char* text, const Vec2& position,
                   const FontFallbackChain& fallbackChain,
-                  float fontSize, const Vec4& color);
-    
-
+                  float fontSize, const Vec4& color,
+                  float letterSpacing = 0.0f);
     
     //======================================================================================
     // Image Drawing
