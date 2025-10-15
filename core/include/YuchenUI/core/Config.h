@@ -58,6 +58,7 @@ namespace Rendering {
     static constexpr size_t MAX_COMMANDS_PER_LIST = 10000;  ///< Maximum render commands per frame
     static constexpr size_t MAX_TEXT_VERTICES = 32768;      ///< Maximum text vertices per frame
     static const Vec4 DEFAULT_CLEAR_COLOR = Vec4::FromRGBA(0,0,0,0);
+    static constexpr int DEFAULT_FPS = 60;                  /// render Default FPS
 }
 
 //==========================================================================================

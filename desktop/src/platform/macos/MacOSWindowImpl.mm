@@ -21,11 +21,19 @@
     Implementation notes:
     - Uses NSWindow for window management and NSView for content
     - Metal layer (CAMetalLayer) attached to view for GPU rendering
-    - Display link (CVDisplayLink) drives frame rendering at display refresh rate
-    - Modal dialogs use NSApp runModalForWindow: which blocks until closed
+    - Display link (CVDisplayLink) drives frame rendering at configurable frame rate
+    - Frame rate control implemented via frame skip logic in display link callback
+    - Modal dialogs use NSTimer for rendering with same frame rate control
     - IME (Input Method Editor) support through NSTextInputClient protocol
     - Coordinate system converted from Cocoa (bottom-left) to YuchenUI (top-left)
     - Three window types supported: Main, Dialog, and ToolWindow (NSPanel)
+    
+    Frame rate control:
+    - Each window has independent target FPS setting (15-240 fps)
+    - CVDisplayLink runs at display refresh rate, frame skip logic limits actual rendering
+    - Skip interval calculated as: displayRefreshRate / targetFPS
+    - Example: 144Hz display with 60fps target = skip interval of 2.4, rounded to 2
+    - Frame counter tracks when to render based on skip interval
 */
 
 #import <Cocoa/Cocoa.h>
@@ -64,9 +72,10 @@ namespace YuchenUI { class MacOSWindowImpl; }
     This view:
     - Manages a CAMetalLayer for GPU rendering
     - Implements NSTextInputClient for IME support
-    - Uses CVDisplayLink for synchronized frame updates
+    - Uses CVDisplayLink for synchronized frame updates with frame rate control
     - Forwards mouse and keyboard events to MacOSWindowImpl
     - Provides separate rendering path for modal dialogs using NSTimer
+    - Implements frame skip logic to achieve target frame rate
 */
 @interface UniversalMetalView : NSView <CALayerDelegate, NSTextInputClient>
 {
@@ -84,6 +93,15 @@ namespace YuchenUI { class MacOSWindowImpl; }
 
 /** Timer for modal dialog frame updates. */
 @property (nonatomic, strong) NSTimer* modalRefreshTimer;
+
+/** Target frame rate for this window. */
+@property (nonatomic, assign) int targetFPS;
+
+/** Frame counter for skip logic. */
+@property (nonatomic, assign) uint64_t frameCounter;
+
+/** Cached display refresh rate. */
+@property (nonatomic, assign) double displayRefreshRate;
 
 /** Current IME composition text. */
 @property (nonatomic, strong) NSMutableAttributedString* markedText;
@@ -109,8 +127,19 @@ namespace YuchenUI { class MacOSWindowImpl; }
 /**
     CVDisplayLink callback function.
     
-    Called at display refresh rate (typically 60Hz). Schedules a render
-    on the main thread to avoid threading issues with Metal.
+    Called at display refresh rate. Implements frame skip logic to achieve target FPS.
+    Schedules a render on the main thread to avoid threading issues with Metal.
+    
+    Frame skip algorithm:
+    1. Get display refresh rate (e.g., 144 Hz)
+    2. Calculate skip interval: displayRate / targetFPS
+    3. Increment frame counter on each callback
+    4. Render only when (frameCounter % skipInterval == 0)
+    
+    Example: 144 Hz display, 60 fps target
+    - Skip interval = 144 / 60 = 2.4, rounded to 2
+    - Renders on frames 0, 2, 4, 6, ... (approximately 72 fps)
+    - Close enough to target, small error acceptable for UI
     
     @param displayLink       The display link
     @param now              Current time
@@ -128,7 +157,39 @@ static CVReturn DisplayLinkCallback(CVDisplayLinkRef displayLink,
                                    void* displayLinkContext)
 {
     UniversalMetalView* view = (__bridge UniversalMetalView*)displayLinkContext;
-    [view performRenderCallback];
+    
+    // Increment frame counter
+    view.frameCounter++;
+    
+    // Get display refresh rate
+    double displayRate = view.displayRefreshRate;
+    if (displayRate == 0) {
+        displayRate = 60.0;
+    }
+    
+    // Get target FPS, validate range
+    int targetFPS = view.targetFPS;
+    if (targetFPS <= 0 || targetFPS > 240) {
+        targetFPS = 60;
+    }
+    
+    // If target FPS is higher than display rate, render every frame
+    if (targetFPS >= displayRate) {
+        [view performRenderCallback];
+        return kCVReturnSuccess;
+    }
+    
+    // Calculate skip interval
+    uint64_t skipInterval = (uint64_t)(displayRate / targetFPS + 0.5);
+    if (skipInterval < 1) {
+        skipInterval = 1;
+    }
+    
+    // Render only on skip interval frames
+    if (view.frameCounter % skipInterval == 0) {
+        [view performRenderCallback];
+    }
+    
     return kCVReturnSuccess;
 }
 
@@ -140,7 +201,7 @@ namespace YuchenUI
     macOS implementation of WindowImpl using Cocoa and Metal.
     
     MacOSWindowImpl manages the native NSWindow and its Metal-backed content view.
-    It handles event forwarding, rendering coordination, and IME input.
+    It handles event forwarding, rendering coordination, IME input, and frame rate control.
     
     @see WindowImpl, BaseWindow
 */
@@ -158,7 +219,7 @@ public:
     
     /** Creates the native window and view.
         
-        @param config  Window configuration parameters
+        @param config  Window configuration parameters including target FPS
         @returns True if creation succeeded, false otherwise
     */
     bool create(const WindowConfig& config) override;
@@ -283,6 +344,7 @@ private:
     UniversalWindowDelegate* m_delegate;    ///< Window delegate for events
     BaseWindow* m_baseWindow;               ///< Associated YuchenUI window
     WindowType m_type;                      ///< Window type
+    int m_targetFPS;                        ///< Target frame rate for this window
 };
 
 } // namespace YuchenUI
@@ -326,7 +388,7 @@ private:
 
 @implementation UniversalMetalView
 
-- (instancetype)initWithFrame:(NSRect)frame device:(id<MTLDevice>)device windowType:(YuchenUI::WindowType)type
+- (instancetype)initWithFrame:(NSRect)frame device:(id<MTLDevice>)device windowType:(YuchenUI::WindowType)type targetFPS:(int)fps
 {
     self = [super initWithFrame:frame];
     if (self)
@@ -336,6 +398,9 @@ private:
         displayLink = nil;
         isRendering.store(false);
         self.windowType = type;
+        self.targetFPS = fps;
+        self.frameCounter = 0;
+        self.displayRefreshRate = 0;
         self.windowImpl = nullptr;
         self.modalRefreshTimer = nil;
         self.markedText = nil;
@@ -431,23 +496,38 @@ private:
 {
     if (displayLink) return;
     
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    // Create display link
     CVDisplayLinkCreateWithActiveCGDisplays(&displayLink);
+    
+    // Get the display ID for this window
+    CGDirectDisplayID displayID = (CGDirectDisplayID)[[[self.window screen] deviceDescription][@"NSScreenNumber"] unsignedIntValue];
+    CVDisplayLinkSetCurrentCGDisplay(displayLink, displayID);
+    
+    // Query display refresh rate
+    CGDisplayModeRef mode = CGDisplayCopyDisplayMode(displayID);
+    if (mode) {
+        self.displayRefreshRate = CGDisplayModeGetRefreshRate(mode);
+        CGDisplayModeRelease(mode);
+        
+        // Some displays return 0 for refresh rate, default to 60
+        if (self.displayRefreshRate == 0) {
+            self.displayRefreshRate = 60.0;
+        }
+    } else {
+        self.displayRefreshRate = 60.0;
+    }
+    
+    // Set callback and start
     CVDisplayLinkSetOutputCallback(displayLink, &DisplayLinkCallback, (__bridge void*)self);
     CVDisplayLinkStart(displayLink);
-#pragma clang diagnostic pop
 }
 
 - (void)stopRenderLoop
 {
     if (displayLink)
     {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
         CVDisplayLinkStop(displayLink);
         CVDisplayLinkRelease(displayLink);
-#pragma clang diagnostic pop
         displayLink = NULL;
     }
     
@@ -476,8 +556,10 @@ private:
 {
     if (self.modalRefreshTimer) return;
     
-    // Create timer for modal dialog rendering (60 FPS)
-    self.modalRefreshTimer = [NSTimer timerWithTimeInterval:(1.0 / 60.0)
+    // Create timer for modal dialog rendering using target FPS
+    double interval = 1.0 / (double)self.targetFPS;
+    
+    self.modalRefreshTimer = [NSTimer timerWithTimeInterval:interval
                                                      target:self
                                                    selector:@selector(modalRefreshTick:)
                                                    userInfo:nil
@@ -716,9 +798,9 @@ private:
 
 @end
 
-// ============================================================================
+//==========================================================================================
 // MacOSWindowImpl Implementation
-// ============================================================================
+//==========================================================================================
 
 namespace YuchenUI
 {
@@ -732,6 +814,7 @@ MacOSWindowImpl::MacOSWindowImpl()
     , m_delegate(nil)
     , m_baseWindow(nullptr)
     , m_type(WindowType::Main)
+    , m_targetFPS(Config::Rendering::DEFAULT_FPS)
 {
 }
 
@@ -749,6 +832,7 @@ bool MacOSWindowImpl::create(const WindowConfig& config)
     YUCHEN_ASSERT(config.title);
     
     m_type = config.type;
+    m_targetFPS = config.targetFPS;
     
     @autoreleasepool
     {
@@ -792,9 +876,12 @@ bool MacOSWindowImpl::create(const WindowConfig& config)
         id<MTLDevice> device = MTLCreateSystemDefaultDevice();
         YUCHEN_ASSERT(device);
         
-        // Create Metal view
+        // Create Metal view with target FPS
         NSRect contentRect = NSMakeRect(0, 0, config.width, config.height);
-        m_metalView = [[UniversalMetalView alloc] initWithFrame:contentRect device:device windowType:m_type];
+        m_metalView = [[UniversalMetalView alloc] initWithFrame:contentRect
+                                                         device:device
+                                                     windowType:m_type
+                                                      targetFPS:m_targetFPS];
         YUCHEN_ASSERT(m_metalView);
         
         // Create window delegate

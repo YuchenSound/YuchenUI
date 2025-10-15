@@ -110,7 +110,7 @@ public:
     */
     void quit();
 
-    //======================================================================================
+    //==========================================================================================
     /** Creates a main application window with content.
         
         Creates a window with WindowType::Main. By default, Main windows affect
@@ -124,14 +124,16 @@ public:
         
         Initialization order:
         1. Create window
-        2. Inject font provider (initializes renderer)
-        3. Inject theme provider (into UIContext)
-        4. Set content (calls onCreate with initialized context)
+        2. Set target FPS
+        3. Inject font provider (initializes renderer)
+        4. Inject theme provider (into UIContext)
+        5. Set content (calls onCreate with initialized context)
         
         @tparam ContentType  The IUIContent-derived class to create
         @param width         Window width in pixels
         @param height        Window height in pixels
         @param title         Window title text
+        @param fps           Target frame rate (range: 15-240)
         @param args          Arguments forwarded to ContentType constructor
         
         @returns Pointer to the created window, or nullptr on failure
@@ -139,7 +141,7 @@ public:
         @see setAffectsAppLifetime(), createDialog(), createToolWindow()
     */
     template<typename ContentType, typename... Args>
-    BaseWindow* createMainWindow(int width, int height, const char* title, Args&&... args)
+    BaseWindow* createMainWindow(int width, int height, const char* title, int fps, Args&&... args)
     {
         if (!m_isInitialized)
         {
@@ -147,8 +149,9 @@ public:
             return nullptr;
         }
         
-        // Step 1: Create window
         auto mainWindow = std::make_unique<BaseWindow>(WindowType::Main);
+        mainWindow->setTargetFPS(fps);
+        
         if (!mainWindow->create(width, height, title, nullptr))
         {
             return nullptr;
@@ -156,19 +159,16 @@ public:
         
         BaseWindow* mainWindowPtr = mainWindow.get();
         
-        // Step 2: Inject font provider (initializes renderer and UIContext font)
         if (m_fontProvider)
         {
             mainWindowPtr->setFontProvider(m_fontProvider);
         }
         
-        // Step 3: Inject theme provider (into UIContext)
         if (m_themeProvider)
         {
             mainWindowPtr->getUIContext().setThemeProvider(m_themeProvider);
         }
         
-        // Step 4: Set content (onCreate called with fully initialized context)
         auto content = std::make_unique<ContentType>(std::forward<Args>(args)...);
         mainWindowPtr->setContent(std::move(content));
         
@@ -177,29 +177,31 @@ public:
         
         return mainWindowPtr;
     }
-    
-    //======================================================================================
+
+    //==========================================================================================
     /** Creates a modal dialog window with content.
         
         Dialogs are temporary windows typically used for user interaction.
         
-        Correct initialization order:
+        Initialization order:
         1. Create window
-        2. Inject font provider (initializes renderer)
-        3. Inject theme provider (into UIContext)
-        4. Set content (calls onCreate with initialized context)
+        2. Set target FPS
+        3. Inject font provider (initializes renderer)
+        4. Inject theme provider (into UIContext)
+        5. Set content (calls onCreate with initialized context)
         
-        @tparam ContentType  The IWindowContent-derived class to create
+        @tparam ContentType  The IUIContent-derived class to create
         @param width         Window width in pixels
         @param height        Window height in pixels
         @param title         Window title text
         @param parent        Parent window for the dialog
+        @param fps           Target frame rate (range: 15-240)
         @param args          Arguments forwarded to ContentType constructor
         
         @returns Pointer to the created dialog, or nullptr on failure
     */
     template<typename ContentType, typename... Args>
-    BaseWindow* createDialog(int width, int height, const char* title, Window* parent, Args&&... args)
+    BaseWindow* createDialog(int width, int height, const char* title, Window* parent, int fps, Args&&... args)
     {
         if (!m_isInitialized)
         {
@@ -207,8 +209,9 @@ public:
             return nullptr;
         }
         
-        // Step 1: Create window
         auto dialog = std::make_unique<BaseWindow>(WindowType::Dialog);
+        dialog->setTargetFPS(fps);
+        
         if (!dialog->create(width, height, title, parent))
         {
             return nullptr;
@@ -216,19 +219,16 @@ public:
         
         BaseWindow* dialogPtr = dialog.get();
         
-        // Step 2: Inject font provider (initializes renderer and UIContext font)
         if (m_fontProvider)
         {
             dialogPtr->setFontProvider(m_fontProvider);
         }
         
-        // Step 3: Inject theme provider (into UIContext)
         if (m_themeProvider)
         {
             dialogPtr->getUIContext().setThemeProvider(m_themeProvider);
         }
         
-        // Step 4: Set content (onCreate called with fully initialized context)
         auto content = std::make_unique<ContentType>(std::forward<Args>(args)...);
         dialogPtr->setContent(std::move(content));
         
@@ -237,28 +237,31 @@ public:
         
         return dialogPtr;
     }
-    
+
+    //==========================================================================================
     /** Creates a tool window with content.
         
         Tool windows are typically used for auxiliary UI such as palettes or inspectors.
         
-        Correct initialization order:
+        Initialization order:
         1. Create window
-        2. Inject font provider (initializes renderer)
-        3. Inject theme provider (into UIContext)
-        4. Set content (calls onCreate with initialized context)
+        2. Set target FPS
+        3. Inject font provider (initializes renderer)
+        4. Inject theme provider (into UIContext)
+        5. Set content (calls onCreate with initialized context)
         
-        @tparam ContentType  The IWindowContent-derived class to create
+        @tparam ContentType  The IUIContent-derived class to create
         @param width         Window width in pixels
         @param height        Window height in pixels
         @param title         Window title text
         @param parent        Parent window for the tool window
+        @param fps           Target frame rate (range: 15-240)
         @param args          Arguments forwarded to ContentType constructor
         
         @returns Pointer to the created tool window, or nullptr on failure
     */
     template<typename ContentType, typename... Args>
-    BaseWindow* createToolWindow(int width, int height, const char* title, Window* parent, Args&&... args)
+    BaseWindow* createToolWindow(int width, int height, const char* title, Window* parent, int fps, Args&&... args)
     {
         if (!m_isInitialized)
         {
@@ -266,8 +269,9 @@ public:
             return nullptr;
         }
         
-        // Step 1: Create window
         auto toolWindow = std::make_unique<BaseWindow>(WindowType::ToolWindow);
+        toolWindow->setTargetFPS(fps);
+        
         if (!toolWindow->create(width, height, title, parent))
         {
             return nullptr;
@@ -275,19 +279,16 @@ public:
         
         BaseWindow* toolWindowPtr = toolWindow.get();
         
-        // Step 2: Inject font provider (initializes renderer and UIContext font)
         if (m_fontProvider)
         {
             toolWindowPtr->setFontProvider(m_fontProvider);
         }
         
-        // Step 3: Inject theme provider (into UIContext)
         if (m_themeProvider)
         {
             toolWindowPtr->getUIContext().setThemeProvider(m_themeProvider);
         }
         
-        // Step 4: Set content (onCreate called with fully initialized context)
         auto content = std::make_unique<ContentType>(std::forward<Args>(args)...);
         toolWindowPtr->setContent(std::move(content));
         

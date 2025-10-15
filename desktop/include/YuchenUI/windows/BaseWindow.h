@@ -27,13 +27,15 @@ enum class WindowState {
     Shown
 };
 
+
+
 class BaseWindow : public Window, public ITextInputHandler, public ICoordinateMapper
 {
 public:
-    explicit BaseWindow (WindowType type = WindowType::Main);
+    explicit BaseWindow(WindowType type = WindowType::Main);
     virtual ~BaseWindow();
 
-    bool create (int width, int height, const char* title, Window* parent = nullptr) override;
+    bool create(int width, int height, const char* title, Window* parent = nullptr) override;
     void destroy() override;
     bool shouldClose() override;
     Vec2 getSize() const override;
@@ -44,11 +46,11 @@ public:
     
     void enableTextInput() override;
     void disableTextInput() override;
-    void setIMEEnabled (bool enabled) override;
+    void setIMEEnabled(bool enabled) override;
     
     Vec2 mapToScreen(const Vec2& windowPos) const override;
 
-    void handleNativeEvent (void* event);
+    void handleNativeEvent(void* event);
     void renderContent();
     void show();
     void hide();
@@ -56,20 +58,20 @@ public:
     
     void showModal();
     void closeModal();
-    void closeWithResult (WindowContentResult result);
-    void setResultCallback (DialogResultCallback callback);
+    void closeWithResult(WindowContentResult result);
+    void setResultCallback(DialogResultCallback callback);
     
-    void onResize (int width, int height);
+    void onResize(int width, int height);
     
-    void setContent (std::unique_ptr<IUIContent> content);
+    void setContent(std::unique_ptr<IUIContent> content);
     IUIContent* getContent() const;
     
-    void captureMouse (UIComponent* component);
+    void captureMouse(UIComponent* component);
     void releaseMouse();
     
-    void handleMarkedText (const char* text, int cursorPos, int selectionLength);
+    void handleMarkedText(const char* text, int cursorPos, int selectionLength);
     void handleUnmarkText();
-    void handleEvent (const Event& event);
+    void handleEvent(const Event& event);
     Rect getInputMethodCursorRect() const;
     
     UIContext& getUIContext() { return m_uiContext; }
@@ -78,12 +80,16 @@ public:
 
     void setAffectsAppLifetime(bool affects);
     bool affectsAppLifetime() const { return m_affectsAppLifetime; }
+    
+    void setTargetFPS(int fps);
+    int getTargetFPS() const { return m_targetFPS; }
+    
 protected:
     IGraphicsBackend* getGraphicsBackend() { return m_backend.get(); }
     virtual void onWindowReady() {}
     virtual void setupUserInterface();
-    bool isInState (WindowState state) const { return m_state == state; }
-    bool hasReachedState (WindowState state) const { return m_state >= state; }
+    bool isInState(WindowState state) const { return m_state == state; }
+    bool hasReachedState(WindowState state) const { return m_state >= state; }
     Rect calculateContentArea() const;
     Vec4 getBackgroundColor() const;
 
@@ -108,13 +114,17 @@ protected:
     bool m_isModal;
     
     UIComponent* m_capturedComponent;
+    
+    int m_targetFPS;
 
 private:
     bool initializeRenderer(IFontProvider* fontProvider);
     void detectDPIScale();
     void releaseResources();
-    void transitionToState (WindowState newState);
-    bool canTransitionTo (WindowState newState) const;
+    void transitionToState(WindowState newState);
+    bool canTransitionTo(WindowState newState) const;
+    
+    int defaultFPS = 60;
     
     friend class MetalRenderer;
 };

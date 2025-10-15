@@ -53,7 +53,7 @@ bool DemoApplication::initialize() {
 }
 
 bool DemoApplication::createMainWindow() {
-    m_mainWindow = m_frameworkApp.createWindow<MainWindowContent>(WINDOW_WIDTH,WINDOW_HEIGHT,"UI Component Test",this);
+    m_mainWindow = m_frameworkApp.createWindow<MainWindowContent>(WINDOW_WIDTH,WINDOW_HEIGHT,"UI Component Test",30,this);
     m_mainWindow->setAffectsAppLifetime(true);
     m_mainWindow->show();
 
@@ -74,8 +74,7 @@ void DemoApplication::onShowLevelMeterClick() {
     }
     else
     {
-        m_levelMeterWindow = windowManager.createToolWindow<LevelMeterWindowContent>(
-            89, 554, "Level Meter Test", m_mainWindow);
+        m_levelMeterWindow = windowManager.createToolWindow<LevelMeterWindowContent>(89,554,"Level Meter Test",m_mainWindow,30);
         m_levelMeterWindow->show();
     }
 }
@@ -92,13 +91,8 @@ void DemoApplication::onShowMixerClick() {
     }
     else
     {
-        // Create as Main window type (independent top-level window)
-        m_mixerWindow = windowManager.createMainWindow<MixerWindowContent>(
-            500, 400, "Mixer (æ··éŸ³å™¨)");
-        
-        // Don't affect app lifetime - closing mixer won't quit app
+        m_mixerWindow = windowManager.createMainWindow<MixerWindowContent>(500,400,"Mixer",30);
         m_mixerWindow->setAffectsAppLifetime(false);
-        
         m_mixerWindow->show();
     }
 }
@@ -106,7 +100,7 @@ void DemoApplication::onShowMixerClick() {
 void DemoApplication::onShowDialogClick() {
     WindowManager& windowManager = m_frameworkApp.getWindowManager();
 
-    BaseWindow* dialog = windowManager.createDialog<ConfirmationDialogContent>(420, 135, "Confirm", m_mainWindow,"Are you sure you want to perform this operation?");
+    BaseWindow* dialog = windowManager.createDialog<ConfirmationDialogContent>(420, 135, "Confirm", m_mainWindow,30,"Are you sure you want to perform this operation?");
     if (dialog) dialog->showModal();
 }
 

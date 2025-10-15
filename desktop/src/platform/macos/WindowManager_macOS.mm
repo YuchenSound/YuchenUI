@@ -28,7 +28,7 @@
     - Creates nested autorelease pools for each event iteration
     - Blocks on [NSApp nextEventMatchingMask:] waiting for events
     - Dispatches events through [NSApp sendEvent:]
-    - Renders visible windows through WindowManager callback
+    - Does NOT render in event loop - CVDisplayLink handles rendering
     - Processes scheduled dialog destructions after each event
     - Registers MacMenuImpl as the menu backend
     
@@ -43,6 +43,11 @@
     - Inner @autoreleasepool created/destroyed per event
     - Prevents autorelease accumulation during long-running sessions
     - Critical for applications that run for extended periods
+    
+    Rendering:
+    - Each window has its own CVDisplayLink running at target FPS
+    - Event loop does NOT call renderContent() to avoid duplicate rendering
+    - Windows render independently via their display link callbacks
 */
 
 #import <Foundation/Foundation.h>
@@ -81,21 +86,10 @@ void runEventLoop(bool& isRunning, WindowManager* manager)
                     [NSApp sendEvent:event];
                 }
                 
-                // Render all visible windows
-                // Note: On macOS, this provides fallback rendering. Most rendering
-                // happens through CVDisplayLink callbacks in the window implementation.
-                const std::vector<Window*>& allWindows = manager->getAllWindows();
-                for (Window* window : allWindows)
-                {
-                    if (window)
-                    {
-                        BaseWindow* baseWindow = static_cast<BaseWindow*>(window);
-                        if (baseWindow->isVisible())
-                        {
-                            baseWindow->renderContent();
-                        }
-                    }
-                }
+                // NOTE: Do NOT render here!
+                // Each window has its own CVDisplayLink that handles rendering
+                // at the configured frame rate. Rendering here would cause
+                // duplicate frames and FPS spikes during event processing.
                 
                 // Process any dialogs scheduled for destruction
                 // Dialogs must be destroyed outside their modal event loop

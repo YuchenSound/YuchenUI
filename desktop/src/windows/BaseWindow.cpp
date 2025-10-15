@@ -80,6 +80,7 @@ BaseWindow::BaseWindow(WindowType type)
     , m_isModal(false)
     , m_capturedComponent(nullptr)
     , m_affectsAppLifetime(type == WindowType::Main)
+    , m_targetFPS(Config::Rendering::DEFAULT_FPS)
 {
     m_impl.reset(WindowImplFactory::create());
     YUCHEN_ASSERT(m_impl);
@@ -104,29 +105,24 @@ bool BaseWindow::create(int width, int height, const char* title, Window* parent
     m_width = width;
     m_height = height;
 
-    // Create native platform window
     WindowConfig config(width, height, title, parent, m_windowType);
+    config.targetFPS = m_targetFPS;
+    
     YUCHEN_ASSERT_MSG(m_impl->create(config), "Failed to create window implementation");
     m_impl->setBaseWindow(this);
 
-    // Detect DPI scale for this window
     detectDPIScale();
 
-    // Create and initialize event manager for this window
     m_eventManager.reset(PlatformBackend::createEventManager(m_impl->getNativeHandle()));
     YUCHEN_ASSERT_MSG(m_eventManager, "Failed to create EventManager");
     YUCHEN_ASSERT_MSG(m_eventManager->initialize(), "Failed to initialize EventManager");
 
-    // Set up event callback to route events to this window
     m_eventManager->setEventCallback([this](const Event& event) {
         this->handleEvent(event);
     });
 
-    // Set up UI layer (content may be set later by user)
     setupUserInterface();
 
-    // Transition to Created state
-    // Note: RendererReady transition happens in setFontProvider()
     transitionToState(WindowState::Created);
 
     return true;
@@ -642,6 +638,14 @@ void BaseWindow::setFontProvider(IFontProvider* provider)
     {
         show();
     }
+}
+
+//==========================================================================================
+// FPS Management
+void BaseWindow::setTargetFPS(int fps)
+{
+    YUCHEN_ASSERT(fps >= 10 && fps <= 120); // System limit
+    m_targetFPS = fps;
 }
 
 //==========================================================================================

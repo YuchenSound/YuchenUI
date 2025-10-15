@@ -124,30 +124,29 @@ public:
     */
     ThemeManager& getThemeManager() { return m_themeManager; }
     
-    //======================================================================================
+    //==========================================================================================
     // Convenience Methods
-    
+
     /**
         Creates a main window with content.
         
-        Convenience wrapper around WindowManager::createMainWindow that also
-        injects font provider into window's UIContext.
+        Convenience wrapper around WindowManager::createMainWindow.
         
         @tparam ContentType  IUIContent-derived class
         @param width         Window width in pixels
         @param height        Window height in pixels
         @param title         Window title
+        @param fps           Target frame rate (15-240)
         @param args          Arguments forwarded to ContentType constructor
         @returns Pointer to created window, or nullptr on failure
     */
     template<typename ContentType, typename... Args>
-    BaseWindow* createWindow(int width, int height, const char* title, Args&&... args)
+    BaseWindow* createWindow(int width, int height, const char* title, int fps, Args&&... args)
     {
         WindowManager& windowManager = getWindowManager();
         
-        // WindowManager now handles font provider injection automatically
         return windowManager.createMainWindow<ContentType>(
-            width, height, title, std::forward<Args>(args)...
+            width, height, title, fps, std::forward<Args>(args)...
         );
     }
 

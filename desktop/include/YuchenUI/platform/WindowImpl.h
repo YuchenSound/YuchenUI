@@ -15,6 +15,7 @@ struct WindowConfig {
     WindowType type;
     bool resizable;
     bool floating;
+    int targetFPS;
     
     WindowConfig(int w, int h, const char* t, Window* p = nullptr, WindowType wt = WindowType::Main)
         : width(w), height(h), title(t), parent(p), type(wt), resizable(true), floating(false) {}
