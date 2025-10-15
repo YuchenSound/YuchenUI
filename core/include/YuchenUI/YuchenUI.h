@@ -17,7 +17,7 @@
 #include "YuchenUI/widgets/SpinBox.h"
 #include "YuchenUI/widgets/CheckBox.h"
 #include "YuchenUI/widgets/RadioButton.h"
-#include "YuchenUI/widgets/LevelMeter.h"
+#include "YuchenUI/widgets_expand/LevelMeter.h"
 
 #include "YuchenUI/utils/Clipboard.h"
 
