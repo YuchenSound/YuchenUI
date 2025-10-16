@@ -56,14 +56,15 @@ IUIContent::~IUIContent()
 bool IUIContent::handleMouseEvent(const Vec2& position, bool pressed, bool isMoveEvent)
 {
     // Dispatch to components in reverse order (topmost first)
+    // CRITICAL: Must pass Vec2(0, 0) as offset to start coordinate accumulation from window root
     for (auto it = m_components.rbegin(); it != m_components.rend(); ++it)
     {
         UIComponent* component = *it;
         if (component && component->isVisible() && component->isEnabled())
         {
             bool handled = isMoveEvent
-                ? component->handleMouseMove(position)
-                : component->handleMouseClick(position, pressed);
+                ? component->handleMouseMove(position, Vec2(0, 0))
+                : component->handleMouseClick(position, pressed, Vec2(0, 0));
             
             if (handled)
             {
@@ -81,7 +82,7 @@ bool IUIContent::handleMouseEvent(const Vec2& position, bool pressed, bool isMov
     }
     
     // Click on empty area clears focus
-    if (!isMoveEvent && !pressed && m_context)
+    if (!isMoveEvent && pressed && m_context)
     {
         m_context->getFocusManager().clearFocus();
     }
@@ -110,12 +111,14 @@ bool IUIContent::handleMouseClick(const Vec2& position, bool pressed)
 
 bool IUIContent::handleMouseWheel(const Vec2& delta, const Vec2& position)
 {
+    // Dispatch to components in reverse order (topmost first)
+    // Wheel events also need proper offset handling
     for (auto it = m_components.rbegin(); it != m_components.rend(); ++it)
     {
         UIComponent* component = *it;
         if (component && component->isVisible() && component->isEnabled())
         {
-            if (component->handleMouseWheel(delta, position)) return true;
+            if (component->handleMouseWheel(delta, position, Vec2(0, 0))) return true;
         }
     }
     return false;

@@ -158,9 +158,6 @@ void UIContext::endFrame() {}
 
 bool UIContext::handleMouseMove(const Vec2& position)
 {
-    if (m_impl->capturedComponent)
-        return m_impl->capturedComponent->handleMouseMove(position);
-    
     if (m_impl->content)
         return m_impl->content->handleMouseMove(position);
     
