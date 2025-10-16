@@ -51,7 +51,7 @@
 
 #pragma once
 
-#include "YuchenUI/widgets/UIComponent.h"
+#include "YuchenUI/widgets/Widget.h"
 #include "YuchenUI/core/Types.h"
 #include <functional>
 #include <vector>
@@ -141,7 +141,7 @@ public:
     
     @see FaderMapping, FaderColorTheme
 */
-class Fader : public UIComponent {
+class Fader : public Widget {
 public:
     /** Value change callback function type. */
     using ValueChangedCallback = std::function<void(float)>;

@@ -26,7 +26,7 @@
 
 #include "YuchenUI/core/IUIContent.h"
 #include "YuchenUI/core/UIContext.h"
-#include "YuchenUI/widgets/UIComponent.h"
+#include "YuchenUI/widgets/Widget.h"
 #include "YuchenUI/focus/FocusManager.h"
 #include "YuchenUI/rendering/RenderList.h"
 #include "YuchenUI/platform/IInputMethodSupport.h"
@@ -59,7 +59,7 @@ bool IUIContent::handleMouseEvent(const Vec2& position, bool pressed, bool isMov
     // CRITICAL: Must pass Vec2(0, 0) as offset to start coordinate accumulation from window root
     for (auto it = m_components.rbegin(); it != m_components.rend(); ++it)
     {
-        UIComponent* component = *it;
+        Widget* component = *it;
         if (component && component->isVisible() && component->isEnabled())
         {
             bool handled = isMoveEvent
@@ -115,7 +115,7 @@ bool IUIContent::handleMouseWheel(const Vec2& delta, const Vec2& position)
     // Wheel events also need proper offset handling
     for (auto it = m_components.rbegin(); it != m_components.rend(); ++it)
     {
-        UIComponent* component = *it;
+        Widget* component = *it;
         if (component && component->isVisible() && component->isEnabled())
         {
             if (component->handleMouseWheel(delta, position, Vec2(0, 0))) return true;
@@ -185,7 +185,7 @@ Rect IUIContent::getInputMethodCursorRect() const
 //==========================================================================================
 // Component management
 
-void IUIContent::addComponent(UIComponent* component)
+void IUIContent::addComponent(Widget* component)
 {
     if (!component) return;
     
@@ -204,7 +204,7 @@ void IUIContent::addComponent(UIComponent* component)
     }
 }
 
-void IUIContent::removeComponent(UIComponent* component)
+void IUIContent::removeComponent(Widget* component)
 {
     if (!component) return;
     
@@ -232,13 +232,13 @@ void IUIContent::clearComponents()
 //==========================================================================================
 // Focus management
 
-UIComponent* IUIContent::getFocusedComponent() const
+Widget* IUIContent::getFocusedComponent() const
 {
     if (!m_context) return nullptr;
     return m_context->getFocusManager().getFocusedComponent();
 }
 
-void IUIContent::registerFocusableComponent(UIComponent* component)
+void IUIContent::registerFocusableComponent(Widget* component)
 {
     if (m_context && component->getFocusPolicy() != FocusPolicy::NoFocus)
     {
@@ -246,7 +246,7 @@ void IUIContent::registerFocusableComponent(UIComponent* component)
     }
 }
 
-void IUIContent::unregisterFocusableComponent(UIComponent* component)
+void IUIContent::unregisterFocusableComponent(Widget* component)
 {
     if (m_context) m_context->getFocusManager().unregisterComponent(component);
 }

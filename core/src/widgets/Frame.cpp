@@ -8,7 +8,7 @@
 namespace YuchenUI {
 
 Frame::Frame(const Rect& bounds)
-    : UIComponent()
+    : Widget()
     , m_backgroundColor()
     , m_borderColor()
     , m_borderWidth(0.0f)

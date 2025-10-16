@@ -24,7 +24,7 @@ namespace YuchenUI {
 class IUIContent;
 class IGraphicsBackend;
 class FocusManager;
-class UIComponent;
+class Widget;
 class ITextInputHandler;
 class ICoordinateMapper;
 class RenderList;
@@ -132,9 +132,9 @@ public:
     //======================================================================================
     // Mouse capture
     
-    void captureMouse(UIComponent* component);
+    void captureMouse(Widget* component);
     void releaseMouse();
-    UIComponent* getCapturedComponent() const;
+    Widget* getCapturedComponent() const;
     
     //======================================================================================
     // IME support
@@ -144,8 +144,8 @@ public:
     //======================================================================================
     // Component management
     
-    void addComponent(UIComponent* component);
-    void removeComponent(UIComponent* component);
+    void addComponent(Widget* component);
+    void removeComponent(Widget* component);
     
     //======================================================================================
     // Text input control

@@ -40,7 +40,7 @@
 
 #pragma once
 
-#include "YuchenUI/widgets/UIComponent.h"
+#include "YuchenUI/widgets/Widget.h"
 #include "YuchenUI/core/Types.h"
 #include <string>
 
@@ -63,7 +63,7 @@ class RenderList;
     
     @see ScaleMode, NineSliceMargins
 */
-class Image : public UIComponent {
+class Image : public Widget {
 public:
     //======================================================================================
     /** Frame arrangement direction in sprite sheet. */

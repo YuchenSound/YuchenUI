@@ -1,13 +1,13 @@
 #pragma once
 
-#include <YuchenUI/widgets/UIComponent.h>
+#include <YuchenUI/widgets/Widget.h>
 #include <string>
 #include <vector>
 
 class FaderMeterSection;
 class NameSection;
 
-class ChannelStrip : public YuchenUI::UIComponent {
+class ChannelStrip : public YuchenUI::Widget {
 public:
     explicit ChannelStrip(const YuchenUI::Rect& bounds, int channelNumber);
     virtual ~ChannelStrip();

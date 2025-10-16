@@ -17,7 +17,7 @@
 #include "YuchenUI/core/IUIContent.h"
 #include "YuchenUI/focus/FocusManager.h"
 #include "YuchenUI/platform/ICoordinateMapper.h"
-#include "YuchenUI/widgets/UIComponent.h"
+#include "YuchenUI/widgets/Widget.h"
 #include "YuchenUI/rendering/RenderList.h"
 #include "YuchenUI/platform/ITextInputHandler.h"
 #include "YuchenUI/text/IFontProvider.h"
@@ -38,12 +38,12 @@ struct UIContext::Impl
 {
     std::unique_ptr<IUIContent> content;
     std::unique_ptr<FocusManager> focusManager;
-    std::vector<UIComponent*> components;
+    std::vector<Widget*> components;
     
     Vec2 viewportSize;
     float dpiScale;
     
-    UIComponent* capturedComponent;
+    Widget* capturedComponent;
     ITextInputHandler* textInputHandler;
     ICoordinateMapper* coordinateMapper;
     IFontProvider* fontProvider;
@@ -273,7 +273,7 @@ const FocusManager& UIContext::getFocusManager() const
 //==========================================================================================
 // Mouse capture
 
-void UIContext::captureMouse(UIComponent* component)
+void UIContext::captureMouse(Widget* component)
 {
     m_impl->capturedComponent = component;
 }
@@ -283,7 +283,7 @@ void UIContext::releaseMouse()
     m_impl->capturedComponent = nullptr;
 }
 
-UIComponent* UIContext::getCapturedComponent() const
+Widget* UIContext::getCapturedComponent() const
 {
     return m_impl->capturedComponent;
 }
@@ -301,14 +301,14 @@ Rect UIContext::getInputMethodCursorRect() const
 //==========================================================================================
 // Component management
 
-void UIContext::addComponent(UIComponent* component)
+void UIContext::addComponent(Widget* component)
 {
     auto it = std::find(m_impl->components.begin(), m_impl->components.end(), component);
     if (it == m_impl->components.end())
         m_impl->components.push_back(component);
 }
 
-void UIContext::removeComponent(UIComponent* component)
+void UIContext::removeComponent(Widget* component)
 {
     auto it = std::find(m_impl->components.begin(), m_impl->components.end(), component);
     if (it != m_impl->components.end())

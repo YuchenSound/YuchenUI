@@ -11,7 +11,7 @@
 namespace YuchenUI {
 
 ScrollArea::ScrollArea(const Rect& bounds)
-    : UIComponent()
+    : Widget()
     , m_contentSize()
     , m_scrollX(0.0f)
     , m_scrollY(0.0f)

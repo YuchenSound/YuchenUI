@@ -921,7 +921,7 @@ float MeterRenderer::pixelAlign(float value) const { return std::round(value); }
 //==========================================================================================
 // LevelMeter Implementation
 LevelMeter::LevelMeter(UIContext* context, const Rect& bounds, size_t channelCount, ScaleType scaleType)
-    : UIComponent()
+    : Widget()
     , m_context(context)
     , levelData_(channelCount)
     , config_(MeterConfig::createDefault())
@@ -935,7 +935,7 @@ LevelMeter::LevelMeter(UIContext* context, const Rect& bounds, size_t channelCou
 }
 LevelMeter::LevelMeter(UIContext* context, const Rect& bounds, const MeterConfig& config,
                       size_t channelCount, ScaleType scaleType)
-    : UIComponent()
+    : Widget()
     , m_context(context)
     , levelData_(channelCount)
     , config_(config)

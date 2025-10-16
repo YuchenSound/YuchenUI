@@ -26,7 +26,7 @@
 */
 
 #include "YuchenUI/focus/FocusManager.h"
-#include "YuchenUI/widgets/UIComponent.h"
+#include "YuchenUI/widgets/Widget.h"
 #include "YuchenUI/core/Assert.h"
 #include <algorithm>
 #include <cmath>
@@ -53,7 +53,7 @@ FocusManager::~FocusManager()
 //==========================================================================================
 // Focus Control
 
-void FocusManager::setFocus(UIComponent* component, FocusReason reason)
+void FocusManager::setFocus(Widget* component, FocusReason reason)
 {
     // Early exit if already focused
     if (m_focused == component) return;
@@ -101,7 +101,7 @@ bool FocusManager::moveFocus(FocusDirection direction)
 //==========================================================================================
 // Component Registration
 
-void FocusManager::registerComponent(UIComponent* component)
+void FocusManager::registerComponent(Widget* component)
 {
     YUCHEN_ASSERT(component);
     
@@ -114,7 +114,7 @@ void FocusManager::registerComponent(UIComponent* component)
     }
 }
 
-void FocusManager::unregisterComponent(UIComponent* component)
+void FocusManager::unregisterComponent(Widget* component)
 {
     YUCHEN_ASSERT(component);
     
@@ -160,7 +160,7 @@ void FocusManager::rebuildFocusChain()
     
     // Stable sort by TabOrder (preserves registration order for equal values)
     std::stable_sort(m_chain.begin(), m_chain.end(),
-        [](UIComponent* a, UIComponent* b){
+        [](Widget* a, Widget* b){
             int orderA = a->getTabOrder();
             int orderB = b->getTabOrder();
             
@@ -196,7 +196,7 @@ bool FocusManager::focusNext(FocusReason reason)
     for (size_t i = 0; i < m_chain.size(); ++i)
     {
         size_t index = (start + i) % m_chain.size();
-        UIComponent* candidate = m_chain[index];
+        Widget* candidate = m_chain[index];
         
         if (candidate->canAcceptFocus() && candidate->acceptsTabFocus())
         {
@@ -229,7 +229,7 @@ bool FocusManager::focusPrevious(FocusReason reason)
     for (size_t i = 0; i < m_chain.size(); ++i)
     {
         size_t index = (start + m_chain.size() - i) % m_chain.size();
-        UIComponent* candidate = m_chain[index];
+        Widget* candidate = m_chain[index];
         
         if (candidate->canAcceptFocus() && candidate->acceptsTabFocus())
         {
@@ -245,7 +245,7 @@ bool FocusManager::focusFirst()
 {
     if (m_dirty) rebuildFocusChain();
     
-    for (UIComponent* component : m_chain)
+    for (Widget* component : m_chain)
     {
         if (component->canAcceptFocus() && component->acceptsTabFocus())
         {
@@ -263,7 +263,7 @@ bool FocusManager::focusLast()
     
     for (auto it = m_chain.rbegin(); it != m_chain.rend(); ++it)
     {
-        UIComponent* component = *it;
+        Widget* component = *it;
         if (component->canAcceptFocus() && component->acceptsTabFocus())
         {
             setFocus(component, FocusReason::OtherFocusReason);
@@ -285,7 +285,7 @@ bool FocusManager::focusByDirection(FocusDirection direction)
     if (m_dirty) rebuildFocusChain();
     
     Rect currentBounds = m_focused->getBounds();
-    UIComponent* best = findBestCandidate(currentBounds, direction);
+    Widget* best = findBestCandidate(currentBounds, direction);
     
     if (best)
     {
@@ -296,12 +296,12 @@ bool FocusManager::focusByDirection(FocusDirection direction)
     return false;
 }
 
-UIComponent* FocusManager::findBestCandidate(const Rect& fromBounds, FocusDirection direction)
+Widget* FocusManager::findBestCandidate(const Rect& fromBounds, FocusDirection direction)
 {
-    UIComponent* best = nullptr;
+    Widget* best = nullptr;
     float bestScore = std::numeric_limits<float>::max();
     
-    for (UIComponent* candidate : m_chain)
+    for (Widget* candidate : m_chain)
     {
         // Skip current focused component and non-focusable components
         if (!candidate->canAcceptFocus() || candidate == m_focused) continue;

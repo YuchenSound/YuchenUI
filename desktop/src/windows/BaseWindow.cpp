@@ -54,7 +54,7 @@
 #include "YuchenUI/platform/WindowImpl.h"
 #include "YuchenUI/events/EventManager.h"
 #include "YuchenUI/theme/ThemeManager.h"
-#include "YuchenUI/widgets/UIComponent.h"
+#include "YuchenUI/widgets/Widget.h"
 #include "YuchenUI/core/Config.h"
 #include "YuchenUI/core/Assert.h"
 
@@ -553,7 +553,7 @@ bool BaseWindow::isMousePressed() const
 //==========================================================================================
 // Mouse Capture
 
-void BaseWindow::captureMouse(UIComponent* component)
+void BaseWindow::captureMouse(Widget* component)
 {
     m_capturedComponent = component;
 }

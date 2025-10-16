@@ -11,7 +11,7 @@
 namespace YuchenUI {
 
 GroupBox::GroupBox(const Rect& bounds)
-    : UIComponent()
+    : Widget()
     , m_title()
     , m_titleFontChain()
     , m_titleFontSize(Config::Font::DEFAULT_SIZE)

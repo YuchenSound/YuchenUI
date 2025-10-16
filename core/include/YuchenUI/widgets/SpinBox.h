@@ -1,6 +1,6 @@
 #pragma once
 
-#include "YuchenUI/widgets/UIComponent.h"
+#include "YuchenUI/widgets/Widget.h"
 #include "YuchenUI/platform/IInputMethodSupport.h"
 #include "YuchenUI/core/Types.h"
 #include <string>
@@ -12,7 +12,7 @@ class RenderList;
 
 using SpinBoxValueChangedCallback = std::function<void(double)>;
 
-class SpinBox : public UIComponent, public IInputMethodSupport {
+class SpinBox : public Widget, public IInputMethodSupport {
 public:
     explicit SpinBox(const Rect& bounds);
     virtual ~SpinBox();

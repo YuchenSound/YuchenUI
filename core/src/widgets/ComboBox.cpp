@@ -12,7 +12,7 @@
 namespace YuchenUI {
 
 ComboBox::ComboBox(const Rect& bounds)
-    : UIComponent()
+    : Widget()
     , m_items()
     , m_selectedIndex(-1)
     , m_theme(ComboBoxTheme::Grey)

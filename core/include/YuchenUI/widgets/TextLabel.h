@@ -1,6 +1,6 @@
 #pragma once
 
-#include "YuchenUI/widgets/UIComponent.h"
+#include "YuchenUI/widgets/Widget.h"
 #include "YuchenUI/core/Types.h"
 #include "YuchenUI/core/Config.h"
 #include <string>
@@ -17,7 +17,7 @@ class RenderList;
     - Simplified font management
     - Automatic CJK and emoji fallback
 */
-class TextLabel : public UIComponent {
+class TextLabel : public Widget {
 public:
     explicit TextLabel(const Rect& bounds);
     virtual ~TextLabel();

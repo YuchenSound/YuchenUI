@@ -13,7 +13,7 @@
 
 #pragma once
 
-#include "YuchenUI/widgets/UIComponent.h"
+#include "YuchenUI/widgets/Widget.h"
 #include "YuchenUI/core/Types.h"
 #include <string>
 
@@ -77,7 +77,7 @@ class RenderList;
     
     @see UIComponent, Frame
 */
-class GroupBox : public UIComponent {
+class GroupBox : public Widget {
 public:
     /**
         Constructs a group box with the specified bounds.

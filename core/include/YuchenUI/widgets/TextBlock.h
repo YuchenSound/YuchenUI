@@ -1,6 +1,6 @@
 #pragma once
 
-#include "YuchenUI/widgets/UIComponent.h"
+#include "YuchenUI/widgets/Widget.h"
 #include "YuchenUI/core/Types.h"
 #include "YuchenUI/core/Config.h"
 #include <string>
@@ -26,7 +26,7 @@ struct TextLine {
     - Qt-style font API with automatic fallback
     - Simplified font management
 */
-class TextBlock : public UIComponent {
+class TextBlock : public Widget {
 public:
     explicit TextBlock(const Rect& bounds);
     virtual ~TextBlock();

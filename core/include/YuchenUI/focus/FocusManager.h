@@ -36,7 +36,7 @@
 
 namespace YuchenUI {
 
-class UIComponent;
+class Widget;
 
 //==========================================================================================
 /**
@@ -76,7 +76,7 @@ public:
         @param component  Component to receive focus, or nullptr to clear focus
         @param reason     Reason for focus change
     */
-    void setFocus(UIComponent* component, FocusReason reason);
+    void setFocus(Widget* component, FocusReason reason);
     
     /** Clears focus from all components. */
     void clearFocus();
@@ -85,7 +85,7 @@ public:
         
         @returns Pointer to focused component, or nullptr if no component has focus
     */
-    UIComponent* getFocusedComponent() const { return m_focused; }
+    Widget* getFocusedComponent() const { return m_focused; }
     
     //======================================================================================
     /** Moves focus in the specified direction.
@@ -108,7 +108,7 @@ public:
         
         @param component  Component to register
     */
-    void registerComponent(UIComponent* component);
+    void registerComponent(Widget* component);
     
     /** Unregisters a previously registered component.
         
@@ -117,7 +117,7 @@ public:
         
         @param component  Component to unregister
     */
-    void unregisterComponent(UIComponent* component);
+    void unregisterComponent(Widget* component);
     
     //======================================================================================
     /** Handles Tab key press for focus navigation.
@@ -196,7 +196,7 @@ private:
         @param direction   Direction to search
         @returns Best candidate component, or nullptr if none found
     */
-    UIComponent* findBestCandidate(const Rect& fromBounds, FocusDirection direction);
+    Widget* findBestCandidate(const Rect& fromBounds, FocusDirection direction);
     
     /** Calculates distance score for directional navigation.
         
@@ -211,9 +211,9 @@ private:
     float calculateScore(const Rect& from, const Rect& to, FocusDirection direction);
     
     //======================================================================================
-    UIComponent* m_focused;                 ///< Currently focused component
-    std::vector<UIComponent*> m_all;        ///< All registered components
-    std::vector<UIComponent*> m_chain;      ///< Focus chain sorted by TabOrder
+    Widget* m_focused;                 ///< Currently focused component
+    std::vector<Widget*> m_all;        ///< All registered components
+    std::vector<Widget*> m_chain;      ///< Focus chain sorted by TabOrder
     bool m_dirty;                           ///< Focus chain needs rebuild
 };
 

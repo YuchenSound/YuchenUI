@@ -13,7 +13,7 @@
 
 #pragma once
 
-#include "YuchenUI/widgets/UIComponent.h"
+#include "YuchenUI/widgets/Widget.h"
 #include "YuchenUI/widgets/IScrollable.h"
 #include "YuchenUI/core/Types.h"
 
@@ -75,7 +75,7 @@ class RenderList;
     
     @see IScrollable, UIComponent
 */
-class ScrollArea : public UIComponent, public IScrollable {
+class ScrollArea : public Widget, public IScrollable {
 public:
     /**
         Constructs a scroll area with the specified bounds.

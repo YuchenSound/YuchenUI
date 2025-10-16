@@ -1,12 +1,12 @@
 #pragma once
 
-#include <YuchenUI/widgets/UIComponent.h>
+#include <YuchenUI/widgets/Widget.h>
 
 namespace YuchenUI {
     class UIContext;
 }
 
-class ChannelSection : public YuchenUI::UIComponent {
+class ChannelSection : public YuchenUI::Widget {
 public:
     explicit ChannelSection(const YuchenUI::Rect& bounds);
     virtual ~ChannelSection();

@@ -39,7 +39,7 @@
 
 #pragma once
 
-#include "YuchenUI/widgets/UIComponent.h"
+#include "YuchenUI/widgets/Widget.h"
 #include "YuchenUI/core/Types.h"
 #include <vector>
 #include <memory>
@@ -356,7 +356,7 @@ private:
     
     @see MeterConfig, MeterScale, UIStyle::getLevelMeterColors()
 */
-class LevelMeter : public UIComponent
+class LevelMeter : public Widget
 {
 public:
     explicit LevelMeter(UIContext* context, const Rect& bounds, size_t channelCount = 2,

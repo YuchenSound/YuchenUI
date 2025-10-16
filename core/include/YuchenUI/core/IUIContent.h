@@ -25,7 +25,7 @@ namespace YuchenUI {
 
 class UIContext;
 class RenderList;
-class UIComponent;
+class Widget;
 
 //==========================================================================================
 /** Result codes for window content operations */
@@ -163,13 +163,13 @@ public:
     //======================================================================================
     // Component management
     
-    void addComponent(UIComponent* component);
-    void removeComponent(UIComponent* component);
+    void addComponent(Widget* component);
+    void removeComponent(Widget* component);
     void clearComponents();
     
-    UIComponent* getFocusedComponent() const;
-    void registerFocusableComponent(UIComponent* component);
-    void unregisterFocusableComponent(UIComponent* component);
+    Widget* getFocusedComponent() const;
+    void registerFocusableComponent(Widget* component);
+    void unregisterFocusableComponent(Widget* component);
 
 protected:
     /** Requests content to close with specified result */
@@ -179,7 +179,7 @@ protected:
     Rect m_contentArea;                             ///< Content area bounds
     WindowContentResult m_result;                   ///< Current result state
     void* m_userData;                               ///< User-defined data
-    std::vector<UIComponent*> m_components;         ///< Managed components
+    std::vector<Widget*> m_components;         ///< Managed components
     ContentCloseCallback m_closeCallback;           ///< Close callback
 
 private:

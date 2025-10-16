@@ -15,7 +15,7 @@
 namespace YuchenUI {
 
 class IGraphicsBackend;
-class UIComponent;
+class Widget;
 class IFontProvider;
 
 using DialogResultCallback = std::function<void(WindowContentResult result, void* userData)>;
@@ -66,7 +66,7 @@ public:
     void setContent(std::unique_ptr<IUIContent> content);
     IUIContent* getContent() const;
     
-    void captureMouse(UIComponent* component);
+    void captureMouse(Widget* component);
     void releaseMouse();
     
     void handleMarkedText(const char* text, int cursorPos, int selectionLength);
@@ -113,7 +113,7 @@ protected:
     DialogResultCallback m_resultCallback;
     bool m_isModal;
     
-    UIComponent* m_capturedComponent;
+    Widget* m_capturedComponent;
     
     int m_targetFPS;
 

@@ -13,7 +13,7 @@
 
 #pragma once
 
-#include "YuchenUI/widgets/UIComponent.h"
+#include "YuchenUI/widgets/Widget.h"
 #include "YuchenUI/core/Types.h"
 #include "YuchenUI/menu/Menu.h"
 #include <string>
@@ -152,7 +152,7 @@ using MenuPopupHandler = std::function<void(const Vec2& screenPos, Menu* menu)>;
     
     @see ComboBoxItem, ComboBoxTheme, UIComponent
 */
-class ComboBox : public UIComponent {
+class ComboBox : public Widget {
 public:
     /**
         Constructs a combobox with the specified bounds.

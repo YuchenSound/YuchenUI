@@ -1,6 +1,6 @@
 #pragma once
 
-#include "YuchenUI/widgets/UIComponent.h"
+#include "YuchenUI/widgets/Widget.h"
 #include "YuchenUI/platform/IInputMethodSupport.h"
 
 #include "YuchenUI/core/Types.h"
@@ -21,7 +21,7 @@ enum class TextInputType {
     Number
 };
 
-class TextInput : public UIComponent, public IInputMethodSupport {
+class TextInput : public Widget, public IInputMethodSupport {
 public:
     explicit TextInput(const Rect& bounds);
     virtual ~TextInput();

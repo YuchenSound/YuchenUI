@@ -13,7 +13,7 @@
 
 #pragma once
 
-#include "YuchenUI/widgets/UIComponent.h"
+#include "YuchenUI/widgets/Widget.h"
 #include "YuchenUI/core/Types.h"
 #include <string>
 #include <functional>
@@ -81,7 +81,7 @@ enum class ButtonRole {
     
     @see ButtonRole, UIComponent
 */
-class Button : public UIComponent {
+class Button : public Widget {
 public:
     /**
         Constructs a button with the specified bounds.

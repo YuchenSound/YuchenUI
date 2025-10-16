@@ -13,7 +13,7 @@
 
 #pragma once
 
-#include "YuchenUI/widgets/UIComponent.h"
+#include "YuchenUI/widgets/Widget.h"
 #include "YuchenUI/core/Types.h"
 
 namespace YuchenUI {
@@ -66,7 +66,7 @@ class RenderList;
     
     @see UIComponent, CornerRadius
 */
-class Frame : public UIComponent {
+class Frame : public Widget {
 public:
     /**
         Constructs a frame with the specified bounds.

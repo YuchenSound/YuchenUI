@@ -2,7 +2,7 @@
 #include <YuchenUI/rendering/RenderList.h>
 
 ChannelSection::ChannelSection(const YuchenUI::Rect& bounds)
-    : UIComponent()
+    : Widget()
 {
     setBounds(bounds);
 }
@@ -23,7 +23,7 @@ void ChannelSection::addDrawCommands(YuchenUI::RenderList& commandList,
 
 void ChannelSection::update(float deltaTime)
 {
-    UIComponent::update(deltaTime);
+    Widget::update(deltaTime);
 }
 
 bool ChannelSection::handleMouseMove(const YuchenUI::Vec2& position, const YuchenUI::Vec2& offset)

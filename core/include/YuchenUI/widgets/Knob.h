@@ -53,7 +53,7 @@
 
 #pragma once
 
-#include "YuchenUI/widgets/UIComponent.h"
+#include "YuchenUI/widgets/Widget.h"
 #include "YuchenUI/core/Types.h"
 #include "YuchenUI/theme/Theme.h"
 #include <functional>
@@ -84,7 +84,7 @@ class RenderList;
     
     @see KnobType, UIStyle::drawKnob
 */
-class Knob : public UIComponent {
+class Knob : public Widget {
 public:
     /** Value change callback function type. */
     using ValueChangedCallback = std::function<void(float)>;

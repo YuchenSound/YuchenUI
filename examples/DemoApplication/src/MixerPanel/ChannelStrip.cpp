@@ -5,7 +5,7 @@
 #include <iostream>
 
 ChannelStrip::ChannelStrip(const YuchenUI::Rect& bounds, int channelNumber)
-    : UIComponent()
+    : Widget()
     , m_channelNumber(channelNumber)
     , m_faderMeterSection(nullptr)
     , m_nameSection(nullptr)
@@ -19,7 +19,7 @@ ChannelStrip::~ChannelStrip()
 
 void ChannelStrip::setOwnerContext(YuchenUI::UIContext* context)
 {
-    UIComponent::setOwnerContext(context);
+    Widget::setOwnerContext(context);
     
     // 使用 setOwnerContext 而不是 setOwnerContent，因为 addChild() 会调用这个
     if (context && !m_faderMeterSection && !m_nameSection)

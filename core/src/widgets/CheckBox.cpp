@@ -10,7 +10,7 @@
 namespace YuchenUI {
 
 CheckBox::CheckBox(const Rect& bounds)
-    : UIComponent()
+    : Widget()
     , m_state(CheckBoxState::Unchecked)
     , m_text()
     , m_fontSize(Config::Font::DEFAULT_SIZE)

@@ -10,7 +10,7 @@
 namespace YuchenUI {
 
 Button::Button(const Rect& bounds)
-    : UIComponent()
+    : Widget()
     , m_text()
     , m_fontChain()
     , m_fontSize(Config::Font::DEFAULT_SIZE)

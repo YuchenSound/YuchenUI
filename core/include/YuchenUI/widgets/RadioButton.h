@@ -1,6 +1,6 @@
 #pragma once
 
-#include "YuchenUI/widgets/UIComponent.h"
+#include "YuchenUI/widgets/Widget.h"
 #include "YuchenUI/core/Types.h"
 #include <string>
 #include <functional>
@@ -12,7 +12,7 @@ class RadioButtonGroup;
 
 using RadioButtonCheckedCallback = std::function<void(bool)>;
 
-class RadioButton : public UIComponent {
+class RadioButton : public Widget {
 public:
     explicit RadioButton(const Rect& bounds);
     virtual ~RadioButton();

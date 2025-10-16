@@ -13,7 +13,7 @@
 
 #pragma once
 
-#include "YuchenUI/widgets/UIComponent.h"
+#include "YuchenUI/widgets/Widget.h"
 #include "YuchenUI/core/Types.h"
 #include <string>
 #include <functional>
@@ -86,7 +86,7 @@ using CheckBoxStateChangedCallback = std::function<void(CheckBoxState)>;
     
     @see CheckBoxState, UIComponent
 */
-class CheckBox : public UIComponent {
+class CheckBox : public Widget {
 public:
     /**
         Constructs a checkbox with the specified bounds.
