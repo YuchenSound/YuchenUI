@@ -1,4 +1,4 @@
-#include "YuchenUI/widgets/UIComponent.h"
+#include "YuchenUI/widgets/Widget.h"
 #include "YuchenUI/widgets/IScrollable.h"
 #include "YuchenUI/core/UIContext.h"
 #include "YuchenUI/core/IUIContent.h"
@@ -11,7 +11,7 @@
 
 namespace YuchenUI {
 
-UIComponent::UIComponent()
+Widget::Widget()
     : m_isVisible(true)
     , m_isEnabled(true)
     , m_ownerContext(nullptr)
@@ -33,7 +33,7 @@ UIComponent::UIComponent()
 {
 }
 
-UIComponent::~UIComponent()
+Widget::~Widget()
 {
     clearChildren();
 }
@@ -41,19 +41,19 @@ UIComponent::~UIComponent()
 //======================================================================================
 // Geometry Management
 
-void UIComponent::setBounds(const Rect& bounds)
+void Widget::setBounds(const Rect& bounds)
 {
     Validation::AssertRect(bounds);
     m_bounds = bounds;
 }
 
-void UIComponent::setPadding(float padding)
+void Widget::setPadding(float padding)
 {
     YUCHEN_ASSERT(padding >= 0.0f);
     m_paddingLeft = m_paddingTop = m_paddingRight = m_paddingBottom = padding;
 }
 
-void UIComponent::setPadding(float left, float top, float right, float bottom)
+void Widget::setPadding(float left, float top, float right, float bottom)
 {
     YUCHEN_ASSERT(left >= 0.0f && top >= 0.0f && right >= 0.0f && bottom >= 0.0f);
     m_paddingLeft = left;
@@ -62,7 +62,7 @@ void UIComponent::setPadding(float left, float top, float right, float bottom)
     m_paddingBottom = bottom;
 }
 
-Rect UIComponent::getContentRect() const
+Rect Widget::getContentRect() const
 {
     return Rect(
         m_paddingLeft,
@@ -72,10 +72,10 @@ Rect UIComponent::getContentRect() const
     );
 }
 
-Rect UIComponent::mapToWindow(const Rect& localRect) const
+Rect Widget::mapToWindow(const Rect& localRect) const
 {
     Rect result = localRect;
-    const UIComponent* current = this->getParent();
+    const Widget* current = this->getParent();
     
     while (current != nullptr)
     {
@@ -91,7 +91,7 @@ Rect UIComponent::mapToWindow(const Rect& localRect) const
 //======================================================================================
 // Child Component Management
 
-void UIComponent::removeChild(UIComponent* child)
+void Widget::removeChild(Widget* child)
 {
     YUCHEN_ASSERT(child);
     
@@ -109,7 +109,7 @@ void UIComponent::removeChild(UIComponent* child)
     }
 }
 
-void UIComponent::clearChildren()
+void Widget::clearChildren()
 {
     if (m_ownerContent)
     {
@@ -132,7 +132,7 @@ void UIComponent::clearChildren()
 //======================================================================================
 // Visibility and Enabled State
 
-void UIComponent::setVisible(bool visible)
+void Widget::setVisible(bool visible)
 {
     if (m_isVisible == visible) return;
     
@@ -144,7 +144,7 @@ void UIComponent::setVisible(bool visible)
     }
 }
 
-void UIComponent::setEnabled(bool enabled)
+void Widget::setEnabled(bool enabled)
 {
     if (m_isEnabled == enabled) return;
     
@@ -159,7 +159,7 @@ void UIComponent::setEnabled(bool enabled)
 //======================================================================================
 // Context and Ownership
 
-void UIComponent::setOwnerContext(UIContext* context)
+void Widget::setOwnerContext(UIContext* context)
 {
     m_ownerContext = context;
     
@@ -179,7 +179,7 @@ void UIComponent::setOwnerContext(UIContext* context)
     }
 }
 
-void UIComponent::setOwnerContent(IUIContent* content)
+void Widget::setOwnerContent(IUIContent* content)
 {
     m_ownerContent = content;
     
@@ -203,7 +203,7 @@ void UIComponent::setOwnerContent(IUIContent* content)
 //======================================================================================
 // Mouse Capture
 
-void UIComponent::captureMouse()
+void Widget::captureMouse()
 {
     if (m_ownerContext)
     {
@@ -211,7 +211,7 @@ void UIComponent::captureMouse()
     }
 }
 
-void UIComponent::releaseMouse()
+void Widget::releaseMouse()
 {
     if (m_ownerContext)
     {
@@ -222,7 +222,7 @@ void UIComponent::releaseMouse()
 //======================================================================================
 // Focus Management
 
-void UIComponent::setFocusPolicy(FocusPolicy policy)
+void Widget::setFocusPolicy(FocusPolicy policy)
 {
     if (m_focusPolicy == policy) return;
     
@@ -234,24 +234,24 @@ void UIComponent::setFocusPolicy(FocusPolicy policy)
     }
 }
 
-bool UIComponent::canAcceptFocus() const
+bool Widget::canAcceptFocus() const
 {
     return m_focusPolicy != FocusPolicy::NoFocus &&
            m_isEnabled &&
            m_isVisible;
 }
 
-bool UIComponent::acceptsTabFocus() const
+bool Widget::acceptsTabFocus() const
 {
     return canAcceptFocus() && canGetFocusByTab(m_focusPolicy);
 }
 
-bool UIComponent::acceptsClickFocus() const
+bool Widget::acceptsClickFocus() const
 {
     return canAcceptFocus() && canGetFocusByClick(m_focusPolicy);
 }
 
-void UIComponent::setFocus(FocusReason reason)
+void Widget::setFocus(FocusReason reason)
 {
     if (m_focusManagerAccessor)
     {
@@ -259,7 +259,7 @@ void UIComponent::setFocus(FocusReason reason)
     }
 }
 
-void UIComponent::clearFocus()
+void Widget::clearFocus()
 {
     if (m_focusManagerAccessor && m_hasFocus)
     {
@@ -267,17 +267,17 @@ void UIComponent::clearFocus()
     }
 }
 
-void UIComponent::setFocusProxy(UIComponent* proxy)
+void Widget::setFocusProxy(Widget* proxy)
 {
     m_focusProxy = proxy;
 }
 
-UIComponent* UIComponent::effectiveFocusWidget()
+Widget* Widget::effectiveFocusWidget()
 {
     return m_focusProxy ? m_focusProxy : this;
 }
 
-void UIComponent::setTabOrder(int order)
+void Widget::setTabOrder(int order)
 {
     if (m_tabOrder == order) return;
     
@@ -292,7 +292,7 @@ void UIComponent::setTabOrder(int order)
 //======================================================================================
 // Focus Indicator
 
-void UIComponent::drawFocusIndicator(RenderList& commandList, const Vec2& offset) const
+void Widget::drawFocusIndicator(RenderList& commandList, const Vec2& offset) const
 {
     if (!m_hasFocus || !m_showFocusIndicator) return;
     
@@ -316,32 +316,32 @@ void UIComponent::drawFocusIndicator(RenderList& commandList, const Vec2& offset
 //======================================================================================
 // Focus Events (Private)
 
-void UIComponent::notifyFocusIn(FocusReason reason)
+void Widget::notifyFocusIn(FocusReason reason)
 {
     m_hasFocus = true;
     onFocusIn(reason);
     focusInEvent(reason);
 }
 
-void UIComponent::notifyFocusOut(FocusReason reason)
+void Widget::notifyFocusOut(FocusReason reason)
 {
     m_hasFocus = false;
     onFocusOut(reason);
     focusOutEvent(reason);
 }
 
-void UIComponent::onFocusIn(FocusReason reason)
+void Widget::onFocusIn(FocusReason reason)
 {
     scrollIntoViewIfNeeded();
 }
 
-void UIComponent::onFocusOut(FocusReason reason)
+void Widget::onFocusOut(FocusReason reason)
 {
 }
 
-void UIComponent::scrollIntoViewIfNeeded()
+void Widget::scrollIntoViewIfNeeded()
 {
-    UIComponent* parent = m_parent;
+    Widget* parent = m_parent;
     while (parent)
     {
         IScrollable* scrollable = dynamic_cast<IScrollable*>(parent);
@@ -350,7 +350,7 @@ void UIComponent::scrollIntoViewIfNeeded()
             Rect bounds = getBounds();
             Vec2 posInScrollable(bounds.x, bounds.y);
             
-            UIComponent* current = m_parent;
+            Widget* current = m_parent;
             while (current && current != parent)
             {
                 const Rect& currentBounds = current->getBounds();
@@ -372,7 +372,7 @@ void UIComponent::scrollIntoViewIfNeeded()
 //======================================================================================
 // Child Rendering and Event Dispatch
 
-void UIComponent::renderChildren(RenderList& commandList, const Vec2& offset) const
+void Widget::renderChildren(RenderList& commandList, const Vec2& offset) const
 {
     for (const auto* child : m_ownedChildren)
     {
@@ -381,7 +381,7 @@ void UIComponent::renderChildren(RenderList& commandList, const Vec2& offset) co
     }
 }
 
-bool UIComponent::dispatchMouseEvent(const Vec2& position, bool pressed, const Vec2& offset, bool isMove)
+bool Widget::dispatchMouseEvent(const Vec2& position, bool pressed, const Vec2& offset, bool isMove)
 {
     if (!m_isEnabled || !m_isVisible)
         return false;
@@ -408,7 +408,7 @@ bool UIComponent::dispatchMouseEvent(const Vec2& position, bool pressed, const V
     return false;
 }
 
-void UIComponent::update(float deltaTime)
+void Widget::update(float deltaTime)
 {
     for (auto* child : m_ownedChildren)
     {

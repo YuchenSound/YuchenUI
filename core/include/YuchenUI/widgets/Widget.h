@@ -73,10 +73,10 @@ class FocusManager;
     @note This class must be subclassed. Direct instantiation is not allowed.
     @see Button, CheckBox, Frame, Panel
 */
-class UIComponent {
+class Widget {
 public:
-    UIComponent();
-    virtual ~UIComponent();
+    Widget();
+    virtual ~Widget();
     
     //======================================================================================
     // Pure Virtual Interface - Must be implemented by subclasses
@@ -270,7 +270,7 @@ public:
     */
     template<typename T>
     T* addChild(T* child) {
-        static_assert(std::is_base_of<UIComponent, T>::value,
+        static_assert(std::is_base_of<Widget, T>::value,
             "Child must inherit from UIComponent");
         
         if (!child) return nullptr;
@@ -295,7 +295,7 @@ public:
         
         @param child  Pointer to the child component to remove
     */
-    void removeChild(UIComponent* child);
+    void removeChild(Widget* child);
     
     /**
         Removes all child components.
@@ -318,7 +318,7 @@ public:
         
         @return Vector of unique pointers to child components
     */
-    const std::vector<UIComponent*>& getChildren() const { return m_ownedChildren; }
+    const std::vector<Widget*>& getChildren() const { return m_ownedChildren; }
 
     //======================================================================================
     // Visibility and Enabled State
@@ -408,14 +408,14 @@ public:
         
         @param parent  Pointer to the parent component
     */
-    void setParent(UIComponent* parent) { m_parent = parent; }
+    void setParent(Widget* parent) { m_parent = parent; }
     
     /**
         Returns the parent component.
         
         @return Pointer to the parent, or nullptr if this is a root component
     */
-    UIComponent* getParent() const { return m_parent; }
+    Widget* getParent() const { return m_parent; }
     
     //======================================================================================
     // Context Menu
@@ -535,14 +535,14 @@ public:
         
         @param proxy  Pointer to the component that should receive focus instead
     */
-    void setFocusProxy(UIComponent* proxy);
+    void setFocusProxy(Widget* proxy);
     
     /**
         Returns the focus proxy for this component.
         
         @return Pointer to the focus proxy, or nullptr if not set
     */
-    UIComponent* getFocusProxy() const { return m_focusProxy; }
+    Widget* getFocusProxy() const { return m_focusProxy; }
     
     /**
         Returns the effective focus widget.
@@ -551,7 +551,7 @@ public:
         
         @return Pointer to the component that should actually receive focus
     */
-    UIComponent* effectiveFocusWidget();
+    Widget* effectiveFocusWidget();
     
     /**
         Sets the tab order for this component.
@@ -693,12 +693,12 @@ protected:
     bool m_isEnabled;                     ///< Whether the component is enabled
     UIContext* m_ownerContext;            ///< Pointer to owning UI context
     IUIContent* m_ownerContent;           ///< Pointer to owning UI content
-    UIComponent* m_parent;                ///< Pointer to parent component
+    Widget* m_parent;                ///< Pointer to parent component
     Menu* m_contextMenu;                  ///< Pointer to context menu
     
     Rect m_bounds;                        ///< Bounding rectangle in parent-local coordinates
     
-    std::vector<UIComponent*> m_ownedChildren;  ///< Child components
+    std::vector<Widget*> m_ownedChildren;  ///< Child components
     
     float m_paddingLeft;                  ///< Left padding in pixels
     float m_paddingTop;                   ///< Top padding in pixels
@@ -720,7 +720,7 @@ private:
     FocusPolicy m_focusPolicy;            ///< How this component receives focus
     bool m_hasFocus;                      ///< Whether this component has focus
     int m_tabOrder;                       ///< Tab order (-1 = use tree order)
-    UIComponent* m_focusProxy;            ///< Component to delegate focus to
+    Widget* m_focusProxy;            ///< Component to delegate focus to
     bool m_showFocusIndicator;            ///< Whether to show focus indicator
     FocusManager* m_focusManagerAccessor; ///< Direct accessor to focus manager
     
