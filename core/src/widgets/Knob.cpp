@@ -49,8 +49,7 @@ namespace {
 // Lifecycle
 
 Knob::Knob(const Rect& bounds)
-    : m_bounds(bounds)
-    , m_knobType(KnobType::NoCentered)
+    : m_knobType(KnobType::NoCentered)
     , m_value(0.0f)
     , m_minValue(0.0f)
     , m_maxValue(1.0f)
@@ -63,6 +62,7 @@ Knob::Knob(const Rect& bounds)
     , m_onValueChanged()
 {
     Validation::AssertRect(bounds);
+    setBounds(bounds);
     
     // Enable focus to support active state
     setFocusPolicy(FocusPolicy::ClickFocus);
@@ -122,9 +122,17 @@ bool Knob::handleMouseClick(const Vec2& position, bool pressed, const Vec2& offs
 {
     if (!m_isEnabled || !m_isVisible) return false;
     
+    if (!pressed && m_isDragging)
+    {
+        m_isDragging = false;
+        releaseMouse();
+        return true;
+    }
+    
     Vec2 absPos(m_bounds.x + offset.x, m_bounds.y + offset.y);
     Rect absRect(absPos.x, absPos.y, m_bounds.width, m_bounds.height);
     bool isInBounds = absRect.contains(position);
+    
     if (pressed && isInBounds)
     {
         m_isDragging = true;
@@ -138,18 +146,9 @@ bool Knob::handleMouseClick(const Vec2& position, bool pressed, const Vec2& offs
         
         return true;
     }
-    else if (!pressed && m_isDragging)
-    {
-        // End dragging
-        m_isDragging = false;
-        releaseMouse();
-        
-        return true;
-    }
     
     return false;
 }
-
 
 //==========================================================================================
 // Value management
@@ -221,12 +220,6 @@ void Knob::setOnValueChanged(ValueChangedCallback callback)
 
 //==========================================================================================
 // Component interface
-
-void Knob::setBounds(const Rect& bounds)
-{
-    Validation::AssertRect(bounds);
-    m_bounds = bounds;
-}
 
 bool Knob::isValid() const
 {

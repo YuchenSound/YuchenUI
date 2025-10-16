@@ -10,11 +10,11 @@
 namespace YuchenUI {
 
 Button::Button(const Rect& bounds)
-    : m_text()
+    : UIComponent()
+    , m_text()
     , m_fontChain()
     , m_fontSize(Config::Font::DEFAULT_SIZE)
     , m_textColor()
-    , m_bounds(bounds)
     , m_role(ButtonRole::Normal)
     , m_isHovered(false)
     , m_isPressed(false)
@@ -23,6 +23,7 @@ Button::Button(const Rect& bounds)
     , m_hasCustomTextColor(false)
 {
     Validation::AssertRect(bounds);
+    setBounds(bounds);
     setFocusPolicy(FocusPolicy::StrongFocus);
 }
 
@@ -34,9 +35,11 @@ void Button::addDrawCommands(RenderList& commandList, const Vec2& offset) const
 {
     YUCHEN_ASSERT(isValid());
     if (!m_isVisible) return;
+    
     UIStyle* style = m_ownerContext ? m_ownerContext->getCurrentStyle() : nullptr;
+    
     ButtonDrawInfo info;
-    info.bounds = Rect(m_bounds.x + offset.x, m_bounds.y + offset.y,m_bounds.width, m_bounds.height);
+    info.bounds = Rect(m_bounds.x + offset.x, m_bounds.y + offset.y, m_bounds.width, m_bounds.height);
     info.text = m_text;
     info.fallbackChain = m_hasCustomFont ? m_fontChain : style->getDefaultButtonFontChain();
     info.textColor = m_hasCustomTextColor ? m_textColor : style->getDefaultTextColor();
@@ -44,12 +47,20 @@ void Button::addDrawCommands(RenderList& commandList, const Vec2& offset) const
     info.isHovered = m_isHovered;
     info.isPressed = m_isPressed;
     info.isEnabled = m_isEnabled;
+    
     switch (m_role)
     {
-        case ButtonRole::Primary:       style->drawPrimaryButton(info, commandList); break;
-        case ButtonRole::Destructive:   break; // TODO: This is a Red Button,Need to expand the reasoure library!
-        default:                        style->drawNormalButton(info, commandList);        break;
+        case ButtonRole::Primary:
+            style->drawPrimaryButton(info, commandList);
+            break;
+        case ButtonRole::Destructive:
+            // TODO: This is a Red Button, Need to expand the resource library!
+            break;
+        default:
+            style->drawNormalButton(info, commandList);
+            break;
     }
+    
     drawFocusIndicator(commandList, offset);
 }
 
@@ -67,6 +78,7 @@ void Button::setFont(FontHandle fontHandle)
 {
     IFontProvider* fontProvider = m_ownerContext ? m_ownerContext->getFontProvider() : nullptr;
     if (!fontProvider || !fontProvider->isValidFont(fontHandle)) return;
+    
     FontHandle cjkFont = fontProvider->getDefaultCJKFont();
     m_fontChain = FontFallbackChain(fontHandle, cjkFont);
     m_hasCustomFont = true;
@@ -95,7 +107,8 @@ void Button::resetFont()
 
 void Button::setFontSize(float fontSize)
 {
-    if (fontSize >= Config::Font::MIN_SIZE && fontSize <= Config::Font::MAX_SIZE) m_fontSize = fontSize;
+    if (fontSize >= Config::Font::MIN_SIZE && fontSize <= Config::Font::MAX_SIZE)
+        m_fontSize = fontSize;
 }
 
 void Button::setTextColor(const Vec4& color)
@@ -116,12 +129,6 @@ void Button::resetTextColor()
 {
     m_hasCustomTextColor = false;
     m_textColor = Vec4();
-}
-
-void Button::setBounds(const Rect& bounds)
-{
-    Validation::AssertRect(bounds);
-    m_bounds = bounds;
 }
 
 void Button::setRole(ButtonRole role)
@@ -164,9 +171,11 @@ bool Button::handleMouseClick(const Vec2& position, bool pressed, const Vec2& of
     else if (!pressed && m_isPressed)
     {
         m_isPressed = false;
-        if (isInBounds && m_clickCallback) m_clickCallback();
+        if (isInBounds && m_clickCallback)
+            m_clickCallback();
         return true;
     }
+    
     return false;
 }
 
@@ -177,4 +186,4 @@ bool Button::isValid() const
            m_fontSize <= Config::Font::MAX_SIZE;
 }
 
-}
+} // namespace YuchenUI

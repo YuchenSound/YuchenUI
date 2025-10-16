@@ -10,8 +10,9 @@
 #include "YuchenUI/core/Config.h"
 
 namespace YuchenUI {
+
 ComboBox::ComboBox(const Rect& bounds)
-    : m_bounds(bounds)
+    : UIComponent()
     , m_items()
     , m_selectedIndex(-1)
     , m_theme(ComboBoxTheme::Grey)
@@ -22,13 +23,16 @@ ComboBox::ComboBox(const Rect& bounds)
     , m_menuNeedsRebuild(true)
 {
     Validation::AssertRect(bounds);
+    setBounds(bounds);
     setFocusPolicy(FocusPolicy::StrongFocus);
 }
 
-ComboBox::~ComboBox() {
+ComboBox::~ComboBox()
+{
 }
 
-void ComboBox::addDrawCommands(RenderList& commandList, const Vec2& offset) const {
+void ComboBox::addDrawCommands(RenderList& commandList, const Vec2& offset) const
+{
     if (!m_isVisible) return;
     
     UIStyle* style = m_ownerContext ? m_ownerContext->getCurrentStyle() : nullptr;
@@ -47,7 +51,6 @@ void ComboBox::addDrawCommands(RenderList& commandList, const Vec2& offset) cons
     info.theme = m_theme;
     
     info.fallbackChain = style->getDefaultLabelFontChain();
-    
     info.fontSize = 11.0f;
     
     style->drawComboBox(info, commandList);
@@ -55,7 +58,8 @@ void ComboBox::addDrawCommands(RenderList& commandList, const Vec2& offset) cons
     drawFocusIndicator(commandList, offset);
 }
 
-bool ComboBox::handleMouseMove(const Vec2& position, const Vec2& offset) {
+bool ComboBox::handleMouseMove(const Vec2& position, const Vec2& offset)
+{
     if (!m_isEnabled || !m_isVisible) return false;
     
     Vec2 absPos(m_bounds.x + offset.x, m_bounds.y + offset.y);
@@ -67,13 +71,15 @@ bool ComboBox::handleMouseMove(const Vec2& position, const Vec2& offset) {
     return wasHovered != m_isHovered;
 }
 
-bool ComboBox::handleMouseClick(const Vec2& position, bool pressed, const Vec2& offset) {
+bool ComboBox::handleMouseClick(const Vec2& position, bool pressed, const Vec2& offset)
+{
     if (!m_isEnabled || !m_isVisible) return false;
     
     Vec2 absPos(m_bounds.x + offset.x, m_bounds.y + offset.y);
     Rect absRect(absPos.x, absPos.y, m_bounds.width, m_bounds.height);
     
-    if (pressed && absRect.contains(position)) {
+    if (pressed && absRect.contains(position))
+    {
         requestFocus();
         openMenu();
         return true;
@@ -82,13 +88,15 @@ bool ComboBox::handleMouseClick(const Vec2& position, bool pressed, const Vec2& 
     return false;
 }
 
-bool ComboBox::handleKeyPress(const Event& event) {
+bool ComboBox::handleKeyPress(const Event& event)
+{
     if (!m_isEnabled || !m_isVisible) return false;
     
     YUCHEN_ASSERT(event.type == EventType::KeyPressed || event.type == EventType::KeyReleased);
     if (event.type == EventType::KeyReleased) return false;
     
-    switch (event.key.key) {
+    switch (event.key.key)
+    {
         case KeyCode::Space:
         case KeyCode::Return:
         case KeyCode::Enter:
@@ -111,97 +119,117 @@ bool ComboBox::handleKeyPress(const Event& event) {
     return false;
 }
 
-void ComboBox::addItem(const std::string& text, int value, bool enabled) {
+void ComboBox::addItem(const std::string& text, int value, bool enabled)
+{
     m_items.emplace_back(text, value, enabled);
     m_menuNeedsRebuild = true;
 }
 
-void ComboBox::addGroup(const std::string& groupTitle) {
+void ComboBox::addGroup(const std::string& groupTitle)
+{
     m_items.push_back(ComboBoxItem::Group(groupTitle));
     m_menuNeedsRebuild = true;
 }
 
-void ComboBox::addSeparator() {
+void ComboBox::addSeparator()
+{
     m_items.push_back(ComboBoxItem::Separator());
     m_menuNeedsRebuild = true;
 }
 
-void ComboBox::setItems(const std::vector<ComboBoxItem>& items) {
+void ComboBox::setItems(const std::vector<ComboBoxItem>& items)
+{
     m_items = items;
     
     if (m_selectedIndex >= static_cast<int>(m_items.size()) ||
-        !isValidSelectableIndex(m_selectedIndex)) {
+        !isValidSelectableIndex(m_selectedIndex))
+    {
         m_selectedIndex = -1;
     }
     
     m_menuNeedsRebuild = true;
 }
 
-void ComboBox::clearItems() {
+void ComboBox::clearItems()
+{
     m_items.clear();
     m_selectedIndex = -1;
     m_menuNeedsRebuild = true;
 }
 
-void ComboBox::setSelectedIndex(int index) {
+void ComboBox::setSelectedIndex(int index)
+{
     if (index >= -1 && index < static_cast<int>(m_items.size()) &&
-        (index == -1 || isValidSelectableIndex(index))) {
+        (index == -1 || isValidSelectableIndex(index)))
+    {
         m_selectedIndex = index;
     }
 }
 
-int ComboBox::getSelectedValue() const {
-    if (m_selectedIndex >= 0 && m_selectedIndex < static_cast<int>(m_items.size())) {
+int ComboBox::getSelectedValue() const
+{
+    if (m_selectedIndex >= 0 && m_selectedIndex < static_cast<int>(m_items.size()))
+    {
         return m_items[m_selectedIndex].value;
     }
     return -1;
 }
 
-std::string ComboBox::getSelectedText() const {
-    if (m_selectedIndex >= 0 && m_selectedIndex < static_cast<int>(m_items.size())) {
+std::string ComboBox::getSelectedText() const
+{
+    if (m_selectedIndex >= 0 && m_selectedIndex < static_cast<int>(m_items.size()))
+    {
         return m_items[m_selectedIndex].text;
     }
     return "";
 }
 
-void ComboBox::setCallback(ComboBoxCallback callback) {
+void ComboBox::setCallback(ComboBoxCallback callback)
+{
     m_callback = callback;
 }
 
-void ComboBox::setTheme(ComboBoxTheme theme) {
+void ComboBox::setTheme(ComboBoxTheme theme)
+{
     m_theme = theme;
 }
 
-void ComboBox::setBounds(const Rect& bounds) {
-    Validation::AssertRect(bounds);
-    m_bounds = bounds;
-}
-
-void ComboBox::setPlaceholder(const std::string& placeholder) {
+void ComboBox::setPlaceholder(const std::string& placeholder)
+{
     m_placeholder = placeholder;
 }
 
-bool ComboBox::isValid() const {
+bool ComboBox::isValid() const
+{
     return m_bounds.isValid();
 }
 
-CornerRadius ComboBox::getFocusIndicatorCornerRadius() const {
+CornerRadius ComboBox::getFocusIndicatorCornerRadius() const
+{
     return CornerRadius(2.0f);
 }
 
-void ComboBox::buildMenu() {
-    if (!m_items.empty()) {
+void ComboBox::buildMenu()
+{
+    if (!m_items.empty())
+    {
         m_menu = MenuManager::getInstance().createMenu();
         
-        for (size_t i = 0; i < m_items.size(); ++i) {
+        for (size_t i = 0; i < m_items.size(); ++i)
+        {
             const ComboBoxItem& item = m_items[i];
             
-            if (item.isSeparator) {
+            if (item.isSeparator)
+            {
                 m_menu->addSeparator();
-            } else if (item.isGroup) {
+            }
+            else if (item.isGroup)
+            {
                 MenuItem* menuItem = m_menu->addItem(item.text);
                 menuItem->setEnabled(false);
-            } else {
+            }
+            else
+            {
                 MenuItem* menuItem = m_menu->addItem(item.text, [this, i]() {
                     this->onMenuItemSelected(static_cast<int>(i));
                 });
@@ -215,18 +243,23 @@ void ComboBox::buildMenu() {
     m_menuNeedsRebuild = false;
 }
 
-void ComboBox::onMenuItemSelected(int index) {
-    if (isValidSelectableIndex(index)) {
+void ComboBox::onMenuItemSelected(int index)
+{
+    if (isValidSelectableIndex(index))
+    {
         m_selectedIndex = index;
         
-        if (m_callback) {
+        if (m_callback)
+        {
             m_callback(m_selectedIndex, getSelectedValue());
         }
     }
 }
 
-bool ComboBox::isValidSelectableIndex(int index) const {
-    if (index < 0 || index >= static_cast<int>(m_items.size())) {
+bool ComboBox::isValidSelectableIndex(int index) const
+{
+    if (index < 0 || index >= static_cast<int>(m_items.size()))
+    {
         return false;
     }
     
@@ -234,8 +267,10 @@ bool ComboBox::isValidSelectableIndex(int index) const {
     return item.enabled && !item.isGroup && !item.isSeparator;
 }
 
-void ComboBox::openMenu() {
-    if (m_menuNeedsRebuild) {
+void ComboBox::openMenu()
+{
+    if (m_menuNeedsRebuild)
+    {
         buildMenu();
     }
     
@@ -246,48 +281,62 @@ void ComboBox::openMenu() {
     
     Vec2 screenPos = m_ownerContext->mapToScreen(windowPos);
     
-    if (m_menuPopupHandler) {
+    if (m_menuPopupHandler)
+    {
         m_menuPopupHandler(screenPos, m_menu.get());
-    } else {
+    }
+    else
+    {
         m_menu->popup(screenPos.x, screenPos.y);
     }
 }
 
-void ComboBox::selectNextItem() {
+void ComboBox::selectNextItem()
+{
     if (m_items.empty()) return;
     
     int nextIndex = findNextValidIndex(m_selectedIndex);
-    if (nextIndex != -1) {
+    if (nextIndex != -1)
+    {
         setSelectedIndex(nextIndex);
-        if (m_callback) {
+        if (m_callback)
+        {
             m_callback(m_selectedIndex, getSelectedValue());
         }
     }
 }
 
-void ComboBox::selectPreviousItem() {
+void ComboBox::selectPreviousItem()
+{
     if (m_items.empty()) return;
     
     int prevIndex = findPreviousValidIndex(m_selectedIndex);
-    if (prevIndex != -1) {
+    if (prevIndex != -1)
+    {
         setSelectedIndex(prevIndex);
-        if (m_callback) {
+        if (m_callback)
+        {
             m_callback(m_selectedIndex, getSelectedValue());
         }
     }
 }
 
-int ComboBox::findNextValidIndex(int startIndex) const {
+int ComboBox::findNextValidIndex(int startIndex) const
+{
     int searchStart = (startIndex == -1) ? 0 : startIndex + 1;
     
-    for (int i = searchStart; i < static_cast<int>(m_items.size()); ++i) {
-        if (isValidSelectableIndex(i)) {
+    for (int i = searchStart; i < static_cast<int>(m_items.size()); ++i)
+    {
+        if (isValidSelectableIndex(i))
+        {
             return i;
         }
     }
     
-    for (int i = 0; i < searchStart && i <= startIndex; ++i) {
-        if (isValidSelectableIndex(i)) {
+    for (int i = 0; i < searchStart && i <= startIndex; ++i)
+    {
+        if (isValidSelectableIndex(i))
+        {
             return i;
         }
     }
@@ -295,17 +344,22 @@ int ComboBox::findNextValidIndex(int startIndex) const {
     return -1;
 }
 
-int ComboBox::findPreviousValidIndex(int startIndex) const {
+int ComboBox::findPreviousValidIndex(int startIndex) const
+{
     int searchStart = (startIndex == -1) ? static_cast<int>(m_items.size()) - 1 : startIndex - 1;
     
-    for (int i = searchStart; i >= 0; --i) {
-        if (isValidSelectableIndex(i)) {
+    for (int i = searchStart; i >= 0; --i)
+    {
+        if (isValidSelectableIndex(i))
+        {
             return i;
         }
     }
     
-    for (int i = static_cast<int>(m_items.size()) - 1; i > searchStart && i >= startIndex; --i) {
-        if (isValidSelectableIndex(i)) {
+    for (int i = static_cast<int>(m_items.size()) - 1; i > searchStart && i >= startIndex; --i)
+    {
+        if (isValidSelectableIndex(i))
+        {
             return i;
         }
     }
@@ -313,4 +367,4 @@ int ComboBox::findPreviousValidIndex(int startIndex) const {
     return -1;
 }
 
-}
+} // namespace YuchenUI

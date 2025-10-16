@@ -7,7 +7,6 @@
 #include "YuchenUI/widgets/Button.h"
 #include "YuchenUI/widgets/TextLabel.h"
 #include "YuchenUI/widgets/TextBlock.h"
-#include "YuchenUI/widgets/Widget.h"
 #include "YuchenUI/widgets/Frame.h"
 #include "YuchenUI/widgets/GroupBox.h"
 #include "YuchenUI/widgets/ScrollArea.h"
@@ -18,6 +17,7 @@
 #include "YuchenUI/widgets/CheckBox.h"
 #include "YuchenUI/widgets/RadioButton.h"
 #include "YuchenUI/widgets_expand/LevelMeter.h"
+#include "YuchenUI/widgets_expand/Fader.h"
 
 #include "YuchenUI/utils/Clipboard.h"
 

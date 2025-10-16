@@ -138,7 +138,8 @@ void MeterScale::initializeSamplePeak()
         {-60.0f, dbToPos_(-60.0f), "60", true}
     };
 }
-void MeterScale::initializeK12() {
+void MeterScale::initializeK12()
+{
     minDb_ = -60.0f;
     maxDb_ = 12.0f;
     float minDb = minDb_;
@@ -250,7 +251,8 @@ void MeterScale::initializeLinearDb()
     ticks_.clear();
     for (int db = static_cast<int>(maxDb_); db >= static_cast<int>(minDb_); db -= 6)
     {
-        ticks_.emplace_back(std::abs(static_cast<float>(db)), dbToPos_(static_cast<float>(db)),std::to_string(std::abs(db)), true);
+        ticks_.emplace_back(std::abs(static_cast<float>(db)), dbToPos_(static_cast<float>(db)),
+                           std::to_string(std::abs(db)), true);
     }
 }
 float MeterScale::linearMap(float value, float inMin, float inMax, float outMin, float outMax)
@@ -439,8 +441,6 @@ void BlendedColorCache::initialize(size_t totalChannelCount)
 {
     if (initialized_ && initializedForChannelCount_ == totalChannelCount) return;
     channelWidth_ = MeterDimensions::getChannelWidth(totalChannelCount);
-
-    // Calculate inner width (excluding 1px borders on each side)
     float innerWidth = channelWidth_ - 2.0f;
     blendTexturePixelCount_ = static_cast<int>(innerWidth * 2.0f);
     blendCache_.clear();
@@ -453,19 +453,16 @@ void BlendedColorCache::initializeTextures()
 {
     const float normalEdge = 204.0f;
     const float normalCenter = 255.0f;
-    
     const float warningEdgeR = 255.0f;
     const float warningEdgeG = 207.0f;
     const float warningEdgeB = 205.0f;
     const float warningCenterR = 255.0f;
     const float warningCenterG = 255.0f;
     const float warningCenterB = 255.0f;
-    
     constexpr float PI = 3.14159265359f;
     
     normalTexture_.pixels.resize(blendTexturePixelCount_);
     warningTexture_.pixels.resize(blendTexturePixelCount_);
-    
     float center = (blendTexturePixelCount_ - 1) * 0.5f;
     
     for (int i = 0; i < blendTexturePixelCount_; ++i)
@@ -479,12 +476,9 @@ void BlendedColorCache::initializeTextures()
             static_cast<uint8_t>(std::round(normalValue)),
             255
         );
-        
-        // Warning texture
         float warningR = warningEdgeR + (warningCenterR - warningEdgeR) * cosineWeight;
         float warningG = warningEdgeG + (warningCenterG - warningEdgeG) * cosineWeight;
         float warningB = warningEdgeB + (warningCenterB - warningEdgeB) * cosineWeight;
-        
         warningTexture_.pixels[i] = Vec4::FromRGBA(
             static_cast<uint8_t>(std::round(warningR)),
             static_cast<uint8_t>(std::round(warningG)),
@@ -502,7 +496,6 @@ Vec4 BlendedColorCache::getBlendedColor(const Vec4& baseColor, float x, bool isW
     const TextureData& texture = isWarningRegion ? warningTexture_ : normalTexture_;
     Vec4 overlayColor = sampleTexture(texture, x);
     Vec4 result = multiplyBlend(baseColor, overlayColor);
-    
     blendCache_[key] = result;
     return result;
 }
@@ -589,7 +582,7 @@ std::vector<ChannelRenderInfo> MeterRenderer::calculateChannelLayout(const Vec2&
     {
         ChannelRenderInfo info;
         info.meterRect = calculateChannelRect(meterStartPos, meterSize, i, totalChannelCount);
-        info.peakIndicatorRect = Rect(info.meterRect.x, startPos.y,info.meterRect.width,MeterDimensions::PEAK_INDICATOR_HEIGHT);
+        info.peakIndicatorRect = Rect(info.meterRect.x, startPos.y, info.meterRect.width, MeterDimensions::PEAK_INDICATOR_HEIGHT);
         const auto& channelData = levelData.getChannel(i);
         info.displayLevel01 = dbToPosition01(channelData.getDisplayLevel());
         info.peakLevel01 = dbToPosition01(channelData.getPeakLevel());
@@ -609,10 +602,8 @@ void MeterRenderer::renderChannelBackground(RenderList& cmdList, const Rect& rec
     UIStyle* style = m_context ? m_context->getCurrentStyle() : nullptr;
     if (!style) return;
     LevelMeterColors colors = style->getLevelMeterColors();
-    
     Rect innerRect(rect.x + 1.0f, rect.y + 1.0f, rect.width - 2.0f, rect.height - 2.0f);
     if (innerRect.width <= 0 || innerRect.height <= 0) return;
-    
     float peakThreshold01 = getPeakThreshold01();
     float warningThreshold01 = getWarningThreshold01();
     float normalHeight = warningThreshold01 * innerRect.height;
@@ -621,7 +612,7 @@ void MeterRenderer::renderChannelBackground(RenderList& cmdList, const Rect& rec
     constexpr float PIXEL_STEP = 1.0f;
     if (normalHeight > 0.0f)
     {
-        Rect normalRect(innerRect.x, innerRect.y + innerRect.height - normalHeight,innerRect.width, normalHeight);
+        Rect normalRect(innerRect.x, innerRect.y + innerRect.height - normalHeight, innerRect.width, normalHeight);
         for (float x = normalRect.x; x < normalRect.x + normalRect.width; x += PIXEL_STEP)
         {
             float pixelWidth = std::min(PIXEL_STEP, normalRect.x + normalRect.width - x);
@@ -632,7 +623,7 @@ void MeterRenderer::renderChannelBackground(RenderList& cmdList, const Rect& rec
     }
     if (warningHeight > 0.0f)
     {
-        Rect warningRect(innerRect.x, innerRect.y + innerRect.height - normalHeight - warningHeight,innerRect.width, warningHeight);
+        Rect warningRect(innerRect.x, innerRect.y + innerRect.height - normalHeight - warningHeight, innerRect.width, warningHeight);
         for (float x = warningRect.x; x < warningRect.x + warningRect.width; x += PIXEL_STEP)
         {
             float pixelWidth = std::min(PIXEL_STEP, warningRect.x + warningRect.width - x);
@@ -674,7 +665,6 @@ void MeterRenderer::renderChannelFill(RenderList& cmdList, const Rect& rect, flo
         {
             float normalHeight = normalFill * innerRect.height;
             Rect normalFillRect(innerRect.x, currentBottom - normalHeight, innerRect.width, normalHeight);
-            
             for (float x = normalFillRect.x; x < normalFillRect.x + normalFillRect.width; x += PIXEL_STEP)
             {
                 float pixelWidth = std::min(PIXEL_STEP, normalFillRect.x + normalFillRect.width - x);
@@ -693,7 +683,6 @@ void MeterRenderer::renderChannelFill(RenderList& cmdList, const Rect& rect, flo
             Rect warningFillRect(innerRect.x,
                                 currentBottom - (warningThreshold01 * innerRect.height) - warningHeight,
                                 innerRect.width, warningHeight);
-            
             for (float x = warningFillRect.x; x < warningFillRect.x + warningFillRect.width; x += PIXEL_STEP)
             {
                 float pixelWidth = std::min(PIXEL_STEP, warningFillRect.x + warningFillRect.width - x);
@@ -712,7 +701,6 @@ void MeterRenderer::renderChannelFill(RenderList& cmdList, const Rect& rect, flo
             Rect peakFillRect(innerRect.x,
                              currentBottom - (peakThreshold01 * innerRect.height) - peakHeight,
                              innerRect.width, peakHeight);
-            
             for (float x = peakFillRect.x; x < peakFillRect.x + peakFillRect.width; x += PIXEL_STEP)
             {
                 float pixelWidth = std::min(PIXEL_STEP, peakFillRect.x + peakFillRect.width - x);
@@ -800,10 +788,12 @@ void MeterRenderer::renderControlVoltage(RenderList& cmdList, const Vec2& startP
     }
     Rect actualRect(cvPos.x, topY, 5.0f, displayHeight);
     Rect innerRect(actualRect.x + 1.0f, actualRect.y + 1.0f, actualRect.width - 2.0f, actualRect.height - 2.0f);
-    if (innerRect.width > 0 && innerRect.height > 0) {
+    if (innerRect.width > 0 && innerRect.height > 0)
+    {
         cmdList.fillRect(innerRect, colors.bgNormal);
         float currentLevel = levelData.getControlVoltageLevel();
-        if (currentLevel >= visibleBottomDb && currentLevel <= visibleTopDb) {
+        if (currentLevel >= visibleBottomDb && currentLevel <= visibleTopDb)
+        {
             float fillRatio = (visibleTopDb - currentLevel) / (visibleTopDb - visibleBottomDb);
             fillRatio = std::clamp(fillRatio, 0.0f, 1.0f);
             if (fillRatio > 0.0f)
@@ -833,27 +823,13 @@ Vec4 MeterRenderer::getLevelColor(float db) const
         default: return colors.levelNormal;
     }
 }
-float MeterRenderer::dbToPosition01(float db) const
+float MeterRenderer::dbToPosition01(float db) const { return scale_->mapDbToPosition(db); }
+float MeterRenderer::getWarningThreshold01() const { return dbToPosition01(config_->getThresholds().normalToWarning); }
+float MeterRenderer::getPeakThreshold01() const { return dbToPosition01(config_->getThresholds().warningToPeak); }
+void MeterRenderer::updateBlendCache(size_t totalChannelCount) { blendCache_.initialize(totalChannelCount); }
+bool MeterRenderer::isReady() const { return scale_ && config_; }
+void MeterRenderer::drawPeakLine(RenderList& cmdList, const Rect& rect, float peakLevel01, const Vec4& color, float lineHeight)
 {
-    return scale_->mapDbToPosition(db);
-}
-float MeterRenderer::getWarningThreshold01() const
-{
-    return dbToPosition01(config_->getThresholds().normalToWarning);
-}
-float MeterRenderer::getPeakThreshold01() const
-{
-    return dbToPosition01(config_->getThresholds().warningToPeak);
-}
-void MeterRenderer::updateBlendCache(size_t totalChannelCount)
-{
-    blendCache_.initialize(totalChannelCount);
-}
-bool MeterRenderer::isReady() const
-{
-    return scale_ && config_;
-}
-void MeterRenderer::drawPeakLine(RenderList& cmdList, const Rect& rect, float peakLevel01, const Vec4& color, float lineHeight) {
     if (rect.width <= 0 || rect.height <= 0 || peakLevel01 <= 0.0f) return;
     float peakY = rect.y + rect.height - (peakLevel01 * rect.height);
     float adjustedPeakY = peakY + 0.5f;
@@ -869,7 +845,6 @@ void MeterRenderer::drawInternalScaleTicks(RenderList& cmdList, const Rect& rect
     UIStyle* style = m_context ? m_context->getCurrentStyle() : nullptr;
     if (!style) return;
     LevelMeterColors colors = style->getLevelMeterColors();
-    
     constexpr float topBuffer = 2.0f;
     constexpr float bottomBuffer = 2.0f;
     constexpr float lineThickness = 0.5f;
@@ -879,7 +854,8 @@ void MeterRenderer::drawInternalScaleTicks(RenderList& cmdList, const Rect& rect
     float tickLength = channelWidth - 2.0f;
     tickLength = std::max(tickLength, 2.0f);
     const auto& thresholds = config_->getThresholds();
-    for (const auto& tick : ticks) {
+    for (const auto& tick : ticks)
+    {
         if (tick.db < scale_->getMinDb() || tick.db > scale_->getMaxDb()) continue;
         float tickY = rect.y + rect.height - (tick.position * rect.height);
         tickY += VERTICAL_OFFSET;
@@ -903,23 +879,18 @@ void MeterRenderer::drawScaleTicks(RenderList& cmdList, const Rect& scaleRect,
                                   const Rect& meterRect, const std::vector<ScaleTick>& ticks)
 {
     if (scaleRect.width <= 0 || scaleRect.height <= 0 || meterRect.width <= 0 || meterRect.height <= 0) return;
-    
     UIStyle* style = m_context ? m_context->getCurrentStyle() : nullptr;
     IFontProvider* fontProvider = m_context ? m_context->getFontProvider() : nullptr;
     if (!style || !fontProvider) return;
-    
     LevelMeterColors colors = style->getLevelMeterColors();
     FontFallbackChain fallbackChain(fontProvider->getDefaultNarrowBoldFont());
     constexpr float tickLength = 3.0f, tickThickness = 0.5f, VERTICAL_OFFSET = 0.5f, fontSize = 9.0f, letterSpacing = -50.0f;
-    
     for (const auto& tick : ticks)
     {
         float tickY = meterRect.y + meterRect.height - (tick.position * meterRect.height) + VERTICAL_OFFSET;
         if (tickY < meterRect.y || tickY > meterRect.y + meterRect.height) continue;
-
         float tickStart = meterRect.x - tickLength;
         if (tickStart >= scaleRect.x) cmdList.drawLine({tickStart, tickY}, {meterRect.x, tickY}, colors.scaleColor, tickThickness);
-        
         if (!tick.label.empty())
         {
             FontHandle primaryFont = fallbackChain.getPrimary();
@@ -927,7 +898,6 @@ void MeterRenderer::drawScaleTicks(RenderList& cmdList, const Rect& scaleRect,
             Vec2 textSize = fontProvider->measureText(tick.label.c_str(), fontSize);
             size_t charCount = std::count_if(tick.label.begin(), tick.label.end(), [](char c) { return (c & 0xC0) != 0x80; });
             float adjustedWidth = textSize.x + ((charCount > 1) ? (letterSpacing / 1000.0f) * fontSize * (charCount - 1) : 0);
-
             float rightEdge = tickStart - 2.0f;
             float textX = rightEdge - adjustedWidth, textY = tickY - textSize.y * 0.5f + metrics.ascender + VERTICAL_OFFSET;
             cmdList.drawText(tick.label.c_str(), {std::round(textX), std::round(textY)}, fallbackChain, fontSize, colors.scaleColor, letterSpacing);
@@ -946,34 +916,33 @@ Rect MeterRenderer::calculateChannelRect(const Vec2& startPos, const Vec2& total
     channelX = pixelAlign(channelX);
     return Rect(channelX, startPos.y, alignedWidth, totalSize.y);
 }
-float MeterRenderer::pixelAlign(float value) const
-{
-    return std::round(value);
-}
+float MeterRenderer::pixelAlign(float value) const { return std::round(value); }
 
 //==========================================================================================
 // LevelMeter Implementation
 LevelMeter::LevelMeter(UIContext* context, const Rect& bounds, size_t channelCount, ScaleType scaleType)
-    : Widget(bounds)
+    : UIComponent()
     , m_context(context)
     , levelData_(channelCount)
     , config_(MeterConfig::createDefault())
     , scale_(scaleType)
     , showControlVoltage_(true)
 {
+    setBounds(bounds);
     setOwnerContext(context);
     initializeRenderer();
     applyConfigToComponents();
 }
 LevelMeter::LevelMeter(UIContext* context, const Rect& bounds, const MeterConfig& config,
                       size_t channelCount, ScaleType scaleType)
-    : Widget(bounds)
+    : UIComponent()
     , m_context(context)
     , levelData_(channelCount)
     , config_(config)
     , scale_(scaleType)
     , showControlVoltage_(true)
 {
+    setBounds(bounds);
     setOwnerContext(context);
     initializeRenderer();
     applyConfigToComponents();
@@ -994,24 +963,22 @@ void LevelMeter::addDrawCommands(RenderList& commandList, const Vec2& offset) co
     mutableRenderer.renderChannels(commandList, absPos, renderSize, levelData_, showControlVoltage_);
     float scaleWidth = MeterDimensions::SCALE_WIDTH;
     Rect scaleRect(absPos.x, absPos.y, scaleWidth, renderSize.y);
-    
     auto channelInfos = mutableRenderer.calculateChannelLayout(absPos, renderSize, levelData_);
     if (!channelInfos.empty()) mutableRenderer.renderScale(commandList, scaleRect, channelInfos[0].meterRect);
     renderChildren(commandList, absPos);
 }
-
-void LevelMeter::updateLevels(const std::vector<float>& levels)
-{ levelData_.updateLevels(levels); }
-
-void LevelMeter::updateLevel(size_t channel, float levelDb)
-{ levelData_.updateLevel(channel, levelDb); }
-
-void LevelMeter::reset()
-{ levelData_.reset(); }
-
-void LevelMeter::setChannelCount(size_t count)
-{ levelData_.setChannelCount(count); }
-
+bool LevelMeter::handleMouseMove(const Vec2& position, const Vec2& offset)
+{
+    return dispatchMouseEvent(position, false, offset, true);
+}
+bool LevelMeter::handleMouseClick(const Vec2& position, bool pressed, const Vec2& offset)
+{
+    return dispatchMouseEvent(position, pressed, offset, false);
+}
+void LevelMeter::updateLevels(const std::vector<float>& levels) { levelData_.updateLevels(levels); }
+void LevelMeter::updateLevel(size_t channel, float levelDb) { levelData_.updateLevel(channel, levelDb); }
+void LevelMeter::reset() { levelData_.reset(); }
+void LevelMeter::setChannelCount(size_t count) { levelData_.setChannelCount(count); }
 void LevelMeter::setScaleType(ScaleType type)
 {
     scale_ = MeterScale::create(type);
@@ -1019,7 +986,8 @@ void LevelMeter::setScaleType(ScaleType type)
 }
 void LevelMeter::setConfig(const MeterConfig& config)
 {
-    if (config.isValid()) {
+    if (config.isValid())
+    {
         config_ = config;
         applyConfigToComponents();
     }
@@ -1029,9 +997,7 @@ void LevelMeter::setThresholds(float warningDb, float peakDb)
     MeterThresholds thresholds = config_.getThresholds();
     thresholds.normalToWarning = warningDb;
     thresholds.warningToPeak = peakDb;
-    if (thresholds.isValid()) {
-        config_.setThresholds(thresholds);
-    }
+    if (thresholds.isValid()) { config_.setThresholds(thresholds); }
 }
 void LevelMeter::setDecayRate(float dbPerSec)
 {
@@ -1045,7 +1011,6 @@ void LevelMeter::setPeakHoldTime(float timeMs)
 }
 size_t LevelMeter::getChannelCount() const { return levelData_.getChannelCount(); }
 Vec2 LevelMeter::getRecommendedSize() const { return calculateAutoSize(); }
-
 void LevelMeter::initializeRenderer()
 {
     renderer_.setContext(m_context);
@@ -1069,6 +1034,6 @@ Vec2 LevelMeter::calculateAutoSize() const
 }
 void LevelMeter::updateControlVoltage(float levelDb) { levelData_.updateControlVoltage(levelDb); }
 void LevelMeter::setShowControlVoltage(bool show) { showControlVoltage_ = show; }
-bool LevelMeter::getShowControlVoltage() const { return showControlVoltage_;}
+bool LevelMeter::getShowControlVoltage() const { return showControlVoltage_; }
 
 } // namespace YuchenUI

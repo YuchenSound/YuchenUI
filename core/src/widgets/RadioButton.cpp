@@ -11,8 +11,7 @@
 namespace YuchenUI {
 
 RadioButton::RadioButton(const Rect& bounds)
-    : m_bounds(bounds)
-    , m_isChecked(false)
+    : m_isChecked(false)
     , m_text()
     , m_fontSize(Config::Font::DEFAULT_SIZE)
     , m_textColor()
@@ -23,6 +22,7 @@ RadioButton::RadioButton(const Rect& bounds)
     , m_checkedCallback(nullptr)
 {
     Validation::AssertRect(bounds);
+    setBounds(bounds);
     setFocusPolicy(FocusPolicy::StrongFocus);
 }
 
@@ -180,11 +180,6 @@ Vec4 RadioButton::getTextColor() const {
 void RadioButton::resetTextColor() {
     m_hasCustomTextColor = false;
     m_textColor = Vec4();
-}
-
-void RadioButton::setBounds(const Rect& bounds) {
-    Validation::AssertRect(bounds);
-    m_bounds = bounds;
 }
 
 void RadioButton::setCheckedCallback(RadioButtonCheckedCallback callback) {

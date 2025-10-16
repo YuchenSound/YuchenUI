@@ -32,14 +32,15 @@
     
     Usage:
     @code
-    LevelMeter meter(context, Rect(10, 10, 100, 240), 2, ScaleType::SAMPLE_PEAK);
-    meter.updateLevels({-12.0f, -18.0f});  // Update per frame
+    LevelMeter* meter = parent->addChild<LevelMeter>(context, Rect(10, 10, 100, 240), 2, ScaleType::SAMPLE_PEAK);
+    meter->updateLevels({-12.0f, -18.0f});  // Update per frame
     @endcode
 */
 
 #pragma once
 
-#include "YuchenUI/YuchenUI.h"
+#include "YuchenUI/widgets/UIComponent.h"
+#include "YuchenUI/core/Types.h"
 #include <vector>
 #include <memory>
 #include <functional>
@@ -50,6 +51,9 @@
 #include <string>
 
 namespace YuchenUI {
+
+class RenderList;
+class UIContext;
 
 //==========================================================================================
 
@@ -261,6 +265,7 @@ public:
     void initialize(size_t totalChannelCount);
     bool isInitialized() const { return initialized_; }
     Vec4 getBlendedColor(const Vec4& baseColor, float x, bool isWarningRegion) const;
+    
 private:
     struct TextureData { std::vector<Vec4> pixels; };
     TextureData normalTexture_;
@@ -305,7 +310,9 @@ public:
     void renderChannels(RenderList& cmdList, const Vec2& startPos, const Vec2& totalSize,
                        const LevelDataManager& levelData, bool showControlVoltage = true);
     void renderScale(RenderList& cmdList, const Rect& scaleRect, const Rect& referenceRect);
-    std::vector<ChannelRenderInfo> calculateChannelLayout(const Vec2& startPos,const Vec2& totalSize,const LevelDataManager& levelData) const;
+    std::vector<ChannelRenderInfo> calculateChannelLayout(const Vec2& startPos, const Vec2& totalSize,
+                                                          const LevelDataManager& levelData) const;
+    
 private:
     UIContext* m_context;
     const MeterScale* scale_;
@@ -321,7 +328,7 @@ private:
     void renderPeakIndicator(RenderList& cmdList, const Rect& rect, bool isActive);
     void renderPeakIndicatorFrame(RenderList& cmdList, const Rect& rect);
     void renderControlVoltage(RenderList& cmdList, const Vec2& startPos, const Vec2& totalSize, const LevelDataManager& levelData);
-
+    
     Vec4 getLevelColor(float db) const;
     float dbToPosition01(float db) const;
     float getWarningThreshold01() const;
@@ -330,7 +337,8 @@ private:
     void updateBlendCache(size_t totalChannelCount);
     
     void drawPeakLine(RenderList& cmdList, const Rect& rect, float peakLevel01, const Vec4& color, float lineHeight);
-    void drawInternalScaleTicks(RenderList& cmdList, const Rect& rect, const std::vector<ScaleTick>& ticks, float currentDisplayLevel, size_t totalChannelCount);
+    void drawInternalScaleTicks(RenderList& cmdList, const Rect& rect, const std::vector<ScaleTick>& ticks,
+                               float currentDisplayLevel, size_t totalChannelCount);
     void drawScaleTicks(RenderList& cmdList, const Rect& scaleRect, const Rect& meterRect, const std::vector<ScaleTick>& ticks);
     Rect calculateChannelRect(const Vec2& startPos, const Vec2& totalSize, size_t channelIndex, size_t totalChannels) const;
     float pixelAlign(float value) const;
@@ -348,7 +356,7 @@ private:
     
     @see MeterConfig, MeterScale, UIStyle::getLevelMeterColors()
 */
-class LevelMeter : public Widget
+class LevelMeter : public UIComponent
 {
 public:
     explicit LevelMeter(UIContext* context, const Rect& bounds, size_t channelCount = 2,
@@ -358,15 +366,8 @@ public:
     virtual ~LevelMeter();
     
     void addDrawCommands(RenderList& commandList, const Vec2& offset = Vec2()) const override;
-    
-    bool handleMouseMove(const Vec2& position, const Vec2& offset = Vec2()) override
-    {
-        return Widget::handleMouseMove(position, offset);
-    }
-    bool handleMouseClick(const Vec2& position, bool pressed, const Vec2& offset = Vec2()) override
-    {
-        return Widget::handleMouseClick(position, pressed, offset);
-    }
+    bool handleMouseMove(const Vec2& position, const Vec2& offset = Vec2()) override;
+    bool handleMouseClick(const Vec2& position, bool pressed, const Vec2& offset = Vec2()) override;
     
     // Level input (typically called from audio thread)
     void updateLevels(const std::vector<float>& levels);

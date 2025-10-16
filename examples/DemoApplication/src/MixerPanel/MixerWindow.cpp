@@ -1,7 +1,13 @@
 #include "MixerWindow.h"
+#include "ChannelStrip.h"
+#include <cmath>
 
 MixerWindowContent::MixerWindowContent()
+    : m_scrollArea(nullptr)
+    , m_time(0.0f)
 {
+    m_phases.resize(CHANNEL_COUNT, 0.0f);
+    m_channelStrips.reserve(CHANNEL_COUNT);
 }
 
 MixerWindowContent::~MixerWindowContent()
@@ -11,60 +17,125 @@ MixerWindowContent::~MixerWindowContent()
 void MixerWindowContent::onCreate(YuchenUI::UIContext* context,
                                   const YuchenUI::Rect& contentArea)
 {
-   m_context = context;
-   m_contentArea = contentArea;
-   
-   createUI();
+    m_context = context;
+    m_contentArea = contentArea;
+    
+    createUI();
 }
 
 void MixerWindowContent::createUI()
 {
-   IFontProvider* fontProvider = m_context->getFontProvider();
-   
-   // 标题标签
-   YuchenUI::Rect titleBounds(10, 10, m_contentArea.width - 20, 40);
-   m_titleLabel = std::make_unique<YuchenUI::TextLabel>(titleBounds);
-   m_titleLabel->setText("Mixer (混音器)");
-   m_titleLabel->setFont(fontProvider->getDefaultBoldFont());
-   m_titleLabel->setFontSize(20.0f);
-   m_titleLabel->setAlignment(YuchenUI::TextAlignment::Center,
+    YuchenUI::IFontProvider* fontProvider = m_context->getFontProvider();
+    
+    YuchenUI::Rect titleBounds(10, 10, m_contentArea.width - 20, 30);
+    m_titleLabel = std::make_unique<YuchenUI::TextLabel>(titleBounds);
+    m_titleLabel->setText("Mixer");
+    m_titleLabel->setFont(fontProvider->getDefaultBoldFont());
+    m_titleLabel->setFontSize(18.0f);
+    m_titleLabel->setAlignment(YuchenUI::TextAlignment::Center,
                               YuchenUI::VerticalAlignment::Middle);
-   addComponent(m_titleLabel.get());
-   
-   // 内容区域分组框
-   YuchenUI::Rect groupBounds(10, 60, m_contentArea.width - 20, m_contentArea.height - 70);
-   m_contentGroupBox = std::make_unique<YuchenUI::GroupBox>(groupBounds);
-   m_contentGroupBox->setTitle("Welcome");
-   m_contentGroupBox->setCornerRadius(4.0f);
-   addComponent(m_contentGroupBox.get());
-   
-   // Hello World 标签 - 居中显示
-   YuchenUI::Rect helloWorldBounds(
-       10,
-       (groupBounds.height - 50) / 2,  // 垂直居中
-       groupBounds.width - 20,
-       50
-   );
-   m_helloWorldLabel = std::make_unique<YuchenUI::TextLabel>(helloWorldBounds);
-   m_helloWorldLabel->setText("Hello World!");
-   m_helloWorldLabel->setFont(fontProvider->getDefaultBoldFont());
-   m_helloWorldLabel->setFontSize(32.0f);
-   m_helloWorldLabel->setAlignment(YuchenUI::TextAlignment::Center,
-                                   YuchenUI::VerticalAlignment::Middle);
-   m_contentGroupBox->addChild<YuchenUI::TextLabel>(*m_helloWorldLabel);
+    addComponent(m_titleLabel.get());
+    
+    YuchenUI::Rect scrollBounds(10, 50, m_contentArea.width - 20, m_contentArea.height - 60);
+    std::cout << "[MixerWindow] Creating ScrollArea at bounds: ("
+              << scrollBounds.x << ", " << scrollBounds.y << ", "
+              << scrollBounds.width << ", " << scrollBounds.height << ")" << std::endl;
+
+    
+    
+    m_scrollArea = new YuchenUI::ScrollArea(scrollBounds);
+    m_scrollArea->setOwnerContext(m_context);
+    addComponent(m_scrollArea);
+    
+    float totalWidth = (ChannelStrip::STRIP_WIDTH + CHANNEL_SPACING) * CHANNEL_COUNT;
+    m_scrollArea->setContentSize(YuchenUI::Vec2(totalWidth, ChannelStrip::STRIP_HEIGHT));
+    m_scrollArea->setShowVerticalScrollbar(false);
+    m_scrollArea->setShowHorizontalScrollbar(true);
+    
+    createChannelStrips();
+}
+
+void MixerWindowContent::createChannelStrips()
+{
+    if (!m_scrollArea) return;
+    
+    m_channelStrips.clear();
+    
+    for (int i = 0; i < CHANNEL_COUNT; ++i)
+    {
+        float xPos = i * (ChannelStrip::STRIP_WIDTH + CHANNEL_SPACING);
+        YuchenUI::Rect stripBounds(xPos, 0,
+                                   ChannelStrip::STRIP_WIDTH,
+                                   ChannelStrip::STRIP_HEIGHT);
+        
+        ChannelStrip* strip = m_scrollArea->addChild(new ChannelStrip(stripBounds, i + 1));
+        m_channelStrips.push_back(strip);
+    }
 }
 
 void MixerWindowContent::onDestroy()
 {
-   IUIContent::onDestroy();
+    m_channelStrips.clear();
+    IUIContent::onDestroy();
+}
+
+void MixerWindowContent::onUpdate(float deltaTime)
+{
+    m_time += deltaTime;
+    updateTestSignals();
+}
+
+void MixerWindowContent::updateTestSignals()
+{
+    if (!m_scrollArea) return;
+    
+    for (size_t i = 0; i < m_channelStrips.size(); ++i)
+    {
+        std::vector<float> levels(2);
+        generateTestLevel(static_cast<int>(i), levels);
+        m_channelStrips[i]->updateLevel(levels);
+    }
+}
+
+void MixerWindowContent::generateTestLevel(int channelIndex, std::vector<float>& levels)
+{
+    float frequency1 = 0.5f + channelIndex * 0.15f;
+    float frequency2 = 1.2f + channelIndex * 0.2f;
+    
+    float signal1 = std::sin(m_phases[channelIndex] * frequency1) * 0.4f;
+    float signal2 = std::sin(m_phases[channelIndex] * frequency2) * 0.3f;
+    float noise = (static_cast<float>(rand()) / RAND_MAX - 0.5f) * 0.15f;
+    
+    float amplitudeL = signal1 + signal2 + noise;
+    float amplitudeR = signal1 * 0.8f + signal2 * 1.2f + noise;
+    
+    amplitudeL = std::clamp(amplitudeL, -1.0f, 1.0f);
+    amplitudeR = std::clamp(amplitudeR, -1.0f, 1.0f);
+    
+    if (std::abs(amplitudeL) < 0.00001f)
+        levels[0] = -144.0f;
+    else
+        levels[0] = std::clamp(20.0f * std::log10(std::abs(amplitudeL)), -144.0f, 0.0f);
+    
+    if (std::abs(amplitudeR) < 0.00001f)
+        levels[1] = -144.0f;
+    else
+        levels[1] = std::clamp(20.0f * std::log10(std::abs(amplitudeR)), -144.0f, 0.0f);
+    
+    m_phases[channelIndex] += 0.1f;
+    if (m_phases[channelIndex] > 2.0f * 3.14159f)
+        m_phases[channelIndex] -= 2.0f * 3.14159f;
 }
 
 void MixerWindowContent::render(YuchenUI::RenderList& commandList)
 {
-   if (m_titleLabel) {
-       m_titleLabel->addDrawCommands(commandList);
-   }
-   if (m_contentGroupBox) {
-       m_contentGroupBox->addDrawCommands(commandList);
-   }
+    if (m_titleLabel)
+    {
+        m_titleLabel->addDrawCommands(commandList);
+    }
+    
+    if (m_scrollArea)
+    {
+        m_scrollArea->addDrawCommands(commandList);
+    }
 }

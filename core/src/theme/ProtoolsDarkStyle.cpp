@@ -318,7 +318,7 @@ void ProtoolsDarkStyle::drawSpinBox(const SpinBoxDrawInfo& info, RenderList& cmd
 void ProtoolsDarkStyle::drawComboBox(const ComboBoxDrawInfo& info, RenderList& cmdList)
 {
     static constexpr float TEXT_PADDING_LEFT  = 4.0f;
-    static constexpr float NINE_SLICE_MARGIN  = 4.0f;
+    static constexpr float NINE_SLICE_MARGIN  = 2.0f;
     static constexpr float ARROW_BASE_SIZE    = 7.0f;
     static constexpr float ARROW_HIGHT_SIZE   = 4.0f;
     static constexpr float ARROW_MARGIN_RIGHT = 3.0f;
@@ -444,4 +444,14 @@ LevelMeterColors ProtoolsDarkStyle::getLevelMeterColors() const
     return colors;
 }
 
+//==========================================================================================
+// [SECTION] - Fader
+FaderColors ProtoolsDarkStyle::getFaderColors() const
+{
+    FaderColors colors;
+    colors.scaleColor = Vec4::FromRGBA(255, 255, 255, 178);
+    colors.scaleLineColor = Vec4::FromRGBA(255, 255, 255, 178);
+    colors.subScaleColor = Vec4::FromRGBA(255, 255, 255, 89);
+    return colors;
+}
 }

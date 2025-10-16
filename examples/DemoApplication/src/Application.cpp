@@ -23,7 +23,7 @@ DemoApplication::DemoApplication()
     : m_frameworkApp()
     , m_mainWindow(nullptr)
     , m_levelMeterWindow(nullptr)
-    , m_mixerWindow(nullptr)      // æ·»åŠ æ··éŸ³å™¨çª—å£åˆå§‹åŒ–
+    , m_mixerWindow(nullptr)      // 添加混音器窗口初始化
     , m_isDarkTheme(true)
 {
 }
@@ -214,14 +214,13 @@ void MainWindowContent::createComboBoxTestArea()
     addComponent(m_comboBoxGroupBox.get());
 
     YuchenUI::Rect resultBounds(10.0f, 10.0f, groupBounds.width - 20, 17.0f);
-    m_comboResultLabel = std::make_unique<TextLabel>(resultBounds);
+    m_comboResultLabel = m_comboBoxGroupBox->addChild(new TextLabel(resultBounds));
     m_comboResultLabel->setText("Please select from the dropdowns above...");
     m_comboResultLabel->setFont(fontProvider->getDefaultBoldFont());
     m_comboResultLabel->setAlignment(TextAlignment::Left, VerticalAlignment::Top);
-    m_comboBoxGroupBox->addChild<TextLabel>(*m_comboResultLabel);
 
     YuchenUI::Rect deviceBounds(10.0f, 30.0f, 150.0f, 17.0f);
-    m_deviceComboBox = m_comboBoxGroupBox->addChild<ComboBox>(deviceBounds);
+    m_deviceComboBox = m_comboBoxGroupBox->addChild(new ComboBox(deviceBounds));
     m_deviceComboBox->setTheme(ComboBoxTheme::Grey);
     m_deviceComboBox->setPlaceholder("Select audio device...");
     m_deviceComboBox->addGroup("Input Devices");
@@ -243,7 +242,7 @@ void MainWindowContent::createComboBoxTestArea()
     });
     
     YuchenUI::Rect sampleRateBounds(170.0f, 30.0f, 150.0f, 17.0f);
-    m_sampleRateComboBox = m_comboBoxGroupBox->addChild<ComboBox>(sampleRateBounds);
+    m_sampleRateComboBox = m_comboBoxGroupBox->addChild(new ComboBox(sampleRateBounds));
     m_sampleRateComboBox->setTheme(ComboBoxTheme::Grey);
     m_sampleRateComboBox->setPlaceholder("Select sample rate...");
     m_sampleRateComboBox->addItem("44.1 kHz", 44100);
@@ -273,14 +272,13 @@ void MainWindowContent::createSpinBoxTestArea()
     addComponent(m_spinBoxGroupBox.get());
     
     YuchenUI::Rect resultBounds(10.0f, 10.0f, groupBounds.width - 20, 17.0f);
-    m_spinBoxResultLabel = std::make_unique<TextLabel>(resultBounds);
+    m_spinBoxResultLabel = m_spinBoxGroupBox->addChild(new TextLabel(resultBounds));
     m_spinBoxResultLabel->setText("Adjust the values using mouse or keyboard...");
     m_spinBoxResultLabel->setFont(fontProvider->getDefaultBoldFont());
     m_spinBoxResultLabel->setAlignment(TextAlignment::Left, VerticalAlignment::Top);
-    m_spinBoxGroupBox->addChild<TextLabel>(*m_spinBoxResultLabel);
     
     YuchenUI::Rect volumeBounds(10.0f, 35.0f, 80.0f, 17.0f);
-    auto volumeSpinBox = m_spinBoxGroupBox->addChild<SpinBox>(volumeBounds);
+    auto volumeSpinBox = m_spinBoxGroupBox->addChild(new SpinBox(volumeBounds));
     volumeSpinBox->setValue(75.0);
     volumeSpinBox->setMinValue(0.0);
     volumeSpinBox->setMaxValue(100.0);
@@ -297,7 +295,7 @@ void MainWindowContent::createSpinBoxTestArea()
     });
     
     YuchenUI::Rect frequencyBounds(100.0f, 35.0f, 100.0f, 17.0f);
-    auto frequencySpinBox = m_spinBoxGroupBox->addChild<SpinBox>(frequencyBounds);
+    auto frequencySpinBox = m_spinBoxGroupBox->addChild(new SpinBox(frequencyBounds));
     frequencySpinBox->setValue(1000.0);
     frequencySpinBox->setMinValue(20.0);
     frequencySpinBox->setMaxValue(20000.0);
@@ -314,7 +312,7 @@ void MainWindowContent::createSpinBoxTestArea()
     });
     
     YuchenUI::Rect gainBounds(210.0f, 35.0f, 100.0f, 17.0f);
-    auto gainSpinBox = m_spinBoxGroupBox->addChild<SpinBox>(gainBounds);
+    auto gainSpinBox = m_spinBoxGroupBox->addChild(new SpinBox(gainBounds));
     gainSpinBox->setValue(0.0);
     gainSpinBox->setMinValue(-12.0);
     gainSpinBox->setMaxValue(12.0);
@@ -343,16 +341,16 @@ void MainWindowContent::createTextInputTestArea()
     addComponent(m_textInputGroupBox.get());
 
     YuchenUI::Rect nameBounds(10.0f, 10.0f, 150.0f, 17.0f);
-    auto nameInput = m_textInputGroupBox->addChild<TextInput>(nameBounds);
+    auto nameInput = m_textInputGroupBox->addChild(new TextInput(nameBounds));
     nameInput->setPlaceholder("Enter your name...");
 
     YuchenUI::Rect passwordBounds(170.0f, 10.0f, 150.0f, 17.0f);
-    auto passwordInput = m_textInputGroupBox->addChild<TextInput>(passwordBounds);
+    auto passwordInput = m_textInputGroupBox->addChild(new TextInput(passwordBounds));
     passwordInput->setPlaceholder("Enter password...");
     passwordInput->setPasswordMode(true);
 
     YuchenUI::Rect hintBounds(10.0f, 35.0f, groupBounds.width - 20, 17.0f);
-    auto hintLabel = m_textInputGroupBox->addChild<TextLabel>(hintBounds);
+    auto hintLabel = m_textInputGroupBox->addChild(new TextLabel(hintBounds));
     hintLabel->setText("Note: Supports input, copy and paste");
     hintLabel->setAlignment(TextAlignment::Left, VerticalAlignment::Top);
     hintLabel->setFont(fontProvider->getDefaultBoldFont());
@@ -368,14 +366,13 @@ void MainWindowContent::createCheckBoxTestArea()
     addComponent(m_checkBoxGroupBox.get());
     
     YuchenUI::Rect resultBounds(10.0f, 10.0f, groupBounds.width - 20, 17.0f);
-    m_checkBoxResultLabel = std::make_unique<TextLabel>(resultBounds);
+    m_checkBoxResultLabel = m_checkBoxGroupBox->addChild(new TextLabel(resultBounds));
     m_checkBoxResultLabel->setText("Select your preferences...");
     m_checkBoxResultLabel->setFont(fontProvider->getDefaultBoldFont());
     m_checkBoxResultLabel->setAlignment(TextAlignment::Left, VerticalAlignment::Top);
-    m_checkBoxGroupBox->addChild<TextLabel>(*m_checkBoxResultLabel);
     
     YuchenUI::Rect checkbox1Bounds(10.0f, 35.0f, 150.0f, 17.0f);
-    auto checkbox1 = m_checkBoxGroupBox->addChild<CheckBox>(checkbox1Bounds);
+    auto checkbox1 = m_checkBoxGroupBox->addChild(new CheckBox(checkbox1Bounds));
     checkbox1->setText("Enable Auto-Save");
     checkbox1->setChecked(true);
     checkbox1->setStateChangedCallback([this](CheckBoxState state) {
@@ -387,7 +384,7 @@ void MainWindowContent::createCheckBoxTestArea()
     });
     
     YuchenUI::Rect checkbox2Bounds(170.0f, 35.0f, 150.0f, 17.0f);
-    auto checkbox2 = m_checkBoxGroupBox->addChild<CheckBox>(checkbox2Bounds);
+    auto checkbox2 = m_checkBoxGroupBox->addChild(new CheckBox(checkbox2Bounds));
     checkbox2->setText("Show Tooltips");
     checkbox2->setStateChangedCallback([this](CheckBoxState state) {
         std::ostringstream oss;
@@ -398,7 +395,7 @@ void MainWindowContent::createCheckBoxTestArea()
     });
     
     YuchenUI::Rect checkbox3Bounds(10.0f, 60.0f, 150.0f, 17.0f);
-    auto checkbox3 = m_checkBoxGroupBox->addChild<CheckBox>(checkbox3Bounds);
+    auto checkbox3 = m_checkBoxGroupBox->addChild(new CheckBox(checkbox3Bounds));
     checkbox3->setText("Enable Animations");
     checkbox3->setChecked(true);
     checkbox3->setStateChangedCallback([this](CheckBoxState state) {
@@ -410,7 +407,7 @@ void MainWindowContent::createCheckBoxTestArea()
     });
     
     YuchenUI::Rect checkbox4Bounds(170.0f, 60.0f, 150.0f, 17.0f);
-    auto checkbox4 = m_checkBoxGroupBox->addChild<CheckBox>(checkbox4Bounds);
+    auto checkbox4 = m_checkBoxGroupBox->addChild(new CheckBox(checkbox4Bounds));
     checkbox4->setText("Dark Mode");
     checkbox4->setState(CheckBoxState::Indeterminate);
     checkbox4->setStateChangedCallback([this](CheckBoxState state) {
@@ -443,31 +440,30 @@ void MainWindowContent::createRadioButtonTestArea()
     addComponent(m_radioButtonGroupBox.get());
     
     YuchenUI::Rect resultBounds(10.0f, 10.0f, groupBounds.width - 20, 17.0f);
-    m_radioButtonResultLabel = std::make_unique<TextLabel>(resultBounds);
+    m_radioButtonResultLabel = m_radioButtonGroupBox->addChild(new TextLabel(resultBounds));
     m_radioButtonResultLabel->setText("Choose your quality setting...");
     m_radioButtonResultLabel->setFont(fontProvider->getDefaultBoldFont());
     m_radioButtonResultLabel->setAlignment(TextAlignment::Left, VerticalAlignment::Top);
-    m_radioButtonGroupBox->addChild<TextLabel>(*m_radioButtonResultLabel);
     
     m_radioGroup = std::make_unique<RadioButtonGroup>();
     
     YuchenUI::Rect radio1Bounds(10.0f, 35.0f, 100.0f, 17.0f);
-    auto radio1 = m_radioButtonGroupBox->addChild<RadioButton>(radio1Bounds);
+    auto radio1 = m_radioButtonGroupBox->addChild(new RadioButton(radio1Bounds));
     radio1->setText("Low Quality");
     radio1->setGroup(m_radioGroup.get());
     
     YuchenUI::Rect radio2Bounds(120.0f, 35.0f, 100.0f, 17.0f);
-    auto radio2 = m_radioButtonGroupBox->addChild<RadioButton>(radio2Bounds);
+    auto radio2 = m_radioButtonGroupBox->addChild(new RadioButton(radio2Bounds));
     radio2->setText("Medium Quality");
     radio2->setGroup(m_radioGroup.get());
     
     YuchenUI::Rect radio3Bounds(230.0f, 35.0f, 90.0f, 17.0f);
-    auto radio3 = m_radioButtonGroupBox->addChild<RadioButton>(radio3Bounds);
+    auto radio3 = m_radioButtonGroupBox->addChild(new RadioButton(radio3Bounds));
     radio3->setText("High Quality");
     radio3->setGroup(m_radioGroup.get());
     
     YuchenUI::Rect radio4Bounds(10.0f, 60.0f, 100.0f, 17.0f);
-    auto radio4 = m_radioButtonGroupBox->addChild<RadioButton>(radio4Bounds);
+    auto radio4 = m_radioButtonGroupBox->addChild(new RadioButton(radio4Bounds));
     radio4->setText("Ultra Quality");
     radio4->setGroup(m_radioGroup.get());
     
@@ -482,6 +478,7 @@ void MainWindowContent::createRadioButtonTestArea()
     m_radioGroup->setCheckedIndex(1);
 }
 
+
 void MainWindowContent::createScrollAreaTestArea() {
     YuchenUI::Rect groupBounds(360.0f, 60.0f, 330.0f, 195.0f);
     m_scrollGroupBox = std::make_unique<GroupBox>(groupBounds);
@@ -490,13 +487,13 @@ void MainWindowContent::createScrollAreaTestArea() {
     addComponent(m_scrollGroupBox.get());
 
     YuchenUI::Rect scrollBounds(1.0f, 1.0f, groupBounds.width - 2.0f, 173.0f);
-    m_scrollArea = m_scrollGroupBox->addChild<ScrollArea>(scrollBounds);
+    m_scrollArea = m_scrollGroupBox->addChild(new ScrollArea(scrollBounds));
     m_scrollArea->setContentSize(Vec2(scrollBounds.width - 20, 1280.0f));
     m_scrollArea->setShowVerticalScrollbar(true);
     m_scrollArea->setShowHorizontalScrollbar(true);
 
     YuchenUI::Rect textBlockBounds(5.0f, 5.0f, scrollBounds.width - 10.0f, 1280.0f);
-    auto longTextBlock = m_scrollArea->addChild<TextBlock>(textBlockBounds);
+    auto longTextBlock = m_scrollArea->addChild(new TextBlock(textBlockBounds));
     
     longTextBlock->setText(
         "Paragraph 1: This is a test paragraph for the TextBlock component. TextBlock supports automatic line wrapping, which wraps text to the next line when it exceeds the width. This is very useful for displaying large blocks of text, such as articles, documentation, or chat logs.\n"
@@ -531,21 +528,20 @@ void MainWindowContent::createKnobTestArea() {
     addComponent(m_knobGroupBox.get());
     
     YuchenUI::Rect resultBounds(10.0f, 10.0f, groupBounds.width - 20, 17.0f);
-    m_knobResultLabel = std::make_unique<TextLabel>(resultBounds);
+    m_knobResultLabel = m_knobGroupBox->addChild(new TextLabel(resultBounds));
     m_knobResultLabel->setText("Try enabled knobs (Row 1), disabled are frozen (Row 2)...");
     m_knobResultLabel->setFont(fontProvider->getDefaultBoldFont());
     m_knobResultLabel->setAlignment(TextAlignment::Left, VerticalAlignment::Top);
-    m_knobGroupBox->addChild<TextLabel>(*m_knobResultLabel);
     
     YuchenUI::Rect sectionLabel1Bounds(10.0f, 32.0f, groupBounds.width - 20, 12.0f);
-    auto sectionLabel1 = m_knobGroupBox->addChild<TextLabel>(sectionLabel1Bounds);
+    auto sectionLabel1 = m_knobGroupBox->addChild(new TextLabel(sectionLabel1Bounds));
     sectionLabel1->setText("Enabled Knobs (Interactive)");
     sectionLabel1->setFont(fontProvider->getDefaultBoldFont());
     sectionLabel1->setFontSize(10.0f);
     sectionLabel1->setAlignment(TextAlignment::Left, VerticalAlignment::Top);
     
     YuchenUI::Rect volumeKnobBounds(30.0f, 50.0f, 34.0f, 36.0f);
-    m_volumeKnob = m_knobGroupBox->addChild<Knob>(volumeKnobBounds);
+    m_volumeKnob = m_knobGroupBox->addChild(new Knob(volumeKnobBounds));
     m_volumeKnob->setKnobType(KnobType::NoCentered);
     m_volumeKnob->setValueRange(0.0f, 100.0f);
     m_volumeKnob->setValue(75.0f);
@@ -561,14 +557,14 @@ void MainWindowContent::createKnobTestArea() {
     });
     
     YuchenUI::Rect volumeLabelBounds(15.0f, 92.0f, 64.0f, 17.0f);
-    auto volumeLabel = m_knobGroupBox->addChild<TextLabel>(volumeLabelBounds);
+    auto volumeLabel = m_knobGroupBox->addChild(new TextLabel(volumeLabelBounds));
     volumeLabel->setText("Volume");
     volumeLabel->setFont(fontProvider->getDefaultFont());
     volumeLabel->setFontSize(10.0f);
     volumeLabel->setAlignment(TextAlignment::Center, VerticalAlignment::Top);
     
     YuchenUI::Rect panKnobBounds(120.0f, 50.0f, 34.0f, 36.0f);
-    m_panKnob = m_knobGroupBox->addChild<Knob>(panKnobBounds);
+    m_panKnob = m_knobGroupBox->addChild(new Knob(panKnobBounds));
     m_panKnob->setKnobType(KnobType::Centered);
     m_panKnob->setValueRange(-1.0f, 1.0f);
     m_panKnob->setValue(0.0f);
@@ -591,21 +587,21 @@ void MainWindowContent::createKnobTestArea() {
     });
     
     YuchenUI::Rect panLabelBounds(105.0f, 92.0f, 64.0f, 17.0f);
-    auto panLabel = m_knobGroupBox->addChild<TextLabel>(panLabelBounds);
+    auto panLabel = m_knobGroupBox->addChild(new TextLabel(panLabelBounds));
     panLabel->setText("Pan");
     panLabel->setFont(fontProvider->getDefaultFont());
     panLabel->setFontSize(10.0f);
     panLabel->setAlignment(TextAlignment::Center, VerticalAlignment::Top);
     
     YuchenUI::Rect sectionLabel2Bounds(10.0f, 115.0f, groupBounds.width - 20, 12.0f);
-    auto sectionLabel2 = m_knobGroupBox->addChild<TextLabel>(sectionLabel2Bounds);
+    auto sectionLabel2 = m_knobGroupBox->addChild(new TextLabel(sectionLabel2Bounds));
     sectionLabel2->setText("Disabled Knobs (Non-Interactive)");
     sectionLabel2->setFont(fontProvider->getDefaultBoldFont());
     sectionLabel2->setFontSize(10.0f);
     sectionLabel2->setAlignment(TextAlignment::Left, VerticalAlignment::Top);
     
     YuchenUI::Rect disabledVolumeKnobBounds(30.0f, 133.0f, 34.0f, 36.0f);
-    auto disabledVolumeKnob = m_knobGroupBox->addChild<Knob>(disabledVolumeKnobBounds);
+    auto disabledVolumeKnob = m_knobGroupBox->addChild(new Knob(disabledVolumeKnobBounds));
     disabledVolumeKnob->setKnobType(KnobType::NoCentered);
     disabledVolumeKnob->setValueRange(0.0f, 100.0f);
     disabledVolumeKnob->setValue(50.0f);
@@ -613,14 +609,14 @@ void MainWindowContent::createKnobTestArea() {
     disabledVolumeKnob->setEnabled(false);
     
     YuchenUI::Rect disabledVolumeLabelBounds(15.0f, 175.0f, 64.0f, 17.0f);
-    auto disabledVolumeLabel = m_knobGroupBox->addChild<TextLabel>(disabledVolumeLabelBounds);
+    auto disabledVolumeLabel = m_knobGroupBox->addChild(new TextLabel(disabledVolumeLabelBounds));
     disabledVolumeLabel->setText("Volume\n(Disabled)");
     disabledVolumeLabel->setFont(fontProvider->getDefaultFont());
     disabledVolumeLabel->setFontSize(9.0f);
     disabledVolumeLabel->setAlignment(TextAlignment::Center, VerticalAlignment::Top);
     
     YuchenUI::Rect disabledFilterKnobBounds(120.0f, 133.0f, 34.0f, 36.0f);
-    m_filterKnob = m_knobGroupBox->addChild<Knob>(disabledFilterKnobBounds);
+    m_filterKnob = m_knobGroupBox->addChild(new Knob(disabledFilterKnobBounds));
     m_filterKnob->setKnobType(KnobType::Centered);
     m_filterKnob->setValueRange(-1.0f, 1.0f);
     m_filterKnob->setValue(-0.5f);
@@ -628,7 +624,7 @@ void MainWindowContent::createKnobTestArea() {
     m_filterKnob->setEnabled(false);
     
     YuchenUI::Rect disabledFilterLabelBounds(105.0f, 175.0f, 64.0f, 17.0f);
-    auto disabledFilterLabel = m_knobGroupBox->addChild<TextLabel>(disabledFilterLabelBounds);
+    auto disabledFilterLabel = m_knobGroupBox->addChild(new TextLabel(disabledFilterLabelBounds));
     disabledFilterLabel->setText("Filter\n(Disabled)");
     disabledFilterLabel->setFont(fontProvider->getDefaultFont());
     disabledFilterLabel->setFontSize(9.0f);
@@ -636,7 +632,7 @@ void MainWindowContent::createKnobTestArea() {
 }
 
 // ============================================================================
-// æ¸²æŸ“æ–¹æ³• - å®Œæ•´å®žçŽ°ï¼ˆåŒ…å«æ··éŸ³å™¨æŒ‰é’®ï¼‰
+// 渲染方法 - 完整实现（包含混音器按钮）
 // ============================================================================
 void MainWindowContent::render(YuchenUI::RenderList& commandList)
 {
@@ -646,7 +642,7 @@ void MainWindowContent::render(YuchenUI::RenderList& commandList)
     if (m_levelMeterButton) {
         m_levelMeterButton->addDrawCommands(commandList);
     }
-    if (m_mixerButton) {  // æ¸²æŸ“æ··éŸ³å™¨æŒ‰é’®
+    if (m_mixerButton) {  // 渲染混音器按钮
         m_mixerButton->addDrawCommands(commandList);
     }
     if (m_dialogButton) {
@@ -728,7 +724,7 @@ void ConfirmationDialogContent::createMessageFrame() {
     YuchenUI::Rect messageTextBounds(BUTTON_SPACING, BUTTON_SPACING,
         messageFrameWidth - BUTTON_SPACING * 2,
         messageFrameHeight - BUTTON_SPACING * 2);
-    m_messageTextBlock = m_messageFrame->addChild<TextBlock>(messageTextBounds);
+    m_messageTextBlock = m_messageFrame->addChild(new TextBlock(messageTextBounds));
     m_messageTextBlock->setText(m_message.c_str());
     m_messageTextBlock->setFontSize(13.0f);
     m_messageTextBlock->setAlignment(TextAlignment::Center, VerticalAlignment::Middle);
@@ -757,7 +753,7 @@ void ConfirmationDialogContent::createButtonFrame() {
     const float confirmButtonX = buttonFrameWidth - BUTTON_SPACING - BUTTON_WIDTH;
     YuchenUI::Rect confirmButtonBounds(confirmButtonX, BUTTON_SPACING,
         BUTTON_WIDTH, BUTTON_HEIGHT);
-    m_confirmButton = m_buttonFrame->addChild<Button>(confirmButtonBounds);
+    m_confirmButton = m_buttonFrame->addChild(new Button(confirmButtonBounds));
     m_confirmButton->setText("Confirm");
     m_confirmButton->setRole(ButtonRole::Primary);
     m_confirmButton->setClickCallback([this]() {
@@ -770,7 +766,7 @@ void ConfirmationDialogContent::createButtonFrame() {
     const float cancelButtonX = confirmButtonX - BUTTON_SPACING - BUTTON_WIDTH;
     YuchenUI::Rect cancelButtonBounds(cancelButtonX, BUTTON_SPACING,
         BUTTON_WIDTH, BUTTON_HEIGHT);
-    m_cancelButton = m_buttonFrame->addChild<Button>(cancelButtonBounds);
+    m_cancelButton = m_buttonFrame->addChild(new Button(cancelButtonBounds));
     m_cancelButton->setText("Cancel");
     m_cancelButton->setRole(ButtonRole::Normal);
     m_cancelButton->setClickCallback([this]() {
@@ -835,15 +831,18 @@ void LevelMeterWindowContent::createUI() {
     
     YuchenUI::Rect titleBounds(10, 10, m_contentArea.width - 20, 25);
     m_titleLabel = std::make_unique<YuchenUI::TextLabel>(titleBounds);
-    m_titleLabel->setText("Level Meter Test");
+    m_titleLabel->setText("Level Meter Test with Fader");
     m_titleLabel->setFont(fontProvider->getDefaultBoldFont());
     m_titleLabel->setFontSize(16.0f);
     m_titleLabel->setAlignment(YuchenUI::TextAlignment::Center,
                                YuchenUI::VerticalAlignment::Middle);
     addComponent(m_titleLabel.get());
     
-    YuchenUI::Vec2 meterSize = YuchenUI::Vec2(0, 0);
-    float meterX = (m_contentArea.width - 40) * 0.5f;
+    const float METER_FADER_SPACING = 20.0f;
+    const float FADER_WIDTH = 30.0f;
+    const float FADER_HEIGHT = 246.0f;
+    
+    float meterX = 60.0f;
     YuchenUI::Rect meterBounds(meterX, 45, 0, 0);
     m_levelMeter = std::make_unique<YuchenUI::LevelMeter>(
         m_context,
@@ -851,62 +850,94 @@ void LevelMeterWindowContent::createUI() {
         m_currentChannelCount,
         m_currentScaleType
     );
-
     m_levelMeter->setShowControlVoltage(true);
     m_levelMeter->setDecayRate(40.0f);
     m_levelMeter->setPeakHoldTime(3000.0f);
     addComponent(m_levelMeter.get());
     
-    YuchenUI::Rect controlGroupBounds(10, 295, m_contentArea.width - 20, 100);
+    YuchenUI::Vec2 meterSize = m_levelMeter->getRecommendedSize();
+    m_levelMeter->setBounds(YuchenUI::Rect(meterX, 45, meterSize.x, meterSize.y));
+    
+    float faderX = meterX + meterSize.x + METER_FADER_SPACING;
+    
+    YuchenUI::Rect faderBounds(faderX, 45, FADER_WIDTH, FADER_HEIGHT);
+    m_testFader = std::make_unique<YuchenUI::Fader>(m_context, faderBounds);
+    m_testFader->setValueDb(0.0f);  // 默认Unity gain
+    m_testFader->setColorTheme(YuchenUI::FaderColorTheme::Normal);
+    m_testFader->setShowScale(true);
+    m_testFader->setOnValueChanged([this](float dbValue) {
+        if (m_faderValueLabel) {
+            std::ostringstream oss;
+            oss << "Fader: " << std::fixed << std::setprecision(1) << dbValue << " dB";
+            m_faderValueLabel->setText(oss.str());
+        }
+    });
+    addComponent(m_testFader.get());
+    
+    YuchenUI::Rect faderLabelBounds(faderX - 10, 45 + FADER_HEIGHT + 5, 50, 15);
+    m_faderValueLabel = std::make_unique<YuchenUI::TextLabel>(faderLabelBounds);
+    m_faderValueLabel->setText("Fader: 0.0 dB");
+    m_faderValueLabel->setFont(fontProvider->getDefaultFont());
+    m_faderValueLabel->setFontSize(9.0f);
+    m_faderValueLabel->setAlignment(YuchenUI::TextAlignment::Center,
+                                    YuchenUI::VerticalAlignment::Top);
+    addComponent(m_faderValueLabel.get());
+    
+    YuchenUI::Rect instructionBounds(10, 310, m_contentArea.width - 20, 15);
+    m_instructionLabel = std::make_unique<YuchenUI::TextLabel>(instructionBounds);
+    m_instructionLabel->setText("Click Fader or Meter, then click elsewhere to test focus clearing");
+    m_instructionLabel->setFont(fontProvider->getDefaultFont());
+    m_instructionLabel->setFontSize(9.0f);
+    m_instructionLabel->setAlignment(YuchenUI::TextAlignment::Center,
+                                   YuchenUI::VerticalAlignment::Top);
+    addComponent(m_instructionLabel.get());
+
+    
+    YuchenUI::Rect controlGroupBounds(10, 330, m_contentArea.width - 20, 100);
     m_controlGroupBox = std::make_unique<YuchenUI::GroupBox>(controlGroupBounds);
     m_controlGroupBox->setTitle("Controls");
     m_controlGroupBox->setCornerRadius(4.0f);
     addComponent(m_controlGroupBox.get());
     
     YuchenUI::Rect startStopBounds(10, 10, 160, 17);
-    m_startStopButton = std::make_unique<YuchenUI::Button>(startStopBounds);
+    m_startStopButton = m_controlGroupBox->addChild(new YuchenUI::Button(startStopBounds));
     m_startStopButton->setText("Start");
     m_startStopButton->setRole(YuchenUI::ButtonRole::Primary);
     m_startStopButton->setClickCallback([this]() {
         onStartStopClick();
     });
-    m_controlGroupBox->addChild<YuchenUI::Button>(*m_startStopButton);
     
     YuchenUI::Rect resetBounds(180, 10, 160, 17);
-    m_resetButton = std::make_unique<YuchenUI::Button>(resetBounds);
+    m_resetButton = m_controlGroupBox->addChild(new YuchenUI::Button(resetBounds));
     m_resetButton->setText("Reset");
     m_resetButton->setRole(YuchenUI::ButtonRole::Normal);
     m_resetButton->setClickCallback([this]() {
         onResetClick();
     });
-    m_controlGroupBox->addChild<YuchenUI::Button>(*m_resetButton);
     
     YuchenUI::Rect channelBounds(10, 35, 160, 17);
-    m_channelButton = std::make_unique<YuchenUI::Button>(channelBounds);
+    m_channelButton = m_controlGroupBox->addChild(new YuchenUI::Button(channelBounds));
     m_channelButton->setText("Channels: 2");
     m_channelButton->setRole(YuchenUI::ButtonRole::Normal);
     m_channelButton->setClickCallback([this]() {
         onChannelCountClick();
     });
-    m_controlGroupBox->addChild<YuchenUI::Button>(*m_channelButton);
     
     YuchenUI::Rect scaleBounds(180, 35, 160, 17);
-    m_scaleButton = std::make_unique<YuchenUI::Button>(scaleBounds);
+    m_scaleButton = m_controlGroupBox->addChild(new YuchenUI::Button(scaleBounds));
     m_scaleButton->setText("Scale: Sample Peak");
     m_scaleButton->setRole(YuchenUI::ButtonRole::Normal);
     m_scaleButton->setClickCallback([this]() {
         onScaleTypeClick();
     });
-    m_controlGroupBox->addChild<YuchenUI::Button>(*m_scaleButton);
     
     YuchenUI::Rect statusBounds(10, 60, controlGroupBounds.width - 20, 15);
-    m_statusLabel = std::make_unique<YuchenUI::TextLabel>(statusBounds);
+    m_statusLabel = m_controlGroupBox->addChild(new YuchenUI::TextLabel(statusBounds));
     m_statusLabel->setText("Status: Stopped");
     m_statusLabel->setFont(fontProvider->getDefaultFont());
     m_statusLabel->setFontSize(10.0f);
     m_statusLabel->setAlignment(YuchenUI::TextAlignment::Left,
                                 YuchenUI::VerticalAlignment::Top);
-    m_controlGroupBox->addChild<YuchenUI::TextLabel>(*m_statusLabel);
 }
 
 void LevelMeterWindowContent::onStartStopClick() {
@@ -961,9 +992,23 @@ void LevelMeterWindowContent::onChannelCountClick() {
         m_levelMeter->setChannelCount(m_currentChannelCount);
         
         YuchenUI::Vec2 recommendedSize = m_levelMeter->getRecommendedSize();
-        float meterX = (m_contentArea.width - recommendedSize.x) * 0.5f;
+        float meterX = 60.0f;
         YuchenUI::Rect newBounds(meterX, 45, recommendedSize.x, recommendedSize.y);
         m_levelMeter->setBounds(newBounds);
+        
+        if (m_testFader) {
+            const float METER_FADER_SPACING = 20.0f;
+            float faderX = meterX + recommendedSize.x + METER_FADER_SPACING;
+            YuchenUI::Rect faderBounds = m_testFader->getBounds();
+            faderBounds.x = faderX;
+            m_testFader->setBounds(faderBounds);
+            
+            if (m_faderValueLabel) {
+                YuchenUI::Rect labelBounds = m_faderValueLabel->getBounds();
+                labelBounds.x = faderX - 10;
+                m_faderValueLabel->setBounds(labelBounds);
+            }
+        }
     }
     
     if (m_channelButton) {
@@ -1078,6 +1123,12 @@ void LevelMeterWindowContent::render(YuchenUI::RenderList& commandList)
     }
     if (m_levelMeter) {
         m_levelMeter->addDrawCommands(commandList);
+    }
+    if (m_testFader) {
+        m_testFader->addDrawCommands(commandList);
+    }
+    if (m_faderValueLabel) {
+        m_faderValueLabel->addDrawCommands(commandList);
     }
     if (m_controlGroupBox) {
         m_controlGroupBox->addDrawCommands(commandList);

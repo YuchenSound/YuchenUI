@@ -14,7 +14,6 @@ TextBlock::TextBlock(const Rect& bounds)
     , m_fontChain()
     , m_fontSize(Config::Font::DEFAULT_SIZE)
     , m_textColor()
-    , m_bounds(bounds)
     , m_horizontalAlignment(TextAlignment::Left)
     , m_verticalAlignment(VerticalAlignment::Top)
     , m_paddingLeft(Config::Text::DEFAULT_PADDING)
@@ -29,6 +28,7 @@ TextBlock::TextBlock(const Rect& bounds)
     , m_needsLayout(true)
 {
     Validation::AssertRect(bounds);
+    setBounds(bounds);
     YUCHEN_ASSERT(bounds.width >= 0.0f && bounds.height >= 0.0f);
 }
 
@@ -153,15 +153,6 @@ Vec4 TextBlock::getTextColor() const {
 void TextBlock::resetTextColor() {
     m_hasCustomTextColor = false;
     m_textColor = Vec4();
-}
-
-void TextBlock::setBounds(const Rect& bounds) {
-    if (Validation::ValidateRect(bounds) && bounds.width >= 0.0f && bounds.height >= 0.0f) {
-        if (m_bounds.width != bounds.width || m_bounds.height != bounds.height) {
-            m_needsLayout = true;
-        }
-        m_bounds = bounds;
-    }
 }
 
 void TextBlock::setAlignment(TextAlignment horizontal, VerticalAlignment vertical) {

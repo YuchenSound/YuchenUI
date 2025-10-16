@@ -27,7 +27,6 @@ TextInput::TextInput(const Rect& bounds)
     , m_isHovered(false)
     , m_showCursor(true)
     , m_cursorBlinkTimer(0.0f)
-    , m_bounds(bounds)
     , m_fontSize(Config::Font::DEFAULT_SIZE)
     , m_textColor()
     , m_hasCustomTextColor(false)
@@ -46,6 +45,7 @@ TextInput::TextInput(const Rect& bounds)
     , m_inputType(TextInputType::Text)
 {
     Validation::AssertRect(bounds);
+    setBounds(bounds);
     setFocusPolicy(FocusPolicy::StrongFocus);
 }
 
@@ -426,11 +426,6 @@ void TextInput::setChangeCallback(TextInputChangeCallback callback) {
 
 void TextInput::setSubmitCallback(TextInputSubmitCallback callback) {
     m_submitCallback = callback;
-}
-
-void TextInput::setBounds(const Rect& bounds) {
-    Validation::AssertRect(bounds);
-    m_bounds = bounds;
 }
 
 void TextInput::setFontSize(float fontSize) {

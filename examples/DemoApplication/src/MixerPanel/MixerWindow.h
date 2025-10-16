@@ -1,31 +1,33 @@
 #pragma once
 
 #include <YuchenUI/YuchenUI-Desktop.h>
-#include <memory>
-#include <string>
+#include <vector>
 
-using namespace YuchenUI;
+class ChannelStrip;
 
-/**
-* 混音器窗口内容类
-*
-* 显示一个简单的混音器界面，包含 Hello World 文本
-*/
 class MixerWindowContent : public YuchenUI::IUIContent {
 public:
-   MixerWindowContent();
-   virtual ~MixerWindowContent();
-   
-   // IUIContent 接口实现
-   void onCreate(YuchenUI::UIContext* context, const YuchenUI::Rect& contentArea) override;
-   void onDestroy() override;
-   void render(YuchenUI::RenderList& commandList) override;
+    MixerWindowContent();
+    virtual ~MixerWindowContent();
+    
+    void onCreate(YuchenUI::UIContext* context, const YuchenUI::Rect& contentArea) override;
+    void onDestroy() override;
+    void onUpdate(float deltaTime) override;
+    void render(YuchenUI::RenderList& commandList) override;
 
 private:
-   void createUI();
-   
-   // UI 组件
-   std::unique_ptr<YuchenUI::TextLabel> m_titleLabel;
-   std::unique_ptr<YuchenUI::TextLabel> m_helloWorldLabel;
-   std::unique_ptr<YuchenUI::GroupBox> m_contentGroupBox;
+    void createUI();
+    void createChannelStrips();
+    void updateTestSignals();
+    void generateTestLevel(int channelIndex, std::vector<float>& levels);
+    
+    std::unique_ptr<YuchenUI::TextLabel> m_titleLabel;
+    YuchenUI::ScrollArea* m_scrollArea;
+    std::vector<ChannelStrip*> m_channelStrips;
+    
+    static constexpr int CHANNEL_COUNT = 8;
+    static constexpr float CHANNEL_SPACING = 5.0f;
+    
+    float m_time;
+    std::vector<float> m_phases;
 };

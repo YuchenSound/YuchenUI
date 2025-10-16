@@ -1,8 +1,8 @@
-// ScrollArea.cpp
 #include "YuchenUI/widgets/ScrollArea.h"
 #include "YuchenUI/rendering/RenderList.h"
 #include "YuchenUI/theme/ThemeManager.h"
 #include "YuchenUI/core/Assert.h"
+#include "YuchenUI/core/Validation.h"
 #include "YuchenUI/core/UIContext.h"
 
 #include <algorithm>
@@ -11,7 +11,7 @@
 namespace YuchenUI {
 
 ScrollArea::ScrollArea(const Rect& bounds)
-    : Widget(bounds)
+    : UIComponent()
     , m_contentSize()
     , m_scrollX(0.0f)
     , m_scrollY(0.0f)
@@ -33,34 +33,43 @@ ScrollArea::ScrollArea(const Rect& bounds)
     , m_horizontalButtonLeftPressed(false)
     , m_horizontalButtonRightPressed(false)
 {
+    Validation::AssertRect(bounds);
+    setBounds(bounds);
+    setFocusPolicy(FocusPolicy::ClickFocus);
 }
 
-ScrollArea::~ScrollArea() {
+ScrollArea::~ScrollArea()
+{
 }
 
-void ScrollArea::setContentSize(const Vec2& size) {
+void ScrollArea::setContentSize(const Vec2& size)
+{
     YUCHEN_ASSERT(size.x >= 0.0f && size.y >= 0.0f);
     m_contentSize = size;
     clampScroll();
 }
 
-void ScrollArea::setScrollOffset(const Vec2& offset) {
+void ScrollArea::setScrollOffset(const Vec2& offset)
+{
     m_scrollX = offset.x;
     m_scrollY = offset.y;
     clampScroll();
 }
 
-void ScrollArea::setScrollX(float x) {
+void ScrollArea::setScrollX(float x)
+{
     m_scrollX = x;
     clampScroll();
 }
 
-void ScrollArea::setScrollY(float y) {
+void ScrollArea::setScrollY(float y)
+{
     m_scrollY = y;
     clampScroll();
 }
 
-bool ScrollArea::scrollRectIntoView(const Rect& rect) {
+bool ScrollArea::scrollRectIntoView(const Rect& rect)
+{
     Rect contentArea = getContentArea();
     Vec2 scrollOffset = getScrollOffset();
     
@@ -68,23 +77,30 @@ bool ScrollArea::scrollRectIntoView(const Rect& rect) {
     float scrollY = scrollOffset.y;
     bool needsScroll = false;
     
-    if (rect.y < scrollY) {
+    if (rect.y < scrollY)
+    {
         scrollY = rect.y;
         needsScroll = true;
-    } else if (rect.y + rect.height > scrollY + contentArea.height) {
+    }
+    else if (rect.y + rect.height > scrollY + contentArea.height)
+    {
         scrollY = rect.y + rect.height - contentArea.height;
         needsScroll = true;
     }
     
-    if (rect.x < scrollX) {
+    if (rect.x < scrollX)
+    {
         scrollX = rect.x;
         needsScroll = true;
-    } else if (rect.x + rect.width > scrollX + contentArea.width) {
+    }
+    else if (rect.x + rect.width > scrollX + contentArea.width)
+    {
         scrollX = rect.x + rect.width - contentArea.width;
         needsScroll = true;
     }
     
-    if (needsScroll) {
+    if (needsScroll)
+    {
         setScrollOffset(Vec2(scrollX, scrollY));
         return true;
     }
@@ -92,25 +108,30 @@ bool ScrollArea::scrollRectIntoView(const Rect& rect) {
     return false;
 }
 
-Rect ScrollArea::getVisibleContentArea() const {
+Rect ScrollArea::getVisibleContentArea() const
+{
     return getContentArea();
 }
 
-Rect ScrollArea::getContentArea() const {
+Rect ScrollArea::getContentArea() const
+{
     float width = m_bounds.width;
     float height = m_bounds.height;
     
-    if (m_showVerticalScrollbar && m_contentSize.y > height) {
+    if (m_showVerticalScrollbar && m_contentSize.y > height)
+    {
         width -= SCROLLBAR_WIDTH;
     }
-    if (m_showHorizontalScrollbar && m_contentSize.x > width) {
+    if (m_showHorizontalScrollbar && m_contentSize.x > width)
+    {
         height -= SCROLLBAR_WIDTH;
     }
     
     return Rect(0, 0, std::max(0.0f, width), std::max(0.0f, height));
 }
 
-Rect ScrollArea::getVerticalScrollbarRect(const Vec2& absPos) const {
+Rect ScrollArea::getVerticalScrollbarRect(const Vec2& absPos) const
+{
     Rect contentArea = getContentArea();
     bool needsScrolling = (m_contentSize.y > contentArea.height);
     float mainScrollbarHeight = needsScrolling ? contentArea.height - BUTTONS_TOTAL_SIZE : contentArea.height;
@@ -123,7 +144,8 @@ Rect ScrollArea::getVerticalScrollbarRect(const Vec2& absPos) const {
     );
 }
 
-Rect ScrollArea::getHorizontalScrollbarRect(const Vec2& absPos) const {
+Rect ScrollArea::getHorizontalScrollbarRect(const Vec2& absPos) const
+{
     Rect contentArea = getContentArea();
     bool needsScrolling = (m_contentSize.x > contentArea.width);
     float mainScrollbarWidth = needsScrolling ? contentArea.width - BUTTONS_TOTAL_SIZE : contentArea.width;
@@ -136,11 +158,13 @@ Rect ScrollArea::getHorizontalScrollbarRect(const Vec2& absPos) const {
     );
 }
 
-Rect ScrollArea::getVerticalThumbRect(const Vec2& absPos) const {
+Rect ScrollArea::getVerticalThumbRect(const Vec2& absPos) const
+{
     Rect scrollbarRect = getVerticalScrollbarRect(absPos);
     Rect contentArea = getContentArea();
     
-    if (m_contentSize.y <= contentArea.height) {
+    if (m_contentSize.y <= contentArea.height)
+    {
         return Rect();
     }
     
@@ -162,11 +186,13 @@ Rect ScrollArea::getVerticalThumbRect(const Vec2& absPos) const {
     );
 }
 
-Rect ScrollArea::getHorizontalThumbRect(const Vec2& absPos) const {
+Rect ScrollArea::getHorizontalThumbRect(const Vec2& absPos) const
+{
     Rect scrollbarRect = getHorizontalScrollbarRect(absPos);
     Rect contentArea = getContentArea();
     
-    if (m_contentSize.x <= contentArea.width) {
+    if (m_contentSize.x <= contentArea.width)
+    {
         return Rect();
     }
     
@@ -188,7 +214,8 @@ Rect ScrollArea::getHorizontalThumbRect(const Vec2& absPos) const {
     );
 }
 
-Rect ScrollArea::getVerticalButtonUpRect(const Vec2& absPos) const {
+Rect ScrollArea::getVerticalButtonUpRect(const Vec2& absPos) const
+{
     Rect contentArea = getContentArea();
     Rect scrollbarRect = getVerticalScrollbarRect(absPos);
     
@@ -200,7 +227,8 @@ Rect ScrollArea::getVerticalButtonUpRect(const Vec2& absPos) const {
     );
 }
 
-Rect ScrollArea::getVerticalButtonDownRect(const Vec2& absPos) const {
+Rect ScrollArea::getVerticalButtonDownRect(const Vec2& absPos) const
+{
     Rect buttonUpRect = getVerticalButtonUpRect(absPos);
     
     return Rect(
@@ -211,7 +239,8 @@ Rect ScrollArea::getVerticalButtonDownRect(const Vec2& absPos) const {
     );
 }
 
-Rect ScrollArea::getHorizontalButtonLeftRect(const Vec2& absPos) const {
+Rect ScrollArea::getHorizontalButtonLeftRect(const Vec2& absPos) const
+{
     Rect contentArea = getContentArea();
     Rect scrollbarRect = getHorizontalScrollbarRect(absPos);
     
@@ -223,7 +252,8 @@ Rect ScrollArea::getHorizontalButtonLeftRect(const Vec2& absPos) const {
     );
 }
 
-Rect ScrollArea::getHorizontalButtonRightRect(const Vec2& absPos) const {
+Rect ScrollArea::getHorizontalButtonRightRect(const Vec2& absPos) const
+{
     Rect buttonLeftRect = getHorizontalButtonLeftRect(absPos);
     
     return Rect(
@@ -234,13 +264,13 @@ Rect ScrollArea::getHorizontalButtonRightRect(const Vec2& absPos) const {
     );
 }
 
-void ScrollArea::addDrawCommands(RenderList& commandList, const Vec2& offset) const {
+void ScrollArea::addDrawCommands(RenderList& commandList, const Vec2& offset) const
+{
     if (!m_isVisible) return;
     
     Vec2 absPos(m_bounds.x + offset.x, m_bounds.y + offset.y);
     Rect contentArea = getContentArea();
     
-    // Get style via UIContext instead of deprecated singleton
     UIStyle* style = m_ownerContext ? m_ownerContext->getCurrentStyle() : nullptr;
     YUCHEN_ASSERT(style);
     Vec4 backgroundColor = style->getDefaultScrollAreaBackground();
@@ -259,20 +289,23 @@ void ScrollArea::addDrawCommands(RenderList& commandList, const Vec2& offset) co
     renderScrollbars(commandList, absPos);
 }
 
-void ScrollArea::renderScrollbars(RenderList& commandList, const Vec2& absPos) const {
+void ScrollArea::renderScrollbars(RenderList& commandList, const Vec2& absPos) const
+{
     Rect contentArea = getContentArea();
     
-    if (m_showVerticalScrollbar && m_contentSize.y > contentArea.height) {
+    if (m_showVerticalScrollbar && m_contentSize.y > contentArea.height)
+    {
         renderVerticalScrollbar(commandList, absPos);
     }
     
-    if (m_showHorizontalScrollbar && m_contentSize.x > contentArea.width) {
+    if (m_showHorizontalScrollbar && m_contentSize.x > contentArea.width)
+    {
         renderHorizontalScrollbar(commandList, absPos);
     }
 }
 
-void ScrollArea::renderVerticalScrollbar(RenderList& commandList, const Vec2& absPos) const {
-    // Get style via UIContext instead of deprecated singleton
+void ScrollArea::renderVerticalScrollbar(RenderList& commandList, const Vec2& absPos) const
+{
     UIStyle* style = m_ownerContext ? m_ownerContext->getCurrentStyle() : nullptr;
     YUCHEN_ASSERT(style);
     
@@ -283,7 +316,8 @@ void ScrollArea::renderVerticalScrollbar(RenderList& commandList, const Vec2& ab
     style->drawScrollbarTrack(trackInfo, commandList);
     
     Rect thumbRect = getVerticalThumbRect(absPos);
-    if (thumbRect.isValid() && thumbRect.height > 0.0f) {
+    if (thumbRect.isValid() && thumbRect.height > 0.0f)
+    {
         ScrollbarThumbDrawInfo thumbInfo;
         thumbInfo.bounds = thumbRect;
         thumbInfo.orientation = ScrollbarOrientation::Vertical;
@@ -311,8 +345,8 @@ void ScrollArea::renderVerticalScrollbar(RenderList& commandList, const Vec2& ab
     style->drawScrollbarButton(buttonDownInfo, commandList);
 }
 
-void ScrollArea::renderHorizontalScrollbar(RenderList& commandList, const Vec2& absPos) const {
-    // Get style via UIContext instead of deprecated singleton
+void ScrollArea::renderHorizontalScrollbar(RenderList& commandList, const Vec2& absPos) const
+{
     UIStyle* style = m_ownerContext ? m_ownerContext->getCurrentStyle() : nullptr;
     YUCHEN_ASSERT(style);
     
@@ -323,7 +357,8 @@ void ScrollArea::renderHorizontalScrollbar(RenderList& commandList, const Vec2& 
     style->drawScrollbarTrack(trackInfo, commandList);
     
     Rect thumbRect = getHorizontalThumbRect(absPos);
-    if (thumbRect.isValid() && thumbRect.width > 0.0f) {
+    if (thumbRect.isValid() && thumbRect.width > 0.0f)
+    {
         ScrollbarThumbDrawInfo thumbInfo;
         thumbInfo.bounds = thumbRect;
         thumbInfo.orientation = ScrollbarOrientation::Horizontal;
@@ -351,7 +386,8 @@ void ScrollArea::renderHorizontalScrollbar(RenderList& commandList, const Vec2& 
     style->drawScrollbarButton(buttonRightInfo, commandList);
 }
 
-bool ScrollArea::handleMouseWheel(const Vec2& delta, const Vec2& position, const Vec2& offset) {
+bool ScrollArea::handleMouseWheel(const Vec2& delta, const Vec2& position, const Vec2& offset)
+{
     if (!m_isEnabled || !m_isVisible) return false;
     
     Vec2 absPos(m_bounds.x + offset.x, m_bounds.y + offset.y);
@@ -368,7 +404,8 @@ bool ScrollArea::handleMouseWheel(const Vec2& delta, const Vec2& position, const
     return true;
 }
 
-bool ScrollArea::handleMouseMove(const Vec2& position, const Vec2& offset) {
+bool ScrollArea::handleMouseMove(const Vec2& position, const Vec2& offset)
+{
     if (!m_isEnabled || !m_isVisible) return false;
     
     Vec2 absPos(m_bounds.x + offset.x, m_bounds.y + offset.y);
@@ -384,42 +421,56 @@ bool ScrollArea::handleMouseMove(const Vec2& position, const Vec2& offset) {
     m_horizontalButtonLeftHovered = false;
     m_horizontalButtonRightHovered = false;
     
-    if (needsVerticalScrolling) {
+    if (needsVerticalScrolling)
+    {
         Rect vThumb = getVerticalThumbRect(absPos);
         Rect buttonUp = getVerticalButtonUpRect(absPos);
         Rect buttonDown = getVerticalButtonDownRect(absPos);
         
-        if (vThumb.isValid() && vThumb.contains(position)) {
+        if (vThumb.isValid() && vThumb.contains(position))
+        {
             m_verticalThumbHovered = true;
-        } else if (buttonUp.contains(position)) {
+        }
+        else if (buttonUp.contains(position))
+        {
             m_verticalButtonUpHovered = true;
-        } else if (buttonDown.contains(position)) {
+        }
+        else if (buttonDown.contains(position))
+        {
             m_verticalButtonDownHovered = true;
         }
     }
     
-    if (needsHorizontalScrolling) {
+    if (needsHorizontalScrolling)
+    {
         Rect hThumb = getHorizontalThumbRect(absPos);
         Rect buttonLeft = getHorizontalButtonLeftRect(absPos);
         Rect buttonRight = getHorizontalButtonRightRect(absPos);
         
-        if (hThumb.isValid() && hThumb.contains(position)) {
+        if (hThumb.isValid() && hThumb.contains(position))
+        {
             m_horizontalThumbHovered = true;
-        } else if (buttonLeft.contains(position)) {
+        }
+        else if (buttonLeft.contains(position))
+        {
             m_horizontalButtonLeftHovered = true;
-        } else if (buttonRight.contains(position)) {
+        }
+        else if (buttonRight.contains(position))
+        {
             m_horizontalButtonRightHovered = true;
         }
     }
     
-    if (m_dragMode == DragMode::VerticalThumb) {
+    if (m_dragMode == DragMode::VerticalThumb)
+    {
         Rect scrollbarRect = getVerticalScrollbarRect(absPos);
         Rect thumbRect = getVerticalThumbRect(absPos);
         
         float maxThumbPos = scrollbarRect.height - thumbRect.height;
         float maxScroll = m_contentSize.y - contentArea.height;
         
-        if (maxThumbPos > 0.0f && maxScroll > 0.0f) {
+        if (maxThumbPos > 0.0f && maxScroll > 0.0f)
+        {
             float deltaY = position.y - m_dragStartPos.y;
             float scrollChange = (deltaY / maxThumbPos) * maxScroll;
             m_scrollY = m_dragStartScroll.y + scrollChange;
@@ -427,14 +478,16 @@ bool ScrollArea::handleMouseMove(const Vec2& position, const Vec2& offset) {
         }
         return true;
     }
-    else if (m_dragMode == DragMode::HorizontalThumb) {
+    else if (m_dragMode == DragMode::HorizontalThumb)
+    {
         Rect scrollbarRect = getHorizontalScrollbarRect(absPos);
         Rect thumbRect = getHorizontalThumbRect(absPos);
         
         float maxThumbPos = scrollbarRect.width - thumbRect.width;
         float maxScroll = m_contentSize.x - contentArea.width;
         
-        if (maxThumbPos > 0.0f && maxScroll > 0.0f) {
+        if (maxThumbPos > 0.0f && maxScroll > 0.0f)
+        {
             float deltaX = position.x - m_dragStartPos.x;
             float scrollChange = (deltaX / maxThumbPos) * maxScroll;
             m_scrollX = m_dragStartScroll.x + scrollChange;
@@ -442,8 +495,10 @@ bool ScrollArea::handleMouseMove(const Vec2& position, const Vec2& offset) {
         }
         return true;
     }
-    else if (m_dragMode == DragMode::Content) {
-        if (m_autoScrollEnabled) {
+    else if (m_dragMode == DragMode::Content)
+    {
+        if (m_autoScrollEnabled)
+        {
             handleAutoScroll(position, offset);
         }
         return true;
@@ -451,10 +506,13 @@ bool ScrollArea::handleMouseMove(const Vec2& position, const Vec2& offset) {
     
     Rect absContentRect(absPos.x, absPos.y, contentArea.width, contentArea.height);
     
-    if (absContentRect.contains(position)) {
+    if (absContentRect.contains(position))
+    {
         Vec2 contentPos = transformToContentCoords(position, offset);
-        for (auto it = m_children.rbegin(); it != m_children.rend(); ++it) {
-            if ((*it) && (*it)->isVisible() && (*it)->handleMouseMove(contentPos, Vec2())) {
+        for (auto it = m_ownedChildren.rbegin(); it != m_ownedChildren.rend(); ++it)
+        {
+            if ((*it) && (*it)->isVisible() && (*it)->handleMouseMove(contentPos, Vec2()))
+            {
                 return true;
             }
         }
@@ -463,14 +521,17 @@ bool ScrollArea::handleMouseMove(const Vec2& position, const Vec2& offset) {
     return false;
 }
 
-bool ScrollArea::handleMouseClick(const Vec2& position, bool pressed, const Vec2& offset) {
+bool ScrollArea::handleMouseClick(const Vec2& position, bool pressed, const Vec2& offset)
+{
     if (!m_isEnabled || !m_isVisible) return false;
     
     Vec2 absPos(m_bounds.x + offset.x, m_bounds.y + offset.y);
     Rect absRect(absPos.x, absPos.y, m_bounds.width, m_bounds.height);
     
-    if (!pressed) {
-        if (m_dragMode != DragMode::None) {
+    if (!pressed)
+    {
+        if (m_dragMode != DragMode::None)
+        {
             releaseMouse();
             m_dragMode = DragMode::None;
         }
@@ -479,23 +540,28 @@ bool ScrollArea::handleMouseClick(const Vec2& position, bool pressed, const Vec2
         m_horizontalButtonLeftPressed = false;
         m_horizontalButtonRightPressed = false;
         
-        if (absRect.contains(position)) {
+        if (absRect.contains(position))
+        {
             return true;
         }
         return false;
     }
     
-    if (!absRect.contains(position)) {
+    if (!absRect.contains(position))
+    {
         return false;
     }
     
-    if (handleScrollbarInteraction(position, pressed, offset)) {
-        if (m_dragMode == DragMode::Content) {
+    if (handleScrollbarInteraction(position, pressed, offset))
+    {
+        if (m_dragMode == DragMode::Content)
+        {
             releaseMouse();
             m_dragMode = DragMode::None;
         }
         
-        if (pressed && m_dragMode != DragMode::None) {
+        if (pressed && m_dragMode != DragMode::None)
+        {
             captureMouse();
         }
         return true;
@@ -504,40 +570,51 @@ bool ScrollArea::handleMouseClick(const Vec2& position, bool pressed, const Vec2
     Rect contentArea = getContentArea();
     Rect absContentRect(absPos.x, absPos.y, contentArea.width, contentArea.height);
     
-    if (absContentRect.contains(position)) {
+    if (absContentRect.contains(position))
+    {
         Vec2 contentPos = transformToContentCoords(position, offset);
         
-        for (auto it = m_children.rbegin(); it != m_children.rend(); ++it) {
-            if ((*it) && (*it)->isVisible() && (*it)->handleMouseClick(contentPos, pressed, Vec2())) {
+        for (auto it = m_ownedChildren.rbegin(); it != m_ownedChildren.rend(); ++it)
+        {
+            if ((*it) && (*it)->isVisible() && (*it)->handleMouseClick(contentPos, pressed, Vec2()))
+            {
                 return true;
             }
         }
         
-        if (pressed) {
+        if (pressed)
+        {
+            if (acceptsClickFocus()) setFocus(FocusReason::MouseFocusReason);
+            
             m_dragMode = DragMode::Content;
             m_dragStartPos = position;
             m_dragStartScroll = Vec2(m_scrollX, m_scrollY);
             captureMouse();
         }
     }
+
     
     return false;
 }
 
-bool ScrollArea::handleScrollbarInteraction(const Vec2& position, bool pressed, const Vec2& offset) {
+bool ScrollArea::handleScrollbarInteraction(const Vec2& position, bool pressed, const Vec2& offset)
+{
     Vec2 absPos(m_bounds.x + offset.x, m_bounds.y + offset.y);
     Rect contentArea = getContentArea();
     
     bool needsVerticalScrolling = (m_contentSize.y > contentArea.height);
     bool needsHorizontalScrolling = (m_contentSize.x > contentArea.width);
     
-    if (!pressed) {
+    if (!pressed)
+    {
         return false;
     }
     
-    if (needsVerticalScrolling) {
+    if (needsVerticalScrolling)
+    {
         Rect vThumb = getVerticalThumbRect(absPos);
-        if (vThumb.isValid() && vThumb.contains(position)) {
+        if (vThumb.isValid() && vThumb.contains(position))
+        {
             m_dragMode = DragMode::VerticalThumb;
             m_dragStartPos = position;
             m_dragStartScroll = Vec2(m_scrollX, m_scrollY);
@@ -545,7 +622,8 @@ bool ScrollArea::handleScrollbarInteraction(const Vec2& position, bool pressed, 
         }
         
         Rect buttonUp = getVerticalButtonUpRect(absPos);
-        if (buttonUp.contains(position)) {
+        if (buttonUp.contains(position))
+        {
             m_verticalButtonUpPressed = true;
             m_scrollY -= contentArea.height * 0.1f;
             clampScroll();
@@ -553,7 +631,8 @@ bool ScrollArea::handleScrollbarInteraction(const Vec2& position, bool pressed, 
         }
         
         Rect buttonDown = getVerticalButtonDownRect(absPos);
-        if (buttonDown.contains(position)) {
+        if (buttonDown.contains(position))
+        {
             m_verticalButtonDownPressed = true;
             m_scrollY += contentArea.height * 0.1f;
             clampScroll();
@@ -562,7 +641,8 @@ bool ScrollArea::handleScrollbarInteraction(const Vec2& position, bool pressed, 
         
         Rect vScrollbar = getVerticalScrollbarRect(absPos);
         Rect scrollbarInteractionRect(vScrollbar.x, vScrollbar.y, vScrollbar.width, vScrollbar.height);
-        if (scrollbarInteractionRect.contains(position)) {
+        if (scrollbarInteractionRect.contains(position))
+        {
             float clickRatio = (position.y - scrollbarInteractionRect.y) / scrollbarInteractionRect.height;
             float maxScroll = m_contentSize.y - contentArea.height;
             m_scrollY = clickRatio * maxScroll;
@@ -571,9 +651,11 @@ bool ScrollArea::handleScrollbarInteraction(const Vec2& position, bool pressed, 
         }
     }
     
-    if (needsHorizontalScrolling) {
+    if (needsHorizontalScrolling)
+    {
         Rect hThumb = getHorizontalThumbRect(absPos);
-        if (hThumb.isValid() && hThumb.contains(position)) {
+        if (hThumb.isValid() && hThumb.contains(position))
+        {
             m_dragMode = DragMode::HorizontalThumb;
             m_dragStartPos = position;
             m_dragStartScroll = Vec2(m_scrollX, m_scrollY);
@@ -581,7 +663,8 @@ bool ScrollArea::handleScrollbarInteraction(const Vec2& position, bool pressed, 
         }
         
         Rect buttonLeft = getHorizontalButtonLeftRect(absPos);
-        if (buttonLeft.contains(position)) {
+        if (buttonLeft.contains(position))
+        {
             m_horizontalButtonLeftPressed = true;
             m_scrollX -= contentArea.width * 0.1f;
             clampScroll();
@@ -589,7 +672,8 @@ bool ScrollArea::handleScrollbarInteraction(const Vec2& position, bool pressed, 
         }
         
         Rect buttonRight = getHorizontalButtonRightRect(absPos);
-        if (buttonRight.contains(position)) {
+        if (buttonRight.contains(position))
+        {
             m_horizontalButtonRightPressed = true;
             m_scrollX += contentArea.width * 0.1f;
             clampScroll();
@@ -598,7 +682,8 @@ bool ScrollArea::handleScrollbarInteraction(const Vec2& position, bool pressed, 
         
         Rect hScrollbar = getHorizontalScrollbarRect(absPos);
         Rect scrollbarInteractionRect(hScrollbar.x, hScrollbar.y, hScrollbar.width, hScrollbar.height);
-        if (scrollbarInteractionRect.contains(position)) {
+        if (scrollbarInteractionRect.contains(position))
+        {
             float clickRatio = (position.x - scrollbarInteractionRect.x) / scrollbarInteractionRect.width;
             float maxScroll = m_contentSize.x - contentArea.width;
             m_scrollX = clickRatio * maxScroll;
@@ -610,7 +695,8 @@ bool ScrollArea::handleScrollbarInteraction(const Vec2& position, bool pressed, 
     return false;
 }
 
-bool ScrollArea::handleAutoScroll(const Vec2& position, const Vec2& offset) {
+bool ScrollArea::handleAutoScroll(const Vec2& position, const Vec2& offset)
+{
     Vec2 absPos(m_bounds.x + offset.x, m_bounds.y + offset.y);
     Rect contentArea = getContentArea();
     Rect absContentRect(absPos.x, absPos.y, contentArea.width, contentArea.height);
@@ -618,25 +704,30 @@ bool ScrollArea::handleAutoScroll(const Vec2& position, const Vec2& offset) {
     float scrollSpeedX = 0.0f;
     float scrollSpeedY = 0.0f;
     
-    if (position.y < absContentRect.y + AUTO_SCROLL_TRIGGER_ZONE) {
+    if (position.y < absContentRect.y + AUTO_SCROLL_TRIGGER_ZONE)
+    {
         float dist = absContentRect.y + AUTO_SCROLL_TRIGGER_ZONE - position.y;
         scrollSpeedY = -m_autoScrollSpeed * (dist / AUTO_SCROLL_TRIGGER_ZONE);
     }
-    else if (position.y > absContentRect.y + absContentRect.height - AUTO_SCROLL_TRIGGER_ZONE) {
+    else if (position.y > absContentRect.y + absContentRect.height - AUTO_SCROLL_TRIGGER_ZONE)
+    {
         float dist = position.y - (absContentRect.y + absContentRect.height - AUTO_SCROLL_TRIGGER_ZONE);
         scrollSpeedY = m_autoScrollSpeed * (dist / AUTO_SCROLL_TRIGGER_ZONE);
     }
     
-    if (position.x < absContentRect.x + AUTO_SCROLL_TRIGGER_ZONE) {
+    if (position.x < absContentRect.x + AUTO_SCROLL_TRIGGER_ZONE)
+    {
         float dist = absContentRect.x + AUTO_SCROLL_TRIGGER_ZONE - position.x;
         scrollSpeedX = -m_autoScrollSpeed * (dist / AUTO_SCROLL_TRIGGER_ZONE);
     }
-    else if (position.x > absContentRect.x + absContentRect.width - AUTO_SCROLL_TRIGGER_ZONE) {
+    else if (position.x > absContentRect.x + absContentRect.width - AUTO_SCROLL_TRIGGER_ZONE)
+    {
         float dist = position.x - (absContentRect.x + absContentRect.width - AUTO_SCROLL_TRIGGER_ZONE);
         scrollSpeedX = m_autoScrollSpeed * (dist / AUTO_SCROLL_TRIGGER_ZONE);
     }
     
-    if (scrollSpeedX != 0.0f || scrollSpeedY != 0.0f) {
+    if (scrollSpeedX != 0.0f || scrollSpeedY != 0.0f)
+    {
         float deltaTime = 1.0f / 60.0f;
         m_scrollX += scrollSpeedX * deltaTime;
         m_scrollY += scrollSpeedY * deltaTime;
@@ -647,7 +738,8 @@ bool ScrollArea::handleAutoScroll(const Vec2& position, const Vec2& offset) {
     return false;
 }
 
-void ScrollArea::clampScroll() {
+void ScrollArea::clampScroll()
+{
     Rect contentArea = getContentArea();
     
     float maxScrollX = std::max(0.0f, m_contentSize.x - contentArea.width);
@@ -657,7 +749,8 @@ void ScrollArea::clampScroll() {
     m_scrollY = std::clamp(m_scrollY, 0.0f, maxScrollY);
 }
 
-Vec2 ScrollArea::transformToContentCoords(const Vec2& screenPos, const Vec2& offset) const {
+Vec2 ScrollArea::transformToContentCoords(const Vec2& screenPos, const Vec2& offset) const
+{
     Vec2 absPos(m_bounds.x + offset.x, m_bounds.y + offset.y);
     return Vec2(
         screenPos.x - absPos.x + m_scrollX,
@@ -665,4 +758,4 @@ Vec2 ScrollArea::transformToContentCoords(const Vec2& screenPos, const Vec2& off
     );
 }
 
-}
+} // namespace YuchenUI

@@ -8,9 +8,8 @@
 class MainWindowContent;
 class ConfirmationDialogContent;
 class InspectorWindowContent;
-class MixerWindowContent;  // 新增：混音器窗口前向声明
+class MixerWindowContent;
 
-// Demo应用程序类，管理业务逻辑
 class DemoApplication {
 public:
    DemoApplication();
@@ -23,21 +22,20 @@ public:
    static DemoApplication* getInstance() { return s_instance; }
    static void setInstance(DemoApplication* instance) { s_instance = instance; }
    
-   // 获取框架Application实例
    YuchenUI::Application& getFrameworkApp() { return m_frameworkApp; }
 
 private:
    bool createMainWindow();
 
    void onShowLevelMeterClick();
-   void onShowMixerClick();        // 新增：混音器按钮回调
+   void onShowMixerClick();
    void onShowDialogClick();
    void onToggleThemeClick();
    
    YuchenUI::Application m_frameworkApp;
    YuchenUI::BaseWindow* m_mainWindow;
    YuchenUI::BaseWindow* m_levelMeterWindow;
-   YuchenUI::BaseWindow* m_mixerWindow;    // 新增：混音器窗口指针
+   YuchenUI::BaseWindow* m_mixerWindow;
    
    bool m_isDarkTheme;
 
@@ -73,32 +71,32 @@ private:
    
    std::unique_ptr<YuchenUI::TextLabel> m_titleLabel;
    std::unique_ptr<YuchenUI::Button> m_levelMeterButton;
-   std::unique_ptr<YuchenUI::Button> m_mixerButton;        // 新增：混音器按钮
+   std::unique_ptr<YuchenUI::Button> m_mixerButton;
    std::unique_ptr<YuchenUI::Button> m_dialogButton;
    std::unique_ptr<YuchenUI::Button> m_themeButton;
    
    std::unique_ptr<YuchenUI::GroupBox> m_comboBoxGroupBox;
-   std::unique_ptr<YuchenUI::TextLabel> m_comboResultLabel;
+   YuchenUI::TextLabel* m_comboResultLabel;
    YuchenUI::ComboBox* m_deviceComboBox;
    YuchenUI::ComboBox* m_sampleRateComboBox;
    
    std::unique_ptr<YuchenUI::GroupBox> m_spinBoxGroupBox;
-   std::unique_ptr<YuchenUI::TextLabel> m_spinBoxResultLabel;
+   YuchenUI::TextLabel* m_spinBoxResultLabel;
    
    std::unique_ptr<YuchenUI::GroupBox> m_textInputGroupBox;
    
    std::unique_ptr<YuchenUI::GroupBox> m_checkBoxGroupBox;
-   std::unique_ptr<YuchenUI::TextLabel> m_checkBoxResultLabel;
+   YuchenUI::TextLabel* m_checkBoxResultLabel;
    
    std::unique_ptr<YuchenUI::GroupBox> m_radioButtonGroupBox;
-   std::unique_ptr<YuchenUI::TextLabel> m_radioButtonResultLabel;
+   YuchenUI::TextLabel* m_radioButtonResultLabel;
    std::unique_ptr<YuchenUI::RadioButtonGroup> m_radioGroup;
    
    std::unique_ptr<YuchenUI::GroupBox> m_scrollGroupBox;
    YuchenUI::ScrollArea* m_scrollArea;
    
    std::unique_ptr<YuchenUI::GroupBox> m_knobGroupBox;
-   std::unique_ptr<YuchenUI::TextLabel> m_knobResultLabel;
+   YuchenUI::TextLabel* m_knobResultLabel;
    YuchenUI::Knob* m_volumeKnob;
    YuchenUI::Knob* m_panKnob;
    YuchenUI::Knob* m_filterKnob;
@@ -147,14 +145,18 @@ private:
    
    std::unique_ptr<YuchenUI::TextLabel> m_titleLabel;
    std::unique_ptr<YuchenUI::LevelMeter> m_levelMeter;
-   std::unique_ptr<YuchenUI::GroupBox> m_controlGroupBox;
-   std::unique_ptr<YuchenUI::Button> m_startStopButton;
-   std::unique_ptr<YuchenUI::Button> m_resetButton;
-   std::unique_ptr<YuchenUI::Button> m_channelButton;
-   std::unique_ptr<YuchenUI::Button> m_scaleButton;
-   std::unique_ptr<YuchenUI::TextLabel> m_statusLabel;
    
-   // 状态变量
+   std::unique_ptr<YuchenUI::Fader> m_testFader;
+   std::unique_ptr<YuchenUI::TextLabel> m_faderValueLabel;
+    std::unique_ptr<YuchenUI::TextLabel> m_instructionLabel;
+
+   std::unique_ptr<YuchenUI::GroupBox> m_controlGroupBox;
+   YuchenUI::Button* m_startStopButton;
+   YuchenUI::Button* m_resetButton;
+   YuchenUI::Button* m_channelButton;
+   YuchenUI::Button* m_scaleButton;
+   YuchenUI::TextLabel* m_statusLabel;
+   
    bool m_isRunning;
    size_t m_currentChannelCount;
    YuchenUI::ScaleType m_currentScaleType;

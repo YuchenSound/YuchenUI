@@ -56,9 +56,6 @@ public:
     
     void setChangeCallback(TextInputChangeCallback callback);
     void setSubmitCallback(TextInputSubmitCallback callback);
-    
-    void setBounds(const Rect& bounds);
-    const Rect& getBounds() const override { return m_bounds; }
 
     void setFontSize(float fontSize);
     float getFontSize() const { return m_fontSize; }
@@ -132,7 +129,6 @@ private:
     bool m_showCursor;
     float m_cursorBlinkTimer;
     
-    Rect m_bounds;
     float m_fontSize;
     Vec4 m_textColor;
     bool m_hasCustomTextColor;

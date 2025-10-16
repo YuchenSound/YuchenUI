@@ -39,7 +39,6 @@ namespace YuchenUI {
 
 Image::Image(const Rect& bounds)
     : m_resourceIdentifier()
-    , m_bounds(bounds)
     , m_scaleMode(ScaleMode::Stretch)
     , m_nineSliceMargins()
     , m_frameCount(1)
@@ -48,6 +47,7 @@ Image::Image(const Rect& bounds)
     , m_currentFrame(0)
 {
     Validation::AssertRect(bounds);
+    setBounds(bounds);
 }
 
 Image::~Image()
@@ -110,12 +110,6 @@ void Image::setNineSliceMargins(const NineSliceMargins& margins)
 {
     YUCHEN_ASSERT(margins.isValid());
     m_nineSliceMargins = margins;
-}
-
-void Image::setBounds(const Rect& bounds)
-{
-    Validation::AssertRect(bounds);
-    m_bounds = bounds;
 }
 
 //==========================================================================================

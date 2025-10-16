@@ -74,10 +74,6 @@ public:
     
     //======================================================================================
     // Layout API
-    
-    void setBounds(const Rect& bounds);
-    const Rect& getBounds() const override { return m_bounds; }
-    
     void setAlignment(TextAlignment horizontal, VerticalAlignment vertical);
     void setHorizontalAlignment(TextAlignment alignment);
     void setVerticalAlignment(VerticalAlignment alignment);
@@ -96,7 +92,6 @@ private:
     FontFallbackChain m_fontChain;
     float m_fontSize;
     Vec4 m_textColor;
-    Rect m_bounds;
     TextAlignment m_horizontalAlignment;
     VerticalAlignment m_verticalAlignment;
     float m_paddingLeft;

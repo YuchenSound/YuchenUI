@@ -13,7 +13,6 @@ TextLabel::TextLabel(const Rect& bounds)
     , m_fontChain()
     , m_fontSize(Config::Font::DEFAULT_SIZE)
     , m_textColor()
-    , m_bounds(bounds)
     , m_horizontalAlignment(TextAlignment::Left)
     , m_verticalAlignment(VerticalAlignment::Top)
     , m_paddingLeft(Config::Text::DEFAULT_PADDING)
@@ -24,6 +23,7 @@ TextLabel::TextLabel(const Rect& bounds)
     , m_hasCustomTextColor(false)
 {
     Validation::AssertRect(bounds);
+    setBounds(bounds);
     YUCHEN_ASSERT(bounds.width >= 0.0f && bounds.height >= 0.0f);
 }
 
@@ -166,12 +166,6 @@ Vec4 TextLabel::getTextColor() const {
 void TextLabel::resetTextColor() {
     m_hasCustomTextColor = false;
     m_textColor = Vec4();
-}
-
-void TextLabel::setBounds(const Rect& bounds) {
-    if (Validation::ValidateRect(bounds) && bounds.width >= 0.0f && bounds.height >= 0.0f) {
-        m_bounds = bounds;
-    }
 }
 
 void TextLabel::setAlignment(TextAlignment horizontal, VerticalAlignment vertical) {

@@ -172,16 +172,6 @@ public:
     // Component interface
     
     /**
-        Sets component bounds.
-        
-        @param bounds  New bounds in logical pixels
-    */
-    void setBounds(const Rect& bounds);
-    
-    /** Returns component bounds. */
-    const Rect& getBounds() const override { return m_bounds; }
-    
-    /**
         Validates component configuration.
         
         @returns True if resource is set and configuration is valid
@@ -200,7 +190,6 @@ private:
     Rect calculateSourceRect() const;
     
     std::string m_resourceIdentifier;   ///< Resource path
-    Rect m_bounds;                      ///< Component bounds (logical pixels)
     ScaleMode m_scaleMode;              ///< Scaling mode
     NineSliceMargins m_nineSliceMargins; ///< Nine-slice margins
     

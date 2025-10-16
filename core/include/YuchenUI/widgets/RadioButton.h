@@ -36,9 +36,6 @@ public:
     Vec4 getTextColor() const;
     void resetTextColor();
     
-    void setBounds(const Rect& bounds);
-    const Rect& getBounds() const override { return m_bounds; }
-    
     void setCheckedCallback(RadioButtonCheckedCallback callback);
     
     void setGroup(RadioButtonGroup* group);
@@ -61,7 +58,6 @@ private:
     static constexpr float RADIO_SIZE = 14.0f;
     static constexpr float TEXT_SPACING = 6.0f;
     
-    Rect m_bounds;
     bool m_isChecked;
     std::string m_text;
     float m_fontSize;

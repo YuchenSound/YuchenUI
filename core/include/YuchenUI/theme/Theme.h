@@ -180,6 +180,12 @@ struct LevelMeterColors {
     Vec4 internalScalePeakInactive;
 };
 
+struct FaderColors {
+    Vec4 scaleColor;      ///< Scale label text color
+    Vec4 scaleLineColor;  ///< Major tick line color
+    Vec4 subScaleColor;   ///< Minor tick line color
+};
+
 class UIStyle {
 public:
     virtual ~UIStyle() = default;
@@ -213,7 +219,7 @@ public:
     virtual void setFontProvider(IFontProvider* provider) { m_fontProvider = provider; }
 
     virtual IFontProvider* getFontProvider() const;
-    
+    virtual FaderColors getFaderColors() const = 0;
     virtual LevelMeterColors getLevelMeterColors() const = 0;
 protected:
     IFontProvider* m_fontProvider = nullptr;
@@ -253,6 +259,7 @@ public:
     Vec4 getDefaultScrollAreaBackground() const override;
     LevelMeterColors getLevelMeterColors() const override;
     float getGroupBoxTitleBarHeight() const override;
+    FaderColors getFaderColors() const override;
 
 private:
     Vec4 m_uiTextEnabledColor;
@@ -296,6 +303,7 @@ public:
     Vec4 getDefaultScrollAreaBackground() const override;
     LevelMeterColors getLevelMeterColors() const override;
     float getGroupBoxTitleBarHeight() const override;
+    FaderColors getFaderColors() const override;
 
 private:
     Vec4 m_uiTextEnabledColor;

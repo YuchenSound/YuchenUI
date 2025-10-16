@@ -16,8 +16,7 @@
 namespace YuchenUI {
 
 SpinBox::SpinBox(const Rect& bounds)
-    : m_bounds(bounds)
-    , m_value(0.0)
+    : m_value(0.0)
     , m_minValue(-std::numeric_limits<double>::max())
     , m_maxValue(std::numeric_limits<double>::max())
     , m_step(1.0)
@@ -41,6 +40,7 @@ SpinBox::SpinBox(const Rect& bounds)
     , m_hasBackground(true)
 {
     Validation::AssertRect(bounds);
+    setBounds(bounds);
     setFocusPolicy(FocusPolicy::StrongFocus);
 }
 
@@ -287,11 +287,6 @@ void SpinBox::setSuffix(const std::string& suffix) {
 
 void SpinBox::setValueChangedCallback(SpinBoxValueChangedCallback callback) {
     m_valueChangedCallback = callback;
-}
-
-void SpinBox::setBounds(const Rect& bounds) {
-    Validation::AssertRect(bounds);
-    m_bounds = bounds;
 }
 
 void SpinBox::setFontSize(float fontSize) {

@@ -144,7 +144,7 @@ float ProtoolsClassicStyle::getGroupBoxTitleBarHeight() const    { return 20.0f;
 // [SECTION] - Push Button
 void ProtoolsClassicStyle::drawNormalButton(const ButtonDrawInfo& info, RenderList& cmdList)
 {
-    NineSliceMargins margins(4.0f, 4.0f, 4.0f, 4.0f);
+    NineSliceMargins margins(2.0f, 2.0f, 2.0f, 2.0f);
     cmdList.drawImage("components/buttons/btn_grey.png",info.bounds,ScaleMode::NineSlice,margins);
     if (!info.text.empty())
     {
@@ -161,7 +161,7 @@ void ProtoolsClassicStyle::drawNormalButton(const ButtonDrawInfo& info, RenderLi
 }
 void ProtoolsClassicStyle::drawPrimaryButton(const ButtonDrawInfo& info, RenderList& cmdList)
 {
-    NineSliceMargins margins(4.0f, 4.0f, 4.0f, 4.0f);
+    NineSliceMargins margins(2.0f, 2.0f, 2.0f, 2.0f);
     cmdList.drawImage("components/buttons/btn_blue.png",info.bounds,ScaleMode::NineSlice,margins);
     if (!info.text.empty())
     {
@@ -177,7 +177,7 @@ void ProtoolsClassicStyle::drawPrimaryButton(const ButtonDrawInfo& info, RenderL
 }
 void ProtoolsClassicStyle::drawDestructiveButton(const ButtonDrawInfo& info, RenderList &cmdList)
 {
-    NineSliceMargins margins(4.0f, 4.0f, 4.0f, 4.0f);
+    NineSliceMargins margins(2.0f, 2.0f, 2.0f, 2.0f);
     cmdList.drawImage("components/buttons/btn_red.png",info.bounds,ScaleMode::NineSlice,margins);
     if (!info.text.empty())
     {
@@ -301,7 +301,7 @@ void ProtoolsClassicStyle::drawSpinBox(const SpinBoxDrawInfo& info, RenderList& 
 void ProtoolsClassicStyle::drawComboBox(const ComboBoxDrawInfo& info, RenderList& cmdList)
 {
     static constexpr float TEXT_PADDING_LEFT  = 4.0f;
-    static constexpr float NINE_SLICE_MARGIN  = 4.0f;
+    static constexpr float NINE_SLICE_MARGIN  = 2.0f;
     static constexpr float ARROW_BASE_SIZE    = 7.0f;
     static constexpr float ARROW_HIGHT_SIZE   = 4.0f;
     static constexpr float ARROW_MARGIN_RIGHT = 3.0f;
@@ -416,4 +416,14 @@ LevelMeterColors ProtoolsClassicStyle::getLevelMeterColors() const
     return colors;
 }
 
+//==========================================================================================
+// [SECTION] - Fader
+FaderColors ProtoolsClassicStyle::getFaderColors() const
+{
+    FaderColors colors;
+    colors.scaleColor = Vec4::FromRGBA(255, 255, 255,178);
+    colors.scaleLineColor = Vec4::FromRGBA(30, 30, 30, 255);
+    colors.subScaleColor = Vec4::FromRGBA(30, 30, 30, 128);
+    return colors;
+}
 } // namespace YuchenUI

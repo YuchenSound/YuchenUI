@@ -5,7 +5,6 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-# Build type configuration
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Debug)
 endif()
@@ -16,43 +15,30 @@ if(MSVC)
     message(STATUS "[YuchenUI] MSVC UTF-8 encoding enabled")
 endif()
 
+file(GLOB_RECURSE DEMO_SOURCES
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/*.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/*.hpp"
+)
 
 if(APPLE)
-    set(DEMO_SOURCES
-        src/Application.cpp
-        src/MixerPanel/MixerWindow.cpp
-        src/MixerPanel/MixerWindow.h
-        src/main.cpp
-    )
-    
-    # Add Objective-C++ source file if exists
-    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/src/Application.mm")
-        list(APPEND DEMO_SOURCES src/Application.mm)
+    file(GLOB_RECURSE OBJCPP_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/*.mm")
+    if(OBJCPP_SOURCES)
+        list(APPEND DEMO_SOURCES ${OBJCPP_SOURCES})
     endif()
-    
-elseif(WIN32)
-    set(DEMO_SOURCES
-        src/Application.cpp
-        src/MixerPanel/MixerWindow.cpp
-        src/MixerPanel/MixerWindow.h
-        src/main.cpp
-    )
-    
-else()
+elseif(NOT WIN32)
     message(FATAL_ERROR "Unsupported platform! YuchenUI only supports macOS and Windows")
 endif()
 
 if(APPLE)
     add_executable(${PROJECT_NAME} MACOSX_BUNDLE ${DEMO_SOURCES})
     
-    # Objective-C++ compilation flags
-    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/src/Application.mm")
-        set_source_files_properties(src/Application.mm
+    if(OBJCPP_SOURCES)
+        set_source_files_properties(${OBJCPP_SOURCES}
             PROPERTIES COMPILE_FLAGS "-fobjc-arc -fobjc-exceptions"
         )
     endif()
     
-    # macOS Bundle properties
     set_target_properties(${PROJECT_NAME} PROPERTIES
         MACOSX_BUNDLE TRUE
         MACOSX_BUNDLE_BUNDLE_NAME "YuchenUI Demo"
@@ -70,11 +56,14 @@ elseif(WIN32)
             VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>"
         )
         
-        # Set as startup project
         set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} 
                      PROPERTY VS_STARTUP_PROJECT ${PROJECT_NAME})
     endif()
 endif()
+
+target_include_directories(${PROJECT_NAME} PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/src"
+)
 
 target_link_libraries(${PROJECT_NAME} PRIVATE 
     YuchenUI 
@@ -95,14 +84,14 @@ endif()
 
 if(MSVC)
     target_compile_options(${PROJECT_NAME} PRIVATE
-        /W4                 # Warning level 4
-        /permissive-        # Strict standard conformance
-        /utf-8              # UTF-8 encoding
-        /Zc:__cplusplus     # Correct __cplusplus macro
-        /wd4100             # Ignore unused parameter
-        /wd4819             # Ignore code page warning
-        $<$<CONFIG:Debug>:/Od /Zi>      # Debug: no optimization + debug info
-        $<$<CONFIG:Release>:/O2>        # Release: optimization
+        /W4
+        /permissive-
+        /utf-8
+        /Zc:__cplusplus
+        /wd4100
+        /wd4819
+        $<$<CONFIG:Debug>:/Od /Zi>
+        $<$<CONFIG:Release>:/O2>
     )
     
     target_compile_definitions(${PROJECT_NAME} PRIVATE
@@ -112,9 +101,13 @@ if(MSVC)
     )
 endif()
 
-
 target_compile_definitions(${PROJECT_NAME} PRIVATE
     $<$<CONFIG:Debug>:YUCHEN_DEBUG=1;DEBUG=1>
     $<$<CONFIG:Release>:NDEBUG>
 )
 
+message(STATUS "[YuchenUI] Found ${CMAKE_CURRENT_SOURCE_DIR}/src sources:")
+foreach(SOURCE_FILE ${DEMO_SOURCES})
+    file(RELATIVE_PATH REL_PATH "${CMAKE_CURRENT_SOURCE_DIR}" ${SOURCE_FILE})
+    message(STATUS "  - ${REL_PATH}")
+endforeach()

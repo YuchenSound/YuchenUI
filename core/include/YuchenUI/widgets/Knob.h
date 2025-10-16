@@ -216,9 +216,7 @@ public:
     //======================================================================================
     // Component interface
     
-    void setBounds(const Rect& bounds);
-    const Rect& getBounds() const override { return m_bounds; }
-    
+
     /**
         Validates knob configuration.
         
@@ -248,7 +246,6 @@ private:
     */
     void notifyValueChanged();
     
-    Rect m_bounds;                          ///< Component bounds
     KnobType m_knobType;                    ///< Knob center behavior type
     
     float m_value;                          ///< Current value

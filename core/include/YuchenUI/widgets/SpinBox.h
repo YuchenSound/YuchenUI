@@ -36,10 +36,7 @@ public:
     const std::string& getSuffix() const { return m_suffix; }
     
     void setValueChangedCallback(SpinBoxValueChangedCallback callback);
-    
-    void setBounds(const Rect& bounds);
-    const Rect& getBounds() const override { return m_bounds; }
-    
+
     void setFontSize(float fontSize);
     float getFontSize() const { return m_fontSize; }
     
@@ -84,7 +81,6 @@ private:
     void adjustValueByStep(double multiplier);
     double parseInputBuffer() const;
     
-    Rect m_bounds;
     double m_value;
     double m_minValue;
     double m_maxValue;

@@ -1471,30 +1471,23 @@ void MetalRenderer::generateImageVertices(const Rect& destRect, const Rect& sour
     outVertices.insert(outVertices.end(), vertices, vertices + 24);
 }
 
-void MetalRenderer::computeNineSliceRects(const Rect& destRect, const Rect& sourceRect, const NineSliceMargins& margins,
-                                          float designScale, Rect outSlices[9])
+void MetalRenderer::computeNineSliceRects(const Rect& destRect, const Rect& sourceRect,
+                                          const NineSliceMargins& margins, float designScale,
+                                          Rect outSlices[9])
 {
-    // Source margins in pixels
-    float srcLeft = margins.left;
-    float srcTop = margins.top;
-    float srcRight = margins.right;
-    float srcBottom = margins.bottom;
+
+    // Destination space (目标坐标，逻辑像素)
+    float destLeft = margins.left;
+    float destTop = margins.top;
+    float destRight = margins.right;
+    float destBottom = margins.bottom;
     
-    // Destination margins scaled by design scale
-    float destLeft = srcLeft / designScale;
-    float destTop = srcTop / designScale;
-    float destRight = srcRight / designScale;
-    float destBottom = srcBottom / designScale;
-    
-    // Compute center dimensions
     float destCenterWidth = destRect.width - destLeft - destRight;
     float destCenterHeight = destRect.height - destTop - destBottom;
     
-    // Clamp to non-negative
     if (destCenterWidth < 0.0f) destCenterWidth = 0.0f;
     if (destCenterHeight < 0.0f) destCenterHeight = 0.0f;
     
-    // Create 9 destination rectangles
     // Row 0: Top-left, Top-center, Top-right
     outSlices[0] = Rect(destRect.x, destRect.y, destLeft, destTop);
     outSlices[1] = Rect(destRect.x + destLeft, destRect.y, destCenterWidth, destTop);
@@ -1511,28 +1504,40 @@ void MetalRenderer::computeNineSliceRects(const Rect& destRect, const Rect& sour
     outSlices[8] = Rect(destRect.x + destLeft + destCenterWidth, destRect.y + destTop + destCenterHeight, destRight, destBottom);
 }
 
-void MetalRenderer::generateNineSliceVertices(void* texture, const Rect& destRect, const Rect& sourceRect, const NineSliceMargins& margins,
-                                              float designScale, uint32_t texWidth, uint32_t texHeight, std::vector<float>& outVertices)
+void MetalRenderer::generateNineSliceVertices(void* texture, const Rect& destRect,
+                                              const Rect& sourceRect, const NineSliceMargins& margins,
+                                              float designScale, uint32_t texWidth, uint32_t texHeight,
+                                              std::vector<float>& outVertices)
 {
-    // Compute destination slice rectangles
     Rect destSlices[9];
     computeNineSliceRects(destRect, sourceRect, margins, designScale, destSlices);
     
-    // Compute source slice rectangles
+    // Calculate source slice rectangle (texture space, physical pixels)
+    float srcLeft = margins.left * designScale;
+    float srcTop = margins.top * designScale;
+    float srcRight = margins.right * designScale;
+    float srcBottom = margins.bottom * designScale;
+    
+    float srcCenterWidth = sourceRect.width - srcLeft - srcRight;
+    float srcCenterHeight = sourceRect.height - srcTop - srcBottom;
+    
     Rect srcSlices[9];
-    srcSlices[0] = Rect(sourceRect.x, sourceRect.y, margins.left, margins.top);
-    srcSlices[1] = Rect(sourceRect.x + margins.left, sourceRect.y, sourceRect.width - margins.left - margins.right, margins.top);
-    srcSlices[2] = Rect(sourceRect.x + sourceRect.width - margins.right, sourceRect.y, margins.right, margins.top);
     
-    srcSlices[3] = Rect(sourceRect.x, sourceRect.y + margins.top, margins.left, sourceRect.height - margins.top - margins.bottom);
-    srcSlices[4] = Rect(sourceRect.x + margins.left, sourceRect.y + margins.top, sourceRect.width - margins.left - margins.right, sourceRect.height - margins.top - margins.bottom);
-    srcSlices[5] = Rect(sourceRect.x + sourceRect.width - margins.right, sourceRect.y + margins.top, margins.right, sourceRect.height - margins.top - margins.bottom);
+    // Row 0
+    srcSlices[0] = Rect(sourceRect.x, sourceRect.y, srcLeft, srcTop);
+    srcSlices[1] = Rect(sourceRect.x + srcLeft, sourceRect.y, srcCenterWidth, srcTop);
+    srcSlices[2] = Rect(sourceRect.x + sourceRect.width - srcRight, sourceRect.y, srcRight, srcTop);
     
-    srcSlices[6] = Rect(sourceRect.x, sourceRect.y + sourceRect.height - margins.bottom, margins.left, margins.bottom);
-    srcSlices[7] = Rect(sourceRect.x + margins.left, sourceRect.y + sourceRect.height - margins.bottom, sourceRect.width - margins.left - margins.right, margins.bottom);
-    srcSlices[8] = Rect(sourceRect.x + sourceRect.width - margins.right, sourceRect.y + sourceRect.height - margins.bottom, margins.right, margins.bottom);
+    // Row 1
+    srcSlices[3] = Rect(sourceRect.x, sourceRect.y + srcTop, srcLeft, srcCenterHeight);
+    srcSlices[4] = Rect(sourceRect.x + srcLeft, sourceRect.y + srcTop, srcCenterWidth, srcCenterHeight);
+    srcSlices[5] = Rect(sourceRect.x + sourceRect.width - srcRight, sourceRect.y + srcTop, srcRight, srcCenterHeight);
     
-    // Generate vertices for each slice
+    // Row 2
+    srcSlices[6] = Rect(sourceRect.x, sourceRect.y + sourceRect.height - srcBottom, srcLeft, srcBottom);
+    srcSlices[7] = Rect(sourceRect.x + srcLeft, sourceRect.y + sourceRect.height - srcBottom, srcCenterWidth, srcBottom);
+    srcSlices[8] = Rect(sourceRect.x + sourceRect.width - srcRight, sourceRect.y + sourceRect.height - srcBottom, srcRight, srcBottom);
+    
     for (int i = 0; i < 9; ++i)
     {
         if (destSlices[i].width > 0.0f && destSlices[i].height > 0.0f &&
