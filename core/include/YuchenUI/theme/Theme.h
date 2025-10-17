@@ -117,21 +117,31 @@ struct ComboBoxDrawInfo {
     float fontSize;
 };
 
-struct SpinBoxDrawInfo {
-    Rect bounds;
-    std::string displayText;
-    FontFallbackChain fallbackChain;
-    float fontSize;
-    bool isEditing;
-    bool isHovered;
-    bool isEnabled;
-    bool showCursor;
-    size_t cursorPosition;
-    float paddingLeft;
-    float paddingTop;
-    float paddingRight;
-    float paddingBottom;
-    bool hasBackground;
+//struct SpinBoxDrawInfo {
+//    Rect bounds;
+//    std::string displayText;
+//    FontFallbackChain fallbackChain;
+//    float fontSize;
+//    bool isEditing;
+//    bool isHovered;
+//    bool isEnabled;
+//    bool showCursor;
+//    size_t cursorPosition;
+//    float paddingLeft;
+//    float paddingTop;
+//    float paddingRight;
+//    float paddingBottom;
+//    bool hasBackground;
+//    TextAlignment horizontalAlignment;
+//    VerticalAlignment verticalAlignment;
+//};
+
+
+struct SpinBoxColors {
+    Vec4 background;              ///< Background color
+    Vec4 textColor;               ///< Normal text color
+    Vec4 textEditingBackground;   ///< Text background when editing
+    Vec4 textEditingColor;        ///< Text color when editing
 };
 
 struct NumberBackgroundDrawInfo {
@@ -204,7 +214,7 @@ public:
     virtual void drawScrollbarThumb(const ScrollbarThumbDrawInfo& info, RenderList& cmdList) = 0;
     virtual void drawScrollbarButton(const ScrollbarButtonDrawInfo& info, RenderList& cmdList) = 0;
     virtual void drawTextInput(const TextInputDrawInfo& info, RenderList& cmdList) = 0;
-    virtual void drawSpinBox(const SpinBoxDrawInfo& info, RenderList& cmdList) = 0;
+    virtual SpinBoxColors getSpinBoxColors() const = 0;
     virtual void drawComboBox(const ComboBoxDrawInfo& info, RenderList& cmdList) = 0;
     virtual void drawFocusIndicator(const FocusIndicatorDrawInfo& info, RenderList& cmdList) = 0;
     virtual void drawCheckBox(const CheckBoxDrawInfo& info, RenderList& cmdList) = 0;
@@ -246,7 +256,7 @@ public:
     void drawTextInput(const TextInputDrawInfo& info, RenderList& cmdList) override;
     void drawComboBox(const ComboBoxDrawInfo& info, RenderList& cmdList) override;
     void drawFocusIndicator(const FocusIndicatorDrawInfo& info, RenderList& cmdList) override;
-    void drawSpinBox(const SpinBoxDrawInfo& info, RenderList& cmdList) override;
+    SpinBoxColors getSpinBoxColors() const override;
     void drawCheckBox(const CheckBoxDrawInfo& info, RenderList& cmdList) override;
     void drawRadioButton(const RadioButtonDrawInfo& info, RenderList& cmdList) override;
     void drawKnob(const KnobDrawInfo& info, RenderList& cmdList) override;
@@ -290,8 +300,8 @@ public:
     void drawTextInput(const TextInputDrawInfo& info, RenderList& cmdList) override;
     void drawComboBox(const ComboBoxDrawInfo& info, RenderList& cmdList) override;
     void drawFocusIndicator(const FocusIndicatorDrawInfo& info, RenderList& cmdList) override;
-    void drawSpinBox(const SpinBoxDrawInfo& info, RenderList& cmdList) override;
-    
+    SpinBoxColors getSpinBoxColors() const override;
+
     void drawCheckBox(const CheckBoxDrawInfo& info, RenderList& cmdList) override;
     void drawRadioButton(const RadioButtonDrawInfo& info, RenderList& cmdList) override;
     void drawKnob(const KnobDrawInfo& info, RenderList& cmdList) override;

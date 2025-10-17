@@ -178,49 +178,6 @@ fragment float4 fragment_text(TextVertexOutput input [[stage_in]],
     return color;
 }
 
-fragment float4 fragment_text_subpixel(TextVertexOutput input [[stage_in]],
-                                      texture2d<float> glyphTexture [[texture(0)]],
-                                      sampler glyphSampler [[sampler(0)]]) {
-    float2 texSize = float2(glyphTexture.get_width(), glyphTexture.get_height());
-    float2 texelSize = 1.0 / texSize;
-    
-    float3 subpixelWeights = float3(0.3, 0.59, 0.11);
-    
-    float alpha_r = glyphTexture.sample(glyphSampler, input.texCoord + float2(-texelSize.x * 0.33, 0)).r;
-    float alpha_g = glyphTexture.sample(glyphSampler, input.texCoord).r;
-    float alpha_b = glyphTexture.sample(glyphSampler, input.texCoord + float2(texelSize.x * 0.33, 0)).r;
-    
-    float alpha = dot(float3(alpha_r, alpha_g, alpha_b), subpixelWeights);
-    
-    float4 color = input.color;
-    color.a *= alpha;
-    
-    if (color.a < 0.01) {
-        discard_fragment();
-    }
-    
-    return color;
-}
-
-fragment float4 fragment_text_sdf(TextVertexOutput input [[stage_in]],
-                                 texture2d<float> sdfTexture [[texture(0)]],
-                                 sampler sdfSampler [[sampler(0)]]) {
-    float distance = sdfTexture.sample(sdfSampler, input.texCoord).r;
-    
-    const float smoothness = 1.0 / 16.0;
-    const float threshold = 0.5;
-    
-    float alpha = smoothstep(threshold - smoothness, threshold + smoothness, distance);
-    
-    float4 color = input.color;
-    color.a *= alpha;
-    
-    if (color.a < 0.01) {
-        discard_fragment();
-    }
-    
-    return color;
-}
 )";
 
 //==========================================================================================

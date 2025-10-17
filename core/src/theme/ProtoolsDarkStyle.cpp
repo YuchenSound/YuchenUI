@@ -292,25 +292,14 @@ void ProtoolsDarkStyle::drawTextInput(const TextInputDrawInfo& info, RenderList&
 
 //==========================================================================================
 // [SECTION] - Spin Box
-void ProtoolsDarkStyle::drawSpinBox(const SpinBoxDrawInfo& info, RenderList& cmdList)
+SpinBoxColors ProtoolsDarkStyle::getSpinBoxColors() const
 {
-    if (info.hasBackground) cmdList.fillRect(info.bounds, Vec4::FromRGBA(0, 0, 0, 255), CornerRadius(2.0f));
-    if (info.displayText.empty()) return;
-    IFontProvider* fontProvider = getFontProvider();
-    FontHandle primaryFont = info.fallbackChain.getPrimary();
-    FontMetrics metrics = fontProvider->getFontMetrics(primaryFont, info.fontSize);
-    float contentHeight = info.bounds.height - info.paddingTop - info.paddingBottom;
-    float textY = info.bounds.y + info.paddingTop + (contentHeight - metrics.lineHeight) * 0.5f + metrics.ascender;
-    float textX = info.bounds.x + info.paddingLeft;
-    Vec4 textColor = m_uiThemeColorText;
-    if (info.isEditing)
-    {
-        Vec2 textSize = fontProvider->measureText(info.displayText.c_str(), info.fontSize);
-        Rect textBgRect(textX - 1.0f, info.bounds.y + info.paddingTop + (contentHeight - metrics.lineHeight) * 0.5f - 1.0f, textSize.x + 2.0f, metrics.lineHeight + 2.0f);
-        cmdList.fillRect(textBgRect, m_uiThemeColorText);
-        textColor = Vec4::FromRGBA(50, 50, 50, 255);
-    }
-    cmdList.drawText(info.displayText.c_str(), Vec2(textX, textY), info.fallbackChain, info.fontSize, textColor);
+    SpinBoxColors colors;
+    colors.background = Vec4::FromRGBA(0, 0, 0, 255);
+    colors.textColor = m_uiThemeColorText;
+    colors.textEditingBackground = m_uiThemeColorText;
+    colors.textEditingColor = Vec4::FromRGBA(50, 50, 50, 255);
+    return colors;
 }
 
 //==========================================================================================
