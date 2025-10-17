@@ -225,7 +225,17 @@ public:
         @param texture  Texture handle to destroy
     */
     void destroyTexture(void* texture) override;
-
+    
+    //======================================================================================
+    // Command Execution
+    
+    /** Executes a list of render commands.
+        
+        Batches commands by type and clip state for efficiency.
+        
+        @param commandList  The render commands to execute
+    */
+    void executeRenderCommands(const RenderList& commandList) override;
 private:
     //======================================================================================
     // Shader Compilation
@@ -266,25 +276,17 @@ private:
     /** Sets up the image rendering pipeline. */
     bool setupImageRenderPipeline();
     
-    /** Creates sampler state for image rendering. */
-    void createImageSampler();
+    // TODO: Please add comments here!
+    void createImageSamplers();
+    
+    // TODO: Please add comments here!
+    id<MTLSamplerState> createSamplerWithAddressMode(MTLSamplerAddressMode addressMode);
     
     /** Sets up the shape rendering pipeline. */
     bool setupShapePipeline();
     
     /** Sets up the circle rendering pipeline. */
     bool setupCirclePipeline();
-    
-    //======================================================================================
-    // Command Execution
-    
-    /** Executes a list of render commands.
-        
-        Batches commands by type and clip state for efficiency.
-        
-        @param commandList  The render commands to execute
-    */
-    void executeRenderCommands(const RenderList& commandList) override;
     
     //======================================================================================
     // Pipeline Management
@@ -313,15 +315,6 @@ private:
     
     //======================================================================================
     // Rectangle Rendering
-    
-    /** Renders a single rectangle.
-        
-        @param rect           Rectangle bounds
-        @param color          Fill/border color
-        @param cornerRadius   Corner radius for rounded rectangles
-        @param borderWidth    Border width (0 for filled)
-    */
-    void renderRectangle(const Rect& rect, const Vec4& color, const CornerRadius& cornerRadius, float borderWidth);
     
     /** Renders a batch of rectangles.
         
@@ -353,6 +346,12 @@ private:
         @param outVertices Output vertex data (position + texcoord)
     */
     void generateImageVertices(const Rect& destRect, const Rect& sourceRect, uint32_t texWidth, uint32_t texHeight, std::vector<float>& outVertices);
+    
+    
+    // TODO: Please add comments here!
+    void generateTileVertices(const Rect& destRect, const Rect& textureLogicalSize,
+                              float designScale, std::vector<float>& outVertices);
+    
     
     /** Generates vertices for nine-slice scaled image.
         
@@ -392,37 +391,36 @@ private:
     
     //======================================================================================
     // Shape Rendering
-    
-    /** Renders a line segment.
+
+    /** Renders a batch of lines efficiently.
         
-        @param start  Start point
-        @param end    End point
-        @param color  Line color
-        @param width  Line width
-    */
-    void renderLine(const Vec2& start, const Vec2& end, const Vec4& color, float width);
-    
-    /** Renders a triangle.
+        Batches multiple lines into a single draw call using reusable vertex buffer.
+        Significantly reduces GPU overhead compared to individual line draws.
         
-        @param p1           First vertex
-        @param p2           Second vertex
-        @param p3           Third vertex
-        @param color        Color
-        @param borderWidth  Border width (0 for filled)
-        @param filled       True for filled, false for outline
+        @param commands  Vector of line draw commands
+        @param clipRect  Clipping rectangle (if hasClip is true)
+        @param hasClip   Whether scissor clipping should be applied
     */
-    void renderTriangle(const Vec2& p1, const Vec2& p2, const Vec2& p3, const Vec4& color, float borderWidth, bool filled);
-    
-    /** Renders a circle.
+    void renderLineBatch(const std::vector<RenderCommand>& commands,
+                         const Rect& clipRect, bool hasClip);
+
+    /** Renders a batch of triangles efficiently.
         
-        @param center       Circle center
-        @param radius       Circle radius
-        @param color        Color
-        @param borderWidth  Border width (0 for filled)
-        @param filled       True for filled, false for outline
+        @param commands  Vector of triangle draw commands
+        @param clipRect  Clipping rectangle (if hasClip is true)
+        @param hasClip   Whether scissor clipping should be applied
     */
-    void renderCircle(const Vec2& center, float radius, const Vec4& color, float borderWidth, bool filled);
-    
+    void renderTriangleBatch(const std::vector<RenderCommand>& commands,
+                             const Rect& clipRect, bool hasClip);
+
+    /** Renders a batch of circles efficiently.
+        
+        @param commands  Vector of circle draw commands
+        @param clipRect  Clipping rectangle (if hasClip is true)
+        @param hasClip   Whether scissor clipping should be applied
+    */
+    void renderCircleBatch(const std::vector<RenderCommand>& commands,
+                           const Rect& clipRect, bool hasClip);
     //======================================================================================
     // Utilities
     
@@ -469,8 +467,12 @@ private:
     id<MTLBuffer> m_textIndexBuffer;
     id<MTLRenderPipelineState> m_imageRenderPipeline;
     id<MTLSamplerState> m_imageSampler;
+    id<MTLSamplerState> m_imageSamplerRepeat;
     id<MTLRenderPipelineState> m_shapePipeline;
     id<MTLRenderPipelineState> m_circlePipeline;
+    id<MTLBuffer> m_shapeVertexBuffer;
+    id<MTLBuffer> m_circleVertexBuffer;
+    id<MTLBuffer> m_rectVertexBuffer;
 #else
     void* m_device;
     void* m_commandQueue;
@@ -489,6 +491,10 @@ private:
     void* m_imageSampler;
     void* m_shapePipeline;
     void* m_circlePipeline;
+    void* m_shapeVertexBuffer;
+    void* m_circleVertexBuffer;
+    void* m_rectVertexBuffer;
+
 #endif
 
     ActivePipeline m_currentPipeline;              ///< Current active pipeline
@@ -496,6 +502,10 @@ private:
     std::unique_ptr<TextRenderer> m_textRenderer;  ///< Text rendering system
     std::unique_ptr<TextureCache> m_textureCache;  ///< Image texture cache
     size_t m_maxTextVertices;                      ///< Maximum text vertices per frame
+    // Memory usage: Shape ~780 KB, Circle ~936 KB, Rect ~3 MB (acceptable on modern hardware)
+    static constexpr size_t MAX_SHAPE_VERTICES  = 100000;  // Support ~16600 lines per frame
+    static constexpr size_t MAX_CIRCLE_VERTICES = 100000;  // Support ~16600 circles per frame
+    static constexpr size_t MAX_RECT_VERTICES   = 100000;  // Support ~16600 rects per frame
     bool m_isInitialized;                          ///< Initialization state
     int m_width;                                   ///< Render surface width
     int m_height;                                  ///< Render surface height

@@ -18,6 +18,9 @@
 #include "YuchenUI/widgets/RadioButton.h"
 #include "YuchenUI/widgets_expand/LevelMeter.h"
 #include "YuchenUI/widgets_expand/Fader.h"
+#include "YuchenUI/widgets_expand/NumberBackground.h"
+
+#include "YuchenUI/core/UIContext.h"
 
 #include "YuchenUI/utils/Clipboard.h"
 

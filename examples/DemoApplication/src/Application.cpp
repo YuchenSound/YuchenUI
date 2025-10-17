@@ -89,7 +89,7 @@ void DemoApplication::onShowMixerClick() {
     }
     else
     {
-        m_mixerWindow = windowManager.createMainWindow<MixerWindowContent>(500,400,"Mixer",30);
+        m_mixerWindow = windowManager.createMainWindow<MixerWindowContent>(800,600,"Mixer",30);
         m_mixerWindow->setAffectsAppLifetime(false);
         m_mixerWindow->show();
     }

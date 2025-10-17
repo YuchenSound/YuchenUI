@@ -86,7 +86,6 @@ uint32_t TextUtils::decodeUTF8(const char*& text)
     else if ((*p & 0xF8) == 0xF0)
     {
         // 4-byte sequence: 11110xxx 10xxxxxx 10xxxxxx 10xxxxxx
-        // This handles emoji in supplementary planes
         if ((*(p+1) & 0xC0) != 0x80 || (*(p+2) & 0xC0) != 0x80 || (*(p+3) & 0xC0) != 0x80)
         {
             codepoint = 0xFFFD;  // Invalid sequence
@@ -104,12 +103,22 @@ uint32_t TextUtils::decodeUTF8(const char*& text)
         text += 1;
     }
     
+    if (codepoint > 0x10FFFF || (codepoint >= 0xD800 && codepoint <= 0xDFFF)) return 0xFFFD;
+    
     return codepoint;
 }
 
 std::string TextUtils::encodeUTF8(uint32_t codepoint)
 {
     std::string result;
+    
+    // Reject invalid codepoints
+    if (codepoint > 0x10FFFF ||                           // Beyond Unicode range
+        (codepoint >= 0xD800 && codepoint <= 0xDFFF))     // UTF-16 surrogate pairs
+    {
+        // Return replacement character for invalid codepoints
+        codepoint = 0xFFFD;
+    }
     
     if (codepoint <= 0x7F)
     {

@@ -131,6 +131,11 @@ struct SpinBoxDrawInfo {
     float paddingTop;
     float paddingRight;
     float paddingBottom;
+    bool hasBackground;
+};
+
+struct NumberBackgroundDrawInfo {
+    Rect bounds;
 };
 
 enum class WindowType;
@@ -217,7 +222,7 @@ public:
     virtual Vec4 getDefaultScrollAreaBackground() const = 0;
     virtual float getGroupBoxTitleBarHeight() const = 0;
     virtual void setFontProvider(IFontProvider* provider) { m_fontProvider = provider; }
-
+    virtual void drawNumberBackground(const NumberBackgroundDrawInfo& info, RenderList& cmdList) = 0;
     virtual IFontProvider* getFontProvider() const;
     virtual FaderColors getFaderColors() const = 0;
     virtual LevelMeterColors getLevelMeterColors() const = 0;
@@ -245,7 +250,7 @@ public:
     void drawCheckBox(const CheckBoxDrawInfo& info, RenderList& cmdList) override;
     void drawRadioButton(const RadioButtonDrawInfo& info, RenderList& cmdList) override;
     void drawKnob(const KnobDrawInfo& info, RenderList& cmdList) override;
-    
+    void drawNumberBackground(const NumberBackgroundDrawInfo& info, RenderList& cmdList) override;
     Vec4 getWindowBackground(WindowType type) const override;
     Vec4 getDefaultTextColor() const override;
     FontFallbackChain getDefaultButtonFontChain() const override;
@@ -290,7 +295,7 @@ public:
     void drawCheckBox(const CheckBoxDrawInfo& info, RenderList& cmdList) override;
     void drawRadioButton(const RadioButtonDrawInfo& info, RenderList& cmdList) override;
     void drawKnob(const KnobDrawInfo& info, RenderList& cmdList) override;
-    
+    void drawNumberBackground(const NumberBackgroundDrawInfo& info, RenderList& cmdList) override;
     Vec4 getWindowBackground(WindowType type) const override;
     Vec4 getDefaultTextColor() const override;
     FontFallbackChain getDefaultButtonFontChain() const override;

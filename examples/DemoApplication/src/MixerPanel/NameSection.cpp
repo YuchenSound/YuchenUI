@@ -2,6 +2,7 @@
 #include <YuchenUI/widgets/TextLabel.h>
 #include <YuchenUI/text/IFontProvider.h>
 #include <YuchenUI/core/UIContext.h>
+#include <YuchenUI/rendering/RenderList.h>
 
 NameSection::NameSection(const YuchenUI::Rect& bounds, const std::string& name)
     : ChannelSection(bounds)
@@ -18,11 +19,25 @@ void NameSection::setOwnerContext(YuchenUI::UIContext* context)
 {
     ChannelSection::setOwnerContext(context);
     
-    // 使用 setOwnerContext 而不是 setOwnerContent
     if (context && !m_label)
     {
         createLabel();
     }
+}
+
+void NameSection::addDrawCommands(YuchenUI::RenderList& commandList,
+                                   const YuchenUI::Vec2& offset) const
+{
+    if (!m_isVisible) return;
+    
+    YuchenUI::Vec2 absPos(m_bounds.x + offset.x, m_bounds.y + offset.y);
+    
+    commandList.fillRect(
+        YuchenUI::Rect(absPos.x + 2.0f, absPos.y, m_bounds.width - 4.0f, m_bounds.height),
+        YuchenUI::Vec4::FromRGBA(154, 154, 154, 255)
+    );
+    
+    renderChildren(commandList, absPos);
 }
 
 void NameSection::createLabel()
@@ -36,7 +51,7 @@ void NameSection::createLabel()
     m_label->setText(m_name);
     m_label->setFontSize(11.0f);
     m_label->setAlignment(YuchenUI::TextAlignment::Center,
-                         YuchenUI::VerticalAlignment::Bottom);
+                         YuchenUI::VerticalAlignment::Middle);
     
     YuchenUI::IFontProvider* fontProvider = m_ownerContext->getFontProvider();
     if (fontProvider)

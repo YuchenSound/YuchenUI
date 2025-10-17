@@ -23,6 +23,9 @@ SpinBox::SpinBox(const Rect& bounds)
     , m_precision(2)
     , m_suffix()
     , m_fontSize(Config::Font::DEFAULT_SIZE)
+    , m_fontChain()
+    , m_hasCustomFont(false)
+    , m_isReadOnly(false)
     , m_isEditing(false)
     , m_isHovered(false)
     , m_isDragging(false)
@@ -55,12 +58,7 @@ void SpinBox::addDrawCommands(RenderList& commandList, const Vec2& offset) const
     YUCHEN_ASSERT(fontProvider);
     YUCHEN_ASSERT(style);
     
-    Rect absRect(
-        m_bounds.x + offset.x,
-        m_bounds.y + offset.y,
-        m_bounds.width,
-        m_bounds.height
-    );
+    Rect absRect(m_bounds.x + offset.x,m_bounds.y + offset.y,m_bounds.width,m_bounds.height);
     
     std::string displayText;
     if (m_isEditing) {
@@ -69,30 +67,27 @@ void SpinBox::addDrawCommands(RenderList& commandList, const Vec2& offset) const
         displayText = formatValueWithSuffix();
     }
     
-    if (m_hasBackground) {
-        SpinBoxDrawInfo drawInfo;
-        drawInfo.bounds = absRect;
-        drawInfo.displayText = displayText;
-        
-        drawInfo.fallbackChain = style->getDefaultLabelFontChain();
-        
-        drawInfo.fontSize = m_fontSize;
-        drawInfo.isEditing = m_isEditing;
-        drawInfo.isHovered = m_isHovered;
-        drawInfo.isEnabled = m_isEnabled;
-        drawInfo.showCursor = m_showCursor;
-        drawInfo.cursorPosition = m_cursorPosition;
-        drawInfo.paddingLeft = m_paddingLeft;
-        drawInfo.paddingTop = m_paddingTop;
-        drawInfo.paddingRight = m_paddingRight;
-        drawInfo.paddingBottom = m_paddingBottom;
-        
-        style->drawSpinBox(drawInfo, commandList);
-    }
+    SpinBoxDrawInfo drawInfo;
+    drawInfo.bounds = absRect;
+    drawInfo.displayText = displayText;
     
-    if (m_isEditing) {
-        drawFocusIndicator(commandList, offset);
-    }
+    drawInfo.fallbackChain = m_hasCustomFont ? m_fontChain : style->getDefaultLabelFontChain();
+    
+    drawInfo.fontSize = m_fontSize;
+    drawInfo.isEditing = m_isEditing;
+    drawInfo.isHovered = m_isHovered;
+    drawInfo.isEnabled = m_isEnabled;
+    drawInfo.showCursor = m_showCursor;
+    drawInfo.cursorPosition = m_cursorPosition;
+    drawInfo.paddingLeft = m_paddingLeft;
+    drawInfo.paddingTop = m_paddingTop;
+    drawInfo.paddingRight = m_paddingRight;
+    drawInfo.paddingBottom = m_paddingBottom;
+    drawInfo.hasBackground = m_hasBackground;
+    
+    style->drawSpinBox(drawInfo, commandList);
+    
+    if (m_isEditing) drawFocusIndicator(commandList, offset);
 }
 
 bool SpinBox::handleMouseMove(const Vec2& position, const Vec2& offset) {
@@ -112,15 +107,19 @@ bool SpinBox::handleMouseMove(const Vec2& position, const Vec2& offset) {
     return wasHovered != m_isHovered;
 }
 
-bool SpinBox::handleMouseClick(const Vec2& position, bool pressed, const Vec2& offset) {
-    if (!m_isEnabled || !m_isVisible) return false;
+bool SpinBox::handleMouseClick(const Vec2& position, bool pressed, const Vec2& offset)
+{
+    if (!m_isEnabled || !m_isVisible || m_isReadOnly) return false;
     
     Vec2 absPos(m_bounds.x + offset.x, m_bounds.y + offset.y);
     Rect absRect(absPos.x, absPos.y, m_bounds.width, m_bounds.height);
     
-    if (pressed) {
-        if (absRect.contains(position)) {
-            if (!m_isEditing) {
+    if (pressed)
+    {
+        if (absRect.contains(position))
+        {
+            if (!m_isEditing)
+            {
                 enterEditMode();
                 requestFocus();
             }
@@ -131,8 +130,11 @@ bool SpinBox::handleMouseClick(const Vec2& position, bool pressed, const Vec2& o
             return true;
         }
         return false;
-    } else {
-        if (m_isDragging) {
+    }
+    else
+    {
+        if (m_isDragging)
+        {
             m_isDragging = false;
             releaseMouse();
             return true;
@@ -142,8 +144,9 @@ bool SpinBox::handleMouseClick(const Vec2& position, bool pressed, const Vec2& o
     return false;
 }
 
-bool SpinBox::handleMouseWheel(const Vec2& delta, const Vec2& position, const Vec2& offset) {
-    if (!m_isEnabled || !m_isVisible || !m_isEditing) return false;
+bool SpinBox::handleMouseWheel(const Vec2& delta, const Vec2& position, const Vec2& offset)
+{
+    if (!m_isEnabled || !m_isVisible || !m_isEditing || m_isReadOnly) return false;
     
     Vec2 absPos(m_bounds.x + offset.x, m_bounds.y + offset.y);
     Rect absRect(absPos.x, absPos.y, m_bounds.width, m_bounds.height);
@@ -155,8 +158,9 @@ bool SpinBox::handleMouseWheel(const Vec2& delta, const Vec2& position, const Ve
     return true;
 }
 
-bool SpinBox::handleKeyPress(const Event& event) {
-    if (!m_isEditing || !m_isEnabled) return false;
+bool SpinBox::handleKeyPress(const Event& event)
+{
+    if (!m_isEditing || !m_isEnabled || m_isReadOnly) return false;
     
     YUCHEN_ASSERT(event.type == EventType::KeyPressed || event.type == EventType::KeyReleased);
     if (event.type == EventType::KeyReleased) return false;
@@ -165,7 +169,8 @@ bool SpinBox::handleKeyPress(const Event& event) {
     bool hasCtrl = event.key.modifiers.hasControl();
     bool hasModifier = hasCmd || hasCtrl;
     
-    switch (event.key.key) {
+    switch (event.key.key)
+    {
         case KeyCode::UpArrow:
             adjustValueByStep(1.0);
             return true;
@@ -199,7 +204,8 @@ bool SpinBox::handleKeyPress(const Event& event) {
             return true;
             
         case KeyCode::A:
-            if (hasModifier) {
+            if (hasModifier)
+            {
                 selectAll();
                 return true;
             }
@@ -224,14 +230,16 @@ bool SpinBox::handleKeyPress(const Event& event) {
     return false;
 }
 
-bool SpinBox::handleTextInput(uint32_t codepoint) {
-    if (!m_isEditing || !m_isEnabled) return false;
+bool SpinBox::handleTextInput(uint32_t codepoint)
+{
+    if (!m_isEditing || !m_isEnabled || m_isReadOnly) return false;
     
     if (codepoint < 32 || codepoint == 127) return false;
     
     char c = static_cast<char>(codepoint);
     
-    if (isValidChar(c) && canInsertChar(c)) {
+    if (isValidChar(c) && canInsertChar(c))
+    {
         insertCharAtCursor(c);
         return true;
     }
@@ -293,6 +301,42 @@ void SpinBox::setFontSize(float fontSize) {
     if (fontSize >= Config::Font::MIN_SIZE && fontSize <= Config::Font::MAX_SIZE) {
         m_fontSize = fontSize;
     }
+}
+
+void SpinBox::setFont(FontHandle fontHandle) {
+    IFontProvider* fontProvider = m_ownerContext ? m_ownerContext->getFontProvider() : nullptr;
+    
+    if (!fontProvider || !fontProvider->isValidFont(fontHandle)) {
+        return;
+    }
+    
+    // Build chain with CJK fallback automatically
+    FontHandle cjkFont = fontProvider->getDefaultCJKFont();
+    m_fontChain = FontFallbackChain(fontHandle, cjkFont);
+    m_hasCustomFont = true;
+}
+
+void SpinBox::setFontChain(const FontFallbackChain& chain) {
+    if (!chain.isValid()) {
+        return;
+    }
+    
+    m_fontChain = chain;
+    m_hasCustomFont = true;
+}
+
+FontFallbackChain SpinBox::getFontChain() const {
+    if (m_hasCustomFont) {
+        return m_fontChain;
+    }
+    
+    UIStyle* style = m_ownerContext ? m_ownerContext->getCurrentStyle() : nullptr;
+    return style ? style->getDefaultLabelFontChain() : FontFallbackChain();
+}
+
+void SpinBox::resetFont() {
+    m_fontChain.clear();
+    m_hasCustomFont = false;
 }
 
 bool SpinBox::isValid() const {
@@ -501,8 +545,10 @@ void SpinBox::setFocusable(bool focusable) {
     setFocusPolicy(focusable ? FocusPolicy::StrongFocus : FocusPolicy::NoFocus);
 }
 
-void SpinBox::focusInEvent(FocusReason reason) {
-    if (!m_isEditing) {
+void SpinBox::focusInEvent(FocusReason reason)
+{
+    if (!m_isEditing && !m_isReadOnly)
+    {
         enterEditMode();
     }
 }
@@ -511,5 +557,25 @@ void SpinBox::focusOutEvent(FocusReason reason) {
     exitEditMode();
 }
 
+void SpinBox::setReadOnly(bool readOnly)
+{
+    if (m_isReadOnly == readOnly) return;
+    
+    m_isReadOnly = readOnly;
+    
+    if (readOnly && m_isEditing)
+    {
+        exitEditMode();
+    }
+    
+    if (readOnly)
+    {
+        setFocusPolicy(FocusPolicy::NoFocus);
+    }
+    else
+    {
+        setFocusPolicy(FocusPolicy::StrongFocus);
+    }
+}
 
 }

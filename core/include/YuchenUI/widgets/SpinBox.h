@@ -40,8 +40,42 @@ public:
     void setFontSize(float fontSize);
     float getFontSize() const { return m_fontSize; }
     
+    //======================================================================================
+    // Font API
+    
+    /**
+        Sets spinbox font with automatic fallback.
+        
+        @param fontHandle  Primary font handle
+    */
+    void setFont(FontHandle fontHandle);
+    
+    /**
+        Sets complete font fallback chain.
+        
+        @param chain  Font fallback chain
+    */
+    void setFontChain(const FontFallbackChain& chain);
+    
+    /**
+        Returns current font fallback chain.
+        
+        @returns Current font fallback chain
+    */
+    FontFallbackChain getFontChain() const;
+    
+    /**
+        Resets font to style default.
+    */
+    void resetFont();
+    
+    //======================================================================================
+    
     void setHasBackground(bool hasBackground);
     bool hasBackground() const { return m_hasBackground; }
+    
+    void setReadOnly(bool readOnly);
+    bool isReadOnly() const { return m_isReadOnly; }
     
     void addDrawCommands(RenderList& commandList, const Vec2& offset = Vec2()) const override;
     bool handleMouseMove(const Vec2& position, const Vec2& offset = Vec2()) override;
@@ -52,7 +86,6 @@ public:
     void update(float deltaTime) override;
     
     void setFocusable(bool focusable);
-
     
     Rect getInputMethodCursorRect() const override;
     
@@ -61,6 +94,7 @@ public:
 protected:
     void focusInEvent(FocusReason reason) override;
     void focusOutEvent(FocusReason reason) override;
+    
 private:
     void enterEditMode();
     void exitEditMode();
@@ -88,7 +122,10 @@ private:
     int m_precision;
     std::string m_suffix;
     float m_fontSize;
+    FontFallbackChain m_fontChain;
+    bool m_hasCustomFont;
     
+    bool m_isReadOnly;
     bool m_isEditing;
     bool m_isHovered;
     bool m_isDragging;
@@ -104,7 +141,7 @@ private:
     
     float m_paddingLeft;
     float m_paddingTop;
-    float m_paddingRight[[maybe_unused]];
+    float m_paddingRight;
     float m_paddingBottom;
     
     bool m_hasBackground;

@@ -294,7 +294,7 @@ void ProtoolsDarkStyle::drawTextInput(const TextInputDrawInfo& info, RenderList&
 // [SECTION] - Spin Box
 void ProtoolsDarkStyle::drawSpinBox(const SpinBoxDrawInfo& info, RenderList& cmdList)
 {
-    cmdList.fillRect(info.bounds, Vec4::FromRGBA(0, 0, 0, 255), CornerRadius(2.0f));
+    if (info.hasBackground) cmdList.fillRect(info.bounds, Vec4::FromRGBA(0, 0, 0, 255), CornerRadius(2.0f));
     if (info.displayText.empty()) return;
     IFontProvider* fontProvider = getFontProvider();
     FontHandle primaryFont = info.fallbackChain.getPrimary();
@@ -306,11 +306,11 @@ void ProtoolsDarkStyle::drawSpinBox(const SpinBoxDrawInfo& info, RenderList& cmd
     if (info.isEditing)
     {
         Vec2 textSize = fontProvider->measureText(info.displayText.c_str(), info.fontSize);
-        Rect textBgRect(textX-1.0f,info.bounds.y+info.paddingTop+(contentHeight-metrics.lineHeight) * 0.5f-1.0f,textSize.x+2.0f,metrics.lineHeight+2.0f);
+        Rect textBgRect(textX - 1.0f, info.bounds.y + info.paddingTop + (contentHeight - metrics.lineHeight) * 0.5f - 1.0f, textSize.x + 2.0f, metrics.lineHeight + 2.0f);
         cmdList.fillRect(textBgRect, m_uiThemeColorText);
         textColor = Vec4::FromRGBA(50, 50, 50, 255);
     }
-    cmdList.drawText(info.displayText.c_str(), Vec2(textX, textY),info.fallbackChain, info.fontSize, textColor);
+    cmdList.drawText(info.displayText.c_str(), Vec2(textX, textY), info.fallbackChain, info.fontSize, textColor);
 }
 
 //==========================================================================================
@@ -454,4 +454,27 @@ FaderColors ProtoolsDarkStyle::getFaderColors() const
     colors.subScaleColor = Vec4::FromRGBA(255, 255, 255, 89);
     return colors;
 }
+
+//==========================================================================================
+// [SECTION] - Number Display
+void ProtoolsDarkStyle::drawNumberBackground(const NumberBackgroundDrawInfo& info, RenderList& cmdList)
+{
+    NineSliceMargins backgroundMargins(5.0f, 5.0f, 5.0f, 5.0f);
+    cmdList.drawImage("components/number_display/dark/number_display_background@2x.png",
+                     info.bounds,
+                     ScaleMode::NineSlice,
+                     backgroundMargins);
+    
+    Rect textureRect(
+        info.bounds.x + 3.0f,
+        info.bounds.y + 2.0f,
+        info.bounds.width - 6.0f,
+        info.bounds.height - 5.0f
+    );
+    
+    cmdList.drawImage("components/number_display/number_display_stipple@2x.png",
+                     textureRect,
+                     ScaleMode::Tile);
+}
+
 }

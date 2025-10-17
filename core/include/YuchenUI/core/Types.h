@@ -49,7 +49,18 @@ struct Vec2
     {
         return std::isfinite(x) && std::isfinite(y);
     }
+    
+    bool operator==(const Vec2& other) const
+    {
+        return x == other.x && y == other.y;
+    }
+    
+    bool operator!=(const Vec2& other) const
+    {
+        return !(*this == other);
+    }
 };
+
 
 //==========================================================================================
 /** 4D vector for colors (RGBA) and general purposes */
@@ -60,10 +71,6 @@ struct Vec4
     Vec4() : x(0.0f), y(0.0f), z(0.0f), w(1.0f) {}
     Vec4(float x, float y, float z, float w = 1.0f) : x(x), y(y), z(z), w(w) {}
 
-    /** Creates a Vec4 from RGBA integer values (0-255).
-        
-        Values are clamped to valid range and normalized to 0.0-1.0.
-    */
     static Vec4 FromRGBA(int r, int g, int b, int a = 255)
     {
         r = (r < 0) ? 0 : (r > 255) ? 255 : r;
@@ -73,10 +80,19 @@ struct Vec4
         return Vec4(r / 255.0f, g / 255.0f, b / 255.0f, a / 255.0f);
     }
 
-    /** Returns true if all components are finite */
     bool isValid() const
     {
         return std::isfinite(x) && std::isfinite(y) && std::isfinite(z) && std::isfinite(w);
+    }
+    
+    bool operator==(const Vec4& other) const
+    {
+        return x == other.x && y == other.y && z == other.z && w == other.w;
+    }
+    
+    bool operator!=(const Vec4& other) const
+    {
+        return !(*this == other);
     }
 };
 
@@ -93,7 +109,6 @@ struct Rect
         if (h < 0.0f) this->height = 0.0f;
     }
 
-    /** Tests if a point is inside the rectangle */
     bool contains(float px, float py) const
     {
         return px >= x && px <= (x + width) && py >= y && py <= (y + height);
@@ -104,10 +119,19 @@ struct Rect
         return contains(point.x, point.y);
     }
 
-    /** Returns true if all values are finite and size is non-negative */
     bool isValid() const
     {
         return std::isfinite(x) && std::isfinite(y) && std::isfinite(width) && std::isfinite(height) && width >= 0.0f && height >= 0.0f;
+    }
+    
+    bool operator==(const Rect& other) const
+    {
+        return x == other.x && y == other.y && width == other.width && height == other.height;
+    }
+    
+    bool operator!=(const Rect& other) const
+    {
+        return !(*this == other);
     }
 };
 
@@ -207,7 +231,8 @@ enum class ScaleMode {
     Original,   ///< No scaling, use original size
     Stretch,    ///< Stretch to fill destination
     Fill,       ///< Scale to fill while maintaining aspect ratio
-    NineSlice   ///< Nine-slice scaling
+    NineSlice,  ///< Nine-slice scaling
+    Tile        ///< Tile/repeat texture to fill destination
 };
 
 //==========================================================================================
@@ -258,6 +283,9 @@ struct FontMetrics {
     float maxAdvance;   ///< Maximum horizontal advance
 
     FontMetrics() : ascender(0.0f), descender(0.0f), lineHeight(0.0f), maxAdvance(0.0f) {}
+    
+    FontMetrics(float asc, float desc, float lineH, float maxAdv)
+        : ascender(asc), descender(desc), lineHeight(lineH), maxAdvance(maxAdv) {}
 
     bool isValid() const {
         return std::isfinite(ascender) && std::isfinite(descender) &&

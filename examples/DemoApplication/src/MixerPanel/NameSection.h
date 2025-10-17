@@ -6,6 +6,7 @@
 namespace YuchenUI {
     class TextLabel;
     class IFontProvider;
+    class RenderList;
 }
 
 class NameSection : public ChannelSection {
@@ -16,7 +17,12 @@ public:
     void setName(const std::string& name);
     const std::string& getName() const;
     
-    void setOwnerContext(YuchenUI::UIContext* context) override;  // 改为 setOwnerContext
+    void setOwnerContext(YuchenUI::UIContext* context) override;
+    
+    void addDrawCommands(YuchenUI::RenderList& commandList,
+                        const YuchenUI::Vec2& offset = YuchenUI::Vec2()) const override;
+    
+    static constexpr float PREFERRED_HEIGHT = 15.0f;
 
 private:
     void createLabel();

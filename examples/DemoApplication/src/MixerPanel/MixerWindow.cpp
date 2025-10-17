@@ -25,30 +25,16 @@ void MixerWindowContent::onCreate(YuchenUI::UIContext* context,
 
 void MixerWindowContent::createUI()
 {
-    YuchenUI::IFontProvider* fontProvider = m_context->getFontProvider();
-    
-    YuchenUI::Rect titleBounds(10, 10, m_contentArea.width - 20, 30);
-    m_titleLabel = std::make_unique<YuchenUI::TextLabel>(titleBounds);
-    m_titleLabel->setText("Mixer");
-    m_titleLabel->setFont(fontProvider->getDefaultBoldFont());
-    m_titleLabel->setFontSize(18.0f);
-    m_titleLabel->setAlignment(YuchenUI::TextAlignment::Center,
-                              YuchenUI::VerticalAlignment::Middle);
-    addComponent(m_titleLabel.get());
-    
-    YuchenUI::Rect scrollBounds(10, 50, m_contentArea.width - 20, m_contentArea.height - 60);
-    std::cout << "[MixerWindow] Creating ScrollArea at bounds: ("
-              << scrollBounds.x << ", " << scrollBounds.y << ", "
-              << scrollBounds.width << ", " << scrollBounds.height << ")" << std::endl;
-
-    
+    YuchenUI::Rect scrollBounds(0, 0, m_contentArea.width, m_contentArea.height);
     
     m_scrollArea = new YuchenUI::ScrollArea(scrollBounds);
     m_scrollArea->setOwnerContext(m_context);
     addComponent(m_scrollArea);
     
-    float totalWidth = (ChannelStrip::STRIP_WIDTH + CHANNEL_SPACING) * CHANNEL_COUNT;
-    m_scrollArea->setContentSize(YuchenUI::Vec2(totalWidth, ChannelStrip::STRIP_HEIGHT));
+    float stripHeight = ChannelStrip::getStripHeight();
+    float totalWidth = ChannelStrip::STRIP_WIDTH * CHANNEL_COUNT;
+    
+    m_scrollArea->setContentSize(YuchenUI::Vec2(totalWidth, stripHeight));
     m_scrollArea->setShowVerticalScrollbar(false);
     m_scrollArea->setShowHorizontalScrollbar(true);
     
@@ -61,16 +47,31 @@ void MixerWindowContent::createChannelStrips()
     
     m_channelStrips.clear();
     
+    float stripHeight = ChannelStrip::getStripHeight();
+    
     for (int i = 0; i < CHANNEL_COUNT; ++i)
     {
-        float xPos = i * (ChannelStrip::STRIP_WIDTH + CHANNEL_SPACING);
-        YuchenUI::Rect stripBounds(xPos, 0,
-                                   ChannelStrip::STRIP_WIDTH,
-                                   ChannelStrip::STRIP_HEIGHT);
+        float xPos = i * ChannelStrip::STRIP_WIDTH;
+        YuchenUI::Rect stripBounds(xPos, 0, ChannelStrip::STRIP_WIDTH, stripHeight);
         
         ChannelStrip* strip = m_scrollArea->addChild(new ChannelStrip(stripBounds, i + 1));
         m_channelStrips.push_back(strip);
     }
+}
+
+void MixerWindowContent::updateScrollAreaBounds()
+{
+    if (!m_scrollArea) return;
+    
+    // ScrollArea 填充整个内容区域
+    YuchenUI::Rect newBounds(0, 0, m_contentArea.width, m_contentArea.height);
+    m_scrollArea->setBounds(newBounds);
+}
+
+void MixerWindowContent::onResize(const YuchenUI::Rect& newArea)
+{
+    m_contentArea = newArea;
+    updateScrollAreaBounds();
 }
 
 void MixerWindowContent::onDestroy()
@@ -99,11 +100,16 @@ void MixerWindowContent::updateTestSignals()
 
 void MixerWindowContent::generateTestLevel(int channelIndex, std::vector<float>& levels)
 {
-    float frequency1 = 0.5f + channelIndex * 0.15f;
-    float frequency2 = 1.2f + channelIndex * 0.2f;
+    // 使用 deltaTime 计算相位，使动画速度恒定
+    float frequency1 = 0.5f + channelIndex * 0.15f;  // Hz
+    float frequency2 = 1.2f + channelIndex * 0.2f;   // Hz
     
-    float signal1 = std::sin(m_phases[channelIndex] * frequency1) * 0.4f;
-    float signal2 = std::sin(m_phases[channelIndex] * frequency2) * 0.3f;
+    // 相位 = 时间 × 频率 × 2π
+    float phase1 = m_time * frequency1 * 2.0f * 3.14159f;
+    float phase2 = m_time * frequency2 * 2.0f * 3.14159f;
+    
+    float signal1 = std::sin(phase1) * 0.4f;
+    float signal2 = std::sin(phase2) * 0.3f;
     float noise = (static_cast<float>(rand()) / RAND_MAX - 0.5f) * 0.15f;
     
     float amplitudeL = signal1 + signal2 + noise;
@@ -112,6 +118,7 @@ void MixerWindowContent::generateTestLevel(int channelIndex, std::vector<float>&
     amplitudeL = std::clamp(amplitudeL, -1.0f, 1.0f);
     amplitudeR = std::clamp(amplitudeR, -1.0f, 1.0f);
     
+    // 转换为 dB
     if (std::abs(amplitudeL) < 0.00001f)
         levels[0] = -144.0f;
     else
@@ -121,19 +128,10 @@ void MixerWindowContent::generateTestLevel(int channelIndex, std::vector<float>&
         levels[1] = -144.0f;
     else
         levels[1] = std::clamp(20.0f * std::log10(std::abs(amplitudeR)), -144.0f, 0.0f);
-    
-    m_phases[channelIndex] += 0.1f;
-    if (m_phases[channelIndex] > 2.0f * 3.14159f)
-        m_phases[channelIndex] -= 2.0f * 3.14159f;
 }
 
 void MixerWindowContent::render(YuchenUI::RenderList& commandList)
 {
-    if (m_titleLabel)
-    {
-        m_titleLabel->addDrawCommands(commandList);
-    }
-    
     if (m_scrollArea)
     {
         m_scrollArea->addDrawCommands(commandList);

@@ -426,4 +426,27 @@ FaderColors ProtoolsClassicStyle::getFaderColors() const
     colors.subScaleColor = Vec4::FromRGBA(30, 30, 30, 128);
     return colors;
 }
+
+//==========================================================================================
+// [SECTION] - Number Display
+void ProtoolsClassicStyle::drawNumberBackground(const NumberBackgroundDrawInfo& info, RenderList& cmdList)
+{
+    NineSliceMargins backgroundMargins(5.0f, 5.0f, 5.0f, 5.0f);
+    cmdList.drawImage("components/number_display/classical/number_display_background@2x.png",
+                     info.bounds,
+                     ScaleMode::NineSlice,
+                     backgroundMargins);
+    
+    Rect textureRect(
+        info.bounds.x + 3.0f,
+        info.bounds.y + 2.0f,
+        info.bounds.width - 6.0f,
+        info.bounds.height - 5.0f
+    );
+    
+    cmdList.drawImage("components/number_display/number_display_stipple@2x.png",
+                     textureRect,
+                     ScaleMode::Tile);
+}
+
 } // namespace YuchenUI

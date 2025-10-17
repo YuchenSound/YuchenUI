@@ -748,7 +748,7 @@ TEST_F(TextRendererTest, ShapeText_SimpleString) {
     FontFallbackChain chain = m_fontManager->createDefaultFallbackChain();
     ShapedText shaped;
     
-    m_textRenderer->shapeText("Hello", chain, 12.0f, shaped);
+    m_textRenderer->shapeText("Hello", chain, 12.0f ,0 , shaped);
     
     EXPECT_FALSE(shaped.isEmpty());
     EXPECT_GT(shaped.glyphs.size(), 0u);
@@ -760,7 +760,7 @@ TEST_F(TextRendererTest, ShapeText_EmptyString) {
     FontFallbackChain chain = m_fontManager->createDefaultFallbackChain();
     ShapedText shaped;
     
-    m_textRenderer->shapeText("", chain, 12.0f, shaped);
+    m_textRenderer->shapeText("", chain, 12.0f,0, shaped);
     
     EXPECT_TRUE(shaped.isEmpty());
 }
@@ -769,7 +769,7 @@ TEST_F(TextRendererTest, ShapeText_MixedScript) {
     FontFallbackChain chain = m_fontManager->createDefaultFallbackChain();
     ShapedText shaped;
     
-    m_textRenderer->shapeText("Hello世界", chain, 14.0f, shaped);
+    m_textRenderer->shapeText("Hello世界", chain, 14.0f,0, shaped);
     
     EXPECT_FALSE(shaped.isEmpty());
     EXPECT_GT(shaped.glyphs.size(), 0u);
@@ -779,8 +779,8 @@ TEST_F(TextRendererTest, ShapeText_Caching) {
     FontFallbackChain chain = m_fontManager->createDefaultFallbackChain();
     ShapedText shaped1, shaped2;
     
-    m_textRenderer->shapeText("Cached Text", chain, 12.0f, shaped1);
-    m_textRenderer->shapeText("Cached Text", chain, 12.0f, shaped2);
+    m_textRenderer->shapeText("Cached Text", chain, 12.0f,0, shaped1);
+    m_textRenderer->shapeText("Cached Text", chain, 12.0f,0, shaped2);
     
     // Should have same result
     EXPECT_EQ(shaped1.glyphs.size(), shaped2.glyphs.size());
@@ -790,7 +790,7 @@ TEST_F(TextRendererTest, ShapeText_Caching) {
 TEST_F(TextRendererTest, GenerateTextVertices_SimpleText) {
     FontFallbackChain chain = m_fontManager->createDefaultFallbackChain();
     ShapedText shaped;
-    m_textRenderer->shapeText("Test", chain, 12.0f, shaped);
+    m_textRenderer->shapeText("Test", chain, 12.0f,0, shaped);
     
     std::vector<TextVertex> vertices;
     m_textRenderer->generateTextVertices(shaped, Vec2(0, 0),
@@ -941,7 +941,7 @@ TEST_F(MemoryLeakTest, DISABLED_ShapedTextCache_DynamicText) {
                  i/3600, (i%3600)/60, i%60);
         
         ShapedText shaped;
-        m_textRenderer->shapeText(buffer, chain, 14.0f, shaped);
+        m_textRenderer->shapeText(buffer, chain, 14.0f,0, shaped);
     }
     
     // TODO: After fix, check that cache size is bounded
@@ -993,7 +993,7 @@ TEST_F(MemoryLeakTest, GlyphCache_Cleanup) {
         snprintf(buffer, sizeof(buffer), "Text_%d", i);
         
         ShapedText shaped;
-        m_textRenderer->shapeText(buffer, chain, 12.0f, shaped);
+        m_textRenderer->shapeText(buffer, chain, 12.0f,0, shaped);
         
         std::vector<TextVertex> vertices;
         m_textRenderer->generateTextVertices(shaped, Vec2(0, 0),
@@ -1020,7 +1020,7 @@ TEST_F(TextRendererTest, FullPipeline_LatinText) {
     
     // Shape text
     ShapedText shaped;
-    m_textRenderer->shapeText("Hello World", chain, 14.0f, shaped);
+    m_textRenderer->shapeText("Hello World", chain, 14.0f,0, shaped);
     ASSERT_FALSE(shaped.isEmpty());
     
     // Generate vertices
@@ -1040,7 +1040,7 @@ TEST_F(TextRendererTest, FullPipeline_MixedScript) {
     FontFallbackChain chain = m_fontManager->createDefaultFallbackChain();
     
     ShapedText shaped;
-    m_textRenderer->shapeText("Hello世界123", chain, 14.0f, shaped);
+    m_textRenderer->shapeText("Hello世界123", chain, 14.0f,0, shaped);
     ASSERT_FALSE(shaped.isEmpty());
     
     std::vector<TextVertex> vertices;
@@ -1058,7 +1058,7 @@ TEST_F(TextRendererTest, FullPipeline_MultipleFrames) {
         m_textRenderer->beginFrame();
         
         ShapedText shaped;
-        m_textRenderer->shapeText("Consistent Text", chain, 14.0f, shaped);
+        m_textRenderer->shapeText("Consistent Text", chain, 14.0f,0, shaped);
         
         std::vector<TextVertex> vertices;
         m_textRenderer->generateTextVertices(shaped, Vec2(10, 10),
@@ -1082,7 +1082,7 @@ TEST_F(TextRendererTest, Stress_ManyDifferentTexts) {
         snprintf(buffer, sizeof(buffer), "Text number %d", i);
         
         ShapedText shaped;
-        m_textRenderer->shapeText(buffer, chain, 12.0f, shaped);
+        m_textRenderer->shapeText(buffer, chain, 12.0f,0, shaped);
         
         EXPECT_FALSE(shaped.isEmpty());
     }
@@ -1098,7 +1098,7 @@ TEST_F(TextRendererTest, Stress_ManySizes) {
          size <= Config::Font::MAX_SIZE;
          size += 10.0f) {
         ShapedText shaped;
-        m_textRenderer->shapeText("Test", chain, size, shaped);
+        m_textRenderer->shapeText("Test", chain, size,0, shaped);
         
         EXPECT_FALSE(shaped.isEmpty());
     }
@@ -1131,7 +1131,7 @@ TEST_F(TextRendererTest, EdgeCase_VeryLongText) {
     std::string longText(safeLength, 'A');
     
     ShapedText shaped;
-    m_textRenderer->shapeText(longText.c_str(), chain, 12.0f, shaped);
+    m_textRenderer->shapeText(longText.c_str(), chain, 12.0f,0, shaped);
     
     // 应该成功处理
     EXPECT_FALSE(shaped.isEmpty());
@@ -1146,7 +1146,7 @@ TEST_F(TextRendererTest, EdgeCase_TooLongText) {
     std::string veryLongText(tooLong, 'A');
     
     ShapedText shaped;
-    m_textRenderer->shapeText(veryLongText.c_str(), chain, 12.0f, shaped);
+    m_textRenderer->shapeText(veryLongText.c_str(), chain, 12.0f,0, shaped);
     
     if (!shaped.isEmpty()) {
         EXPECT_LE(shaped.glyphs.size(), Config::Text::MAX_GLYPHS_PER_TEXT);
@@ -1167,7 +1167,7 @@ TEST_F(TextRendererTest, EdgeCase_SpecialCharacters) {
     
     for (const char* text : specialTexts) {
         ShapedText shaped;
-        m_textRenderer->shapeText(text, chain, 12.0f, shaped);
+        m_textRenderer->shapeText(text, chain, 12.0f,0, shaped);
         // Should not crash
     }
     
@@ -1185,7 +1185,7 @@ TEST_F(TextRendererTest, DISABLED_Benchmark_ShapeTextPerformance) {
     
     for (int i = 0; i < 1000; ++i) {
         ShapedText shaped;
-        m_textRenderer->shapeText("Benchmark Text", chain, 14.0f, shaped);
+        m_textRenderer->shapeText("Benchmark Text", chain, 14.0f,0, shaped);
     }
     
     auto end = std::chrono::high_resolution_clock::now();

@@ -354,8 +354,10 @@ private:
     bool initializeFreeType();
     void cleanupFreeType();
     void initializeFonts();
-    void loadSymbolFont();
     
+    void loadSymbolFont();
+    void loadCJKFont();
+
 #ifdef __APPLE__
     std::string getCoreTextFontPath(const char* fontName) const;
 #endif

@@ -153,8 +153,6 @@ int FontDatabase::discoverAndRegisterFonts(std::vector<FontEntry>& fontEntries)
 {
     YUCHEN_ASSERT_MSG(m_isInitialized, "FontDatabase not initialized");
     
-    std::cout << "[FontDatabase] Discovering embedded fonts..." << std::endl;
-    
     int count = 0;
     const Resources::ResourceData* allResources = Resources::getAllResources();
     size_t resourceCount = Resources::getResourceCount();
@@ -164,18 +162,22 @@ int FontDatabase::discoverAndRegisterFonts(std::vector<FontEntry>& fontEntries)
         const auto& res = allResources[i];
         std::string path(res.path);
         
+        // Skip non-font resources
         if (path.find("fonts/") != 0) continue;
         
+        // Check file extension
         if (path.size() < 4) continue;
         std::string ext = path.substr(path.size() - 4);
         std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
         
         if (ext != ".ttf" && ext != ".otf" && ext != ".ttc") continue;
         
+        // Extract filename without extension
         size_t lastSlash = path.find_last_of('/');
         size_t lastDot = path.find_last_of('.');
         std::string fileName = path.substr(lastSlash + 1, lastDot - lastSlash - 1);
         
+        // Register font
         size_t fontIndex = fontEntries.size();
         fontEntries.emplace_back();
         
@@ -187,30 +189,13 @@ int FontDatabase::discoverAndRegisterFonts(std::vector<FontEntry>& fontEntries)
         );
         
         if (handle != INVALID_FONT_HANDLE)
-        {
-            count++;
-            const FontDescriptor* desc = getFontDescriptor(handle);
-            if (desc)
-            {
-                std::cout << "[FontDatabase] Registered: " << desc->fullName
-                          << " (Weight: " << static_cast<int>(desc->weight)
-                          << ", Style: " << (desc->style == FontStyle::Italic ? "Italic" : "Normal")
-                          << ", Glyphs: " << desc->numGlyphs
-                          << ")" << std::endl;
-            }
-        }
+        { count++; }
         else
-        {
-            fontEntries.pop_back();
-        }
+        { fontEntries.pop_back(); }
     }
     
-    std::cout << "[FontDatabase] Registered " << count << " fonts" << std::endl;
-    
-    if (count > 0)
-    {
-        assignFontRoles();
-    }
+    if   (count > 0) { assignFontRoles(); }
+    else { std::cerr << "[FontDatabase] WARNING: No embedded fonts found" << std::endl; }
     
     return count;
 }
@@ -220,150 +205,56 @@ int FontDatabase::discoverAndRegisterFonts(std::vector<FontEntry>& fontEntries)
 
 void FontDatabase::assignFontRoles()
 {
-    std::cout << "[FontDatabase] Assigning font roles..." << std::endl;
-    
     m_roleAssignments.clear();
     
-    FontHandle defaultRegular = INVALID_FONT_HANDLE;
-    FontHandle defaultBold = INVALID_FONT_HANDLE;
-    FontHandle defaultItalic = INVALID_FONT_HANDLE;
-    FontHandle defaultNarrow = INVALID_FONT_HANDLE;
-    FontHandle cjkFont = INVALID_FONT_HANDLE;
-    FontHandle emojiFont = INVALID_FONT_HANDLE;
-    FontHandle symbolFont = INVALID_FONT_HANDLE;
-    FontHandle monospaceFont = INVALID_FONT_HANDLE;
+    FontHandle defaultRegular   = INVALID_FONT_HANDLE;
+    FontHandle defaultBold      = INVALID_FONT_HANDLE;
+    FontHandle defaultItalic    = INVALID_FONT_HANDLE;
+    FontHandle defaultNarrow    = INVALID_FONT_HANDLE;
+    FontHandle cjkFont          = INVALID_FONT_HANDLE;
+    FontHandle emojiFont        = INVALID_FONT_HANDLE;
+    FontHandle symbolFont       = INVALID_FONT_HANDLE;
+    FontHandle monospaceFont    = INVALID_FONT_HANDLE;
     
     for (const auto& pair : m_descriptors)
     {
         const FontDescriptor& desc = pair.second;
-        
         if (desc.hasColorGlyphs && emojiFont == INVALID_FONT_HANDLE)
-        {
-            emojiFont = desc.handle;
-            continue;
-        }
-        
+        { emojiFont = desc.handle; continue; }
         if (hasCJKCoverage(desc) && cjkFont == INVALID_FONT_HANDLE)
-        {
-            cjkFont = desc.handle;
-        }
-        
+        { cjkFont = desc.handle; }
         if (desc.isFixedPitch && monospaceFont == INVALID_FONT_HANDLE)
-        {
-            monospaceFont = desc.handle;
-        }
+        { monospaceFont = desc.handle; }
         
         if (hasLatinCoverage(desc))
         {
-            if (desc.stretch == FontStretch::Condensed &&
-                desc.weight == FontWeight::Normal &&
-                desc.style == FontStyle::Normal &&
-                defaultNarrow == INVALID_FONT_HANDLE)
-            {
-                defaultNarrow = desc.handle;
-            }
-            
+            if (desc.stretch == FontStretch::Condensed && desc.weight == FontWeight::Normal && desc.style == FontStyle::Normal && defaultNarrow == INVALID_FONT_HANDLE)
+            { defaultNarrow = desc.handle; }
             if (desc.stretch == FontStretch::Normal)
             {
                 if (desc.weight == FontWeight::Normal && desc.style == FontStyle::Normal)
-                {
-                    if (defaultRegular == INVALID_FONT_HANDLE)
-                    {
-                        defaultRegular = desc.handle;
-                    }
-                }
+                { if (defaultRegular == INVALID_FONT_HANDLE) defaultRegular = desc.handle; }
                 else if (desc.weight == FontWeight::Bold && desc.style == FontStyle::Normal)
-                {
-                    if (defaultBold == INVALID_FONT_HANDLE)
-                    {
-                        defaultBold = desc.handle;
-                    }
-                }
+                { if (defaultBold == INVALID_FONT_HANDLE) defaultBold = desc.handle; }
                 else if (desc.style == FontStyle::Italic && desc.weight == FontWeight::Normal)
-                {
-                    if (defaultItalic == INVALID_FONT_HANDLE)
-                    {
-                        defaultItalic = desc.handle;
-                    }
-                }
+                { if (defaultItalic == INVALID_FONT_HANDLE) defaultItalic = desc.handle; }
             }
         }
     }
-    
-    if (defaultRegular != INVALID_FONT_HANDLE)
-    {
-        m_roleAssignments[FontRole::DefaultRegular] = defaultRegular;
-        std::cout << "[FontDatabase] DefaultRegular: "
-                  << m_descriptors[defaultRegular].fullName << std::endl;
-    }
-    
-    if (defaultBold != INVALID_FONT_HANDLE)
-    {
-        m_roleAssignments[FontRole::DefaultBold] = defaultBold;
-        std::cout << "[FontDatabase] DefaultBold: "
-                  << m_descriptors[defaultBold].fullName << std::endl;
-    }
-    else if (defaultRegular != INVALID_FONT_HANDLE)
-    {
-        m_roleAssignments[FontRole::DefaultBold] = defaultRegular;
-        std::cout << "[FontDatabase] DefaultBold: Using regular as fallback" << std::endl;
-    }
-    
-    if (defaultItalic != INVALID_FONT_HANDLE)
-    {
-        m_roleAssignments[FontRole::DefaultItalic] = defaultItalic;
-        std::cout << "[FontDatabase] DefaultItalic: "
-                  << m_descriptors[defaultItalic].fullName << std::endl;
-    }
-    
-    if (defaultNarrow != INVALID_FONT_HANDLE)
-    {
-        m_roleAssignments[FontRole::DefaultNarrow] = defaultNarrow;
-        std::cout << "[FontDatabase] DefaultNarrow: "
-                  << m_descriptors[defaultNarrow].fullName << std::endl;
-    }
-    
-    if (cjkFont != INVALID_FONT_HANDLE)
-    {
-        m_roleAssignments[FontRole::CJK] = cjkFont;
-        std::cout << "[FontDatabase] CJK: "
-                  << m_descriptors[cjkFont].fullName << std::endl;
-    }
-    else if (defaultRegular != INVALID_FONT_HANDLE)
-    {
-        m_roleAssignments[FontRole::CJK] = defaultRegular;
-        std::cout << "[FontDatabase] CJK: Using default as fallback" << std::endl;
-    }
-    
-    if (emojiFont != INVALID_FONT_HANDLE)
-    {
-        m_roleAssignments[FontRole::Emoji] = emojiFont;
-        std::cout << "[FontDatabase] Emoji: "
-                  << m_descriptors[emojiFont].fullName << std::endl;
-    }
-    
-    if (symbolFont != INVALID_FONT_HANDLE)
-    {
-        m_roleAssignments[FontRole::Symbol] = symbolFont;
-        std::cout << "[FontDatabase] Symbol: "
-                  << m_descriptors[symbolFont].fullName << std::endl;
-    }
-    
-    if (monospaceFont != INVALID_FONT_HANDLE)
-    {
-        m_roleAssignments[FontRole::Monospace] = monospaceFont;
-        std::cout << "[FontDatabase] Monospace: "
-                  << m_descriptors[monospaceFont].fullName << std::endl;
-    }
+    if (defaultRegular != INVALID_FONT_HANDLE)  m_roleAssignments[FontRole::DefaultRegular] = defaultRegular;
+    if (defaultBold != INVALID_FONT_HANDLE)     m_roleAssignments[FontRole::DefaultBold]    = defaultBold;
+    if (defaultItalic != INVALID_FONT_HANDLE)   m_roleAssignments[FontRole::DefaultItalic]  = defaultItalic;
+    if (defaultNarrow != INVALID_FONT_HANDLE)   m_roleAssignments[FontRole::DefaultNarrow]  = defaultNarrow;
+    if (cjkFont != INVALID_FONT_HANDLE)         m_roleAssignments[FontRole::CJK]            = cjkFont;
+    if (emojiFont != INVALID_FONT_HANDLE)       m_roleAssignments[FontRole::Emoji]          = emojiFont;
+    if (symbolFont != INVALID_FONT_HANDLE)      m_roleAssignments[FontRole::Symbol]         = symbolFont;
+    if (monospaceFont != INVALID_FONT_HANDLE)   m_roleAssignments[FontRole::Monospace]      = monospaceFont;
 }
 
 FontHandle FontDatabase::getFontForRole(FontRole role) const
 {
     auto it = m_roleAssignments.find(role);
-    if (it != m_roleAssignments.end())
-    {
-        return it->second;
-    }
+    if (it != m_roleAssignments.end()) return it->second;
     return INVALID_FONT_HANDLE;
 }
 

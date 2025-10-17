@@ -1,6 +1,7 @@
 #include "MixerPanel/ChannelStrip.h"
 #include "MixerPanel/FaderMeterSection.h"
 #include "MixerPanel/NameSection.h"
+#include <YuchenUI/rendering/RenderList.h>
 #include <sstream>
 #include <iostream>
 
@@ -17,11 +18,15 @@ ChannelStrip::~ChannelStrip()
 {
 }
 
+float ChannelStrip::getStripHeight()
+{
+    return FaderMeterSection::PREFERRED_HEIGHT + NameSection::PREFERRED_HEIGHT;
+}
+
 void ChannelStrip::setOwnerContext(YuchenUI::UIContext* context)
 {
     Widget::setOwnerContext(context);
     
-    // 使用 setOwnerContext 而不是 setOwnerContent，因为 addChild() 会调用这个
     if (context && !m_faderMeterSection && !m_nameSection)
     {
         createSections();
@@ -34,7 +39,14 @@ void ChannelStrip::createSections()
     
     clearChildren();
     
-    YuchenUI::Rect faderMeterBounds(0, 0, FADER_METER_WIDTH, m_bounds.height);
+    float currentY = 0.0f;
+    
+    YuchenUI::Rect faderMeterBounds(
+        BORDER_SIZE,
+        currentY,
+        CONTENT_WIDTH,
+        FaderMeterSection::PREFERRED_HEIGHT
+    );
     m_faderMeterSection = addChild(new FaderMeterSection(faderMeterBounds));
     
     m_faderMeterSection->setOnFaderValueChanged([this](float dbValue) {
@@ -42,9 +54,16 @@ void ChannelStrip::createSections()
                   << " fader changed: " << dbValue << " dB" << std::endl;
     });
     
+    currentY += FaderMeterSection::PREFERRED_HEIGHT;
+    
     std::ostringstream oss;
     oss << "Ch " << m_channelNumber;
-    YuchenUI::Rect nameBounds(FADER_METER_WIDTH, 0, NAME_WIDTH, m_bounds.height);
+    YuchenUI::Rect nameBounds(
+        BORDER_SIZE,
+        currentY,
+        CONTENT_WIDTH,
+        NameSection::PREFERRED_HEIGHT
+    );
     m_nameSection = addChild(new NameSection(nameBounds, oss.str()));
 }
 
@@ -54,6 +73,27 @@ void ChannelStrip::addDrawCommands(YuchenUI::RenderList& commandList,
     if (!m_isVisible) return;
     
     YuchenUI::Vec2 absPos(m_bounds.x + offset.x, m_bounds.y + offset.y);
+    
+    commandList.fillRect(
+        YuchenUI::Rect(absPos.x, absPos.y, m_bounds.width, m_bounds.height),
+        YuchenUI::Vec4::FromRGBA(77, 77, 77, 255)
+    );
+    
+    YuchenUI::Vec4 borderColor = YuchenUI::Vec4::FromRGBA(49, 49, 49, 255);
+    
+    commandList.drawLine(
+        YuchenUI::Vec2(absPos.x + 0.5f, absPos.y),
+        YuchenUI::Vec2(absPos.x + 0.5f, absPos.y + m_bounds.height),
+        borderColor,
+        1.0f
+    );
+    
+    commandList.drawLine(
+        YuchenUI::Vec2(absPos.x + m_bounds.width - 0.5f, absPos.y),
+        YuchenUI::Vec2(absPos.x + m_bounds.width - 0.5f, absPos.y + m_bounds.height),
+        borderColor,
+        1.0f
+    );
     
     renderChildren(commandList, absPos);
 }
@@ -65,31 +105,6 @@ bool ChannelStrip::handleMouseMove(const YuchenUI::Vec2& position, const YuchenU
 
 bool ChannelStrip::handleMouseClick(const YuchenUI::Vec2& position, bool pressed, const YuchenUI::Vec2& offset)
 {
-    // 限制每个实例最多打印3次
-    static int printCount = 0;
-    const int MAX_PRINTS = 3;
-    
-    if (pressed && printCount < MAX_PRINTS)
-    {
-        YuchenUI::Vec2 absPos(m_bounds.x + offset.x, m_bounds.y + offset.y);
-        YuchenUI::Rect absRect(absPos.x, absPos.y, m_bounds.width, m_bounds.height);
-        
-        // 只打印真正处理事件的 Strip（鼠标在范围内）
-        if (absRect.contains(position))
-        {
-            std::cout << "\n[ChannelStrip " << m_channelNumber << "] Click Debug:" << std::endl;
-            std::cout << "  position: (" << position.x << ", " << position.y << ")" << std::endl;
-            std::cout << "  received offset: (" << offset.x << ", " << offset.y << ")" << std::endl;
-            std::cout << "  m_bounds: (" << m_bounds.x << ", " << m_bounds.y << ", "
-                      << m_bounds.width << ", " << m_bounds.height << ")" << std::endl;
-            std::cout << "  calculated absPos: (" << absPos.x << ", " << absPos.y << ")" << std::endl;
-            std::cout << "  absRect: (" << absRect.x << ", " << absRect.y << ", "
-                      << absRect.width << ", " << absRect.height << ")" << std::endl;
-            std::cout << "  contains position: true" << std::endl;
-            printCount++;
-        }
-    }
-    
     return dispatchMouseEvent(position, pressed, offset, false);
 }
 

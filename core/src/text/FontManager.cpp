@@ -146,28 +146,27 @@ bool FontManager::initialize()
 
     if (!initializeFreeType())
     {
-        std::cerr << "[FontManager] Failed to initialize FreeType" << std::endl;
+        std::cerr << "[FontManager] ERROR: Failed to initialize FreeType" << std::endl;
         return false;
     }
 
     if (!m_fontDatabase.initialize(m_freeTypeLibrary))
     {
-        std::cerr << "[FontManager] Failed to initialize font database" << std::endl;
+        std::cerr << "[FontManager] ERROR: Failed to initialize font database" << std::endl;
         cleanupFreeType();
         return false;
     }
 
     int discoveredCount = m_fontDatabase.discoverAndRegisterFonts(m_fonts);
-    std::cout << "[FontManager] Discovered " << discoveredCount << " fonts" << std::endl;
-
+    
     initializeFonts();
+    loadCJKFont();
     loadSymbolFont();
     
     m_isInitialized = true;
     
-    std::cout << "[FontManager] Initialization complete" << std::endl;
-    std::cout << "  - Total fonts: " << m_fonts.size() << std::endl;  // No need to subtract 1!
-    std::cout << "  - Font families: " << m_fontDatabase.families().size() << std::endl;
+    // Single summary log
+    std::cout << "[FontManager] Initialized (" << m_fonts.size() << " fonts)" << std::endl;
     
     return true;
 }
@@ -227,23 +226,109 @@ void FontManager::initializeFonts()
     m_defaultBoldFont       = m_fontDatabase.getFontForRole(FontRole::DefaultBold);
     m_defaultNarrowFont     = m_fontDatabase.getFontForRole(FontRole::DefaultNarrow);
     m_defaultNarrowBoldFont = m_fontDatabase.getFontForRole(FontRole::DefaultNarrow);
-    m_defaultCJKFont        = m_fontDatabase.getFontForRole(FontRole::CJK);
     if (m_defaultRegularFont == INVALID_FONT_HANDLE)
     {
-        std::cerr << "[FontManager] CRITICAL: No default regular font found!" << std::endl;
-        if (!m_fonts.empty() && m_fonts[0].isValid)
+        std::cerr << "[FontManager] ERROR: No default font found!" << std::endl;
+        if (!m_fonts.empty() && m_fonts[0].isValid) m_defaultRegularFont = 0;
+    }
+    if (m_defaultBoldFont == INVALID_FONT_HANDLE)       m_defaultBoldFont = m_defaultRegularFont;
+    if (m_defaultNarrowFont == INVALID_FONT_HANDLE)     m_defaultNarrowFont = m_defaultRegularFont;
+    if (m_defaultNarrowBoldFont == INVALID_FONT_HANDLE) m_defaultNarrowBoldFont = m_defaultBoldFont;
+    YUCHEN_ASSERT_MSG(m_defaultRegularFont != INVALID_FONT_HANDLE, "Failed to assign default regular font");
+}
+
+//==========================================================================================
+// CJK Font Loading
+
+void FontManager::loadCJKFont()
+{
+    // Try to get CJK font from embedded resources
+    m_defaultCJKFont = m_fontDatabase.getFontForRole(FontRole::CJK);
+    
+    // If no CJK font in resources, load from system
+    if (m_defaultCJKFont == INVALID_FONT_HANDLE)
+    {
+#ifdef __APPLE__
+        // macOS: Load PingFang SC
+        std::string cjkPath = getCoreTextFontPath("PingFangSC-Regular");
+        
+        if (!cjkPath.empty())
         {
-            m_defaultRegularFont = 0;
-            std::cerr << "[FontManager] Using first available font as emergency fallback" << std::endl;
+            size_t fontIndex = m_fonts.size();
+            m_fonts.emplace_back();
+            m_defaultCJKFont = m_fontDatabase.registerFont(
+                cjkPath.c_str(),
+                "PingFang SC",
+                &m_fonts[fontIndex]
+            );
         }
+        
+        // Fallback to Heiti SC if PingFang not found
+        if (m_defaultCJKFont == INVALID_FONT_HANDLE)
+        {
+            cjkPath = getCoreTextFontPath("STHeitiSC-Light");
+            if (!cjkPath.empty())
+            {
+                size_t fontIndex = m_fonts.size();
+                m_fonts.emplace_back();
+                m_defaultCJKFont = m_fontDatabase.registerFont(
+                    cjkPath.c_str(),
+                    "Heiti SC",
+                    &m_fonts[fontIndex]
+                );
+            }
+        }
+        
+#elif defined(_WIN32)
+        // Windows: Load Microsoft YaHei
+        const char* cjkPath = "C:\\Windows\\Fonts\\msyh.ttc";
+        std::ifstream testFile(cjkPath);
+        
+        if (testFile.good())
+        {
+            testFile.close();
+            size_t fontIndex = m_fonts.size();
+            m_fonts.emplace_back();
+            m_defaultCJKFont = m_fontDatabase.registerFont(
+                cjkPath,
+                "Microsoft YaHei",
+                &m_fonts[fontIndex]
+            );
+        }
+        
+        // Fallback to SimSun if YaHei not found
+        if (m_defaultCJKFont == INVALID_FONT_HANDLE)
+        {
+            cjkPath = "C:\\Windows\\Fonts\\simsun.ttc";
+            testFile.open(cjkPath);
+            if (testFile.good())
+            {
+                testFile.close();
+                size_t fontIndex = m_fonts.size();
+                m_fonts.emplace_back();
+                m_defaultCJKFont = m_fontDatabase.registerFont(
+                    cjkPath,
+                    "SimSun",
+                    &m_fonts[fontIndex]
+                );
+            }
+        }
+#endif
     }
     
-    if (m_defaultBoldFont == INVALID_FONT_HANDLE)m_defaultBoldFont              = m_defaultRegularFont;
-    if (m_defaultNarrowFont == INVALID_FONT_HANDLE)m_defaultNarrowFont          = m_defaultRegularFont;
-    if (m_defaultNarrowBoldFont == INVALID_FONT_HANDLE)m_defaultNarrowBoldFont  = m_defaultBoldFont;
-    if (m_defaultCJKFont == INVALID_FONT_HANDLE)m_defaultCJKFont                = m_defaultRegularFont;
-    YUCHEN_ASSERT_MSG(m_defaultRegularFont != INVALID_FONT_HANDLE,"Failed to assign default regular font");
-    std::cout << "[FontManager] Font role assignment complete" << std::endl;
+    // CRITICAL: No fallback to default font - fail loudly
+    if (m_defaultCJKFont == INVALID_FONT_HANDLE)
+    {
+        std::cerr << "[FontManager] ERROR: Failed to load CJK font!" << std::endl;
+        std::cerr << "[FontManager] Chinese text will NOT be displayed." << std::endl;
+        
+        // Set to default font to prevent crash, but don't hide the error
+        m_defaultCJKFont = m_defaultRegularFont;
+        
+        // Optional: throw exception in debug builds
+        YUCHEN_ASSERT_MSG(false, "CJK font loading failed - check system fonts");
+    }
+
 }
 
 void FontManager::loadSymbolFont()
@@ -269,15 +354,8 @@ void FontManager::loadSymbolFont()
             "C:\\Windows\\Fonts\\seguisym.ttf", "Segoe UI Symbol", &m_fonts[fontIndex]);
 #endif
     }
-    
     if (m_defaultSymbolFont == INVALID_FONT_HANDLE)
-    {
-        std::cout << "[FontManager] Symbol font not available" << std::endl;
-    }
-    else
-    {
-        std::cout << "[FontManager] Symbol font loaded" << std::endl;
-    }
+    { std::cerr << "[FontManager] Symbol font not available" << std::endl; }
 }
 
 #ifdef __APPLE__
@@ -437,31 +515,23 @@ FontHandle FontManager::selectFontForCodepoint(
     {
         s_warnedMissingGlyphs.insert(codepoint);
         
-        // Determine character type
-        const char* charType = "Unknown";
-        if (TextUtils::isEmojiCharacter(codepoint))
+        // Skip control characters AND invalid codepoints
+        bool isValidVisible = (codepoint >= 0x20 && codepoint != 0x7F) && !(codepoint >= 0xD800 && codepoint <= 0xDFFF) && (codepoint <= 0x10FFFF);
+        if (isValidVisible)
         {
-            charType = "Emoji";
+            const char* charType = "Unknown";
+            if (TextUtils::isEmojiCharacter(codepoint))
+            { charType = "Emoji"; }
+            else if (TextUtils::isSymbolCharacter(codepoint))
+            { charType = "Symbol"; }
+            else if (TextUtils::isChineseCharacter(codepoint))
+            { charType = "CJK"; }
+            else if (TextUtils::isWesternCharacter(codepoint))
+            { charType = "Western"; }
+            // Safe encoding - encodeUTF8 now handles invalid codepoints
+            std::string charStr = TextUtils::encodeUTF8(codepoint);
+            std::cerr << "[FontManager] WARNING: No font supports " << charType << " character U+" << std::hex << std::uppercase << codepoint << std::dec << " ('" << charStr << "')" << std::endl;
         }
-        else if (TextUtils::isSymbolCharacter(codepoint))
-        {
-            charType = "Symbol";
-        }
-        else if (TextUtils::isChineseCharacter(codepoint))
-        {
-            charType = "CJK";
-        }
-        else if (TextUtils::isWesternCharacter(codepoint))
-        {
-            charType = "Western";
-        }
-        
-        std::cerr << "[FontManager] Warning: No font in fallback chain supports "
-                  << charType << " character U+"
-                  << std::hex << std::uppercase << codepoint << std::dec
-                  << " ('" << TextUtils::encodeUTF8(codepoint) << "'). "
-                  << "Character will render as .notdef glyph."
-                  << std::endl;
     }
     
     // Return primary font (will render as .notdef glyph)

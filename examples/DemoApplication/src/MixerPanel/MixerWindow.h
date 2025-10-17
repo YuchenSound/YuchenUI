@@ -12,6 +12,7 @@ public:
     
     void onCreate(YuchenUI::UIContext* context, const YuchenUI::Rect& contentArea) override;
     void onDestroy() override;
+    void onResize(const YuchenUI::Rect& newArea) override;
     void onUpdate(float deltaTime) override;
     void render(YuchenUI::RenderList& commandList) override;
 
@@ -20,13 +21,12 @@ private:
     void createChannelStrips();
     void updateTestSignals();
     void generateTestLevel(int channelIndex, std::vector<float>& levels);
+    void updateScrollAreaBounds();
     
-    std::unique_ptr<YuchenUI::TextLabel> m_titleLabel;
     YuchenUI::ScrollArea* m_scrollArea;
     std::vector<ChannelStrip*> m_channelStrips;
     
-    static constexpr int CHANNEL_COUNT = 8;
-    static constexpr float CHANNEL_SPACING = 5.0f;
+    static constexpr int CHANNEL_COUNT = 36;
     
     float m_time;
     std::vector<float> m_phases;

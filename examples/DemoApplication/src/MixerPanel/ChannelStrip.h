@@ -26,12 +26,13 @@ public:
     
     int getChannelNumber() const { return m_channelNumber; }
     
-    void setOwnerContext(YuchenUI::UIContext* context) override;  // 改为 setOwnerContext
+    void setOwnerContext(YuchenUI::UIContext* context) override;
     
     static constexpr float STRIP_WIDTH = 79.0f;
-    static constexpr float STRIP_HEIGHT = 224.0f;
-    static constexpr float FADER_METER_WIDTH = 44.0f;
-    static constexpr float NAME_WIDTH = 35.0f;
+    static constexpr float BORDER_SIZE = 1.0f;
+    static constexpr float CONTENT_WIDTH = STRIP_WIDTH - BORDER_SIZE * 2.0f;
+    
+    static float getStripHeight();
 
 private:
     void createSections();
