@@ -42,6 +42,8 @@ namespace Font {
     static constexpr size_t MAX_FONTS = 64;                 ///< Maximum loaded fonts
     static constexpr size_t MAX_CACHED_SIZES = 8;           ///< Maximum cached font sizes per font
     static constexpr int FREETYPE_DPI = 72;                 ///< DPI for FreeType rendering
+    static constexpr int LOAD_FLAGS_METRICS = 0x0;          ///< Load glyph for metrics only (FT_LOAD_DEFAULT)
+    static constexpr int LOAD_FLAGS_RENDER = 0x4;           ///< Load and render glyph bitmap (FT_LOAD_RENDER)
 }
 
 //==========================================================================================

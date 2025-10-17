@@ -191,7 +191,7 @@ GlyphMetrics FontFace::getGlyphMetrics(uint32_t codepoint, float fontSize) const
     if (glyphIndex == 0) return GlyphMetrics();
     
     // Load glyph to get metrics
-    FT_Error error = FT_Load_Glyph(m_face, glyphIndex, FT_LOAD_DEFAULT);
+    FT_Error error = FT_Load_Glyph(m_face, glyphIndex, Config::Font::LOAD_FLAGS_METRICS);
     if (error != FT_Err_Ok) return GlyphMetrics();
     
     GlyphMetrics metrics;
@@ -224,7 +224,7 @@ float FontFace::measureText(const char* text, float fontSize) const {
             uint32_t glyphIndex = FT_Get_Char_Index(m_face, codepoint);
             if (glyphIndex != 0)
             {
-                FT_Error error = FT_Load_Glyph(m_face, glyphIndex, FT_LOAD_DEFAULT);
+                FT_Error error = FT_Load_Glyph(m_face, glyphIndex, Config::Font::LOAD_FLAGS_METRICS);
                 if (error == FT_Err_Ok) totalWidth += m_face->glyph->advance.x / 64.0f;
             }
             else if (codepoint == ' ')

@@ -451,7 +451,7 @@ void TextRenderer::rasterizeGlyphWithFreeType(void* face,
     }
     
     // Load and render glyph
-    error = FT_Load_Glyph(ftFace, glyphIndex, FT_LOAD_RENDER);
+    error = FT_Load_Glyph(ftFace, glyphIndex, Config::Font::LOAD_FLAGS_RENDER);
     if (error != FT_Err_Ok)
     {
         throw std::runtime_error("Failed to load glyph");
