@@ -43,6 +43,5 @@ function(yuchen_configure_text_libraries target_name)
         YUCHEN_TEXT_HARFBUZZ=1
         FT2_BUILD_LIBRARY=1
         HB_HAVE_FREETYPE=1
-        FT_CONFIG_OPTION_SUBPIXEL_RENDERING=1
     )
 endfunction()
