@@ -1,4 +1,5 @@
-#include "MixerPanel/NameSection.h"
+#include "NameSection.h"
+#include "theme/MixerTheme.h"
 #include <YuchenUI/widgets/TextLabel.h>
 #include <YuchenUI/text/IFontProvider.h>
 #include <YuchenUI/core/UIContext.h>
@@ -32,10 +33,14 @@ void NameSection::addDrawCommands(YuchenUI::RenderList& commandList,
     
     YuchenUI::Vec2 absPos(m_bounds.x + offset.x, m_bounds.y + offset.y);
     
-    commandList.fillRect(
-        YuchenUI::Rect(absPos.x + 2.0f, absPos.y, m_bounds.width - 4.0f, m_bounds.height),
-        YuchenUI::Vec4::FromRGBA(154, 154, 154, 255)
-    );
+    if (m_mixerTheme)
+    {
+        YuchenUI::Vec4 bgColor = m_mixerTheme->getNameSectionBackground();
+        commandList.fillRect(
+            YuchenUI::Rect(absPos.x + 2.0f, absPos.y, m_bounds.width - 4.0f, m_bounds.height),
+            bgColor
+        );
+    }
     
     renderChildren(commandList, absPos);
 }
@@ -45,19 +50,13 @@ void NameSection::createLabel()
     if (!m_ownerContext) return;
     
     clearChildren();
-    
+    YuchenUI::IFontProvider* fontProvider = m_ownerContext->getFontProvider();
     YuchenUI::Rect labelBounds(0, 0, m_bounds.width, m_bounds.height);
     m_label = addChild(new YuchenUI::TextLabel(labelBounds));
     m_label->setText(m_name);
     m_label->setFontSize(11.0f);
-    m_label->setAlignment(YuchenUI::TextAlignment::Center,
-                         YuchenUI::VerticalAlignment::Middle);
-    
-    YuchenUI::IFontProvider* fontProvider = m_ownerContext->getFontProvider();
-    if (fontProvider)
-    {
-        m_label->setFont(fontProvider->getDefaultFont());
-    }
+    m_label->setFont(fontProvider->getDefaultBoldFont());
+    m_label->setAlignment(YuchenUI::TextAlignment::Center,YuchenUI::VerticalAlignment::Middle);
 }
 
 void NameSection::setName(const std::string& name)

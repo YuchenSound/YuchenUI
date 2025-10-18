@@ -1,8 +1,9 @@
-#include "MixerPanel/ChannelSection.h"
+#include "ChannelSection.h"
 #include <YuchenUI/rendering/RenderList.h>
 
 ChannelSection::ChannelSection(const YuchenUI::Rect& bounds)
     : Widget()
+    , m_mixerTheme(nullptr)
 {
     setBounds(bounds);
 }

@@ -8,7 +8,6 @@
 class MainWindowContent;
 class ConfirmationDialogContent;
 class InspectorWindowContent;
-class MixerWindowContent;
 
 class DemoApplication {
 public:
@@ -35,7 +34,6 @@ private:
    YuchenUI::Application m_frameworkApp;
    YuchenUI::BaseWindow* m_mainWindow;
    YuchenUI::BaseWindow* m_levelMeterWindow;
-   YuchenUI::BaseWindow* m_mixerWindow;
    
    bool m_isDarkTheme;
 
@@ -71,7 +69,6 @@ private:
    
    std::unique_ptr<YuchenUI::TextLabel> m_titleLabel;
    std::unique_ptr<YuchenUI::Button> m_levelMeterButton;
-   std::unique_ptr<YuchenUI::Button> m_mixerButton;
    std::unique_ptr<YuchenUI::Button> m_dialogButton;
    std::unique_ptr<YuchenUI::Button> m_themeButton;
    

@@ -1,5 +1,4 @@
 #include "Application.h"
-#include "MixerPanel/MixerWindow.h"
 #include "YuchenUI/text/TextRenderer.h"
 
 #include <iostream>
@@ -23,7 +22,6 @@ DemoApplication::DemoApplication()
     : m_frameworkApp()
     , m_mainWindow(nullptr)
     , m_levelMeterWindow(nullptr)
-    , m_mixerWindow(nullptr)      // 添加混音器窗口初始化
     , m_isDarkTheme(true)
 {
 }
@@ -76,22 +74,6 @@ void DemoApplication::onShowLevelMeterClick() {
     {
         m_levelMeterWindow = windowManager.createToolWindow<LevelMeterWindowContent>(550,554,"Level Meter Test",m_mainWindow,30); // 89,554
         m_levelMeterWindow->show();
-    }
-}
-
-// ============================================================================
-void DemoApplication::onShowMixerClick() {
-    WindowManager& windowManager = m_frameworkApp.getWindowManager();
-
-    if (m_mixerWindow && m_mixerWindow->isVisible())
-    {
-        m_mixerWindow->hide();
-    }
-    else
-    {
-        m_mixerWindow = windowManager.createMainWindow<MixerWindowContent>(800,600,"Mixer",30);
-        m_mixerWindow->setAffectsAppLifetime(false);
-        m_mixerWindow->show();
     }
 }
 
@@ -175,15 +157,6 @@ void MainWindowContent::createActionButtons() {
         m_app->onShowLevelMeterClick();
     });
     addComponent(m_levelMeterButton.get());
-
-    YuchenUI::Rect mixerBounds(100.0f, 60.0f, 72.0f, 17.0f);
-    m_mixerButton = std::make_unique<Button>(mixerBounds);
-    m_mixerButton->setText("Mixer");
-    m_mixerButton->setRole(ButtonRole::Normal);
-    m_mixerButton->setClickCallback([this]() {
-        m_app->onShowMixerClick();
-    });
-    addComponent(m_mixerButton.get());
 
     YuchenUI::Rect dialogBounds(180.0f, 60.0f, 72.0f, 17.0f);
     m_dialogButton = std::make_unique<Button>(dialogBounds);
@@ -641,9 +614,6 @@ void MainWindowContent::render(YuchenUI::RenderList& commandList)
     }
     if (m_levelMeterButton) {
         m_levelMeterButton->addDrawCommands(commandList);
-    }
-    if (m_mixerButton) {  // 渲染混音器按钮
-        m_mixerButton->addDrawCommands(commandList);
     }
     if (m_dialogButton) {
         m_dialogButton->addDrawCommands(commandList);
