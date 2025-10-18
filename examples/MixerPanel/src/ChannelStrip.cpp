@@ -73,38 +73,7 @@ void ChannelStrip::createSections()
     
     float currentY = 0.0f;
     
-    YuchenUI::Rect faderMeterBounds(
-        BORDER_SIZE,
-        currentY,
-        CONTENT_WIDTH,
-        FaderMeterSection::PREFERRED_HEIGHT
-    );
-    m_faderMeterSection = addChild(new FaderMeterSection(faderMeterBounds));
-    m_faderMeterSection->setMixerTheme(m_mixerTheme);
-    
-    m_faderMeterSection->setOnFaderValueChanged([this](float dbValue) {
-        if (m_meterNumberSection)
-        {
-            m_meterNumberSection->setFaderValue(dbValue);
-        }
-        std::cout << "Channel " << m_channelNumber
-                  << " fader changed: " << dbValue << " dB" << std::endl;
-    });
-    
-    currentY += FaderMeterSection::PREFERRED_HEIGHT;
-    
-    YuchenUI::Rect meterNumberBounds(
-        BORDER_SIZE,
-        currentY,
-        CONTENT_WIDTH,
-        MeterNumberSection::PREFERRED_HEIGHT
-    );
-    m_meterNumberSection = addChild(new MeterNumberSection(meterNumberBounds));
-    m_meterNumberSection->setMixerTheme(m_mixerTheme);
-    m_meterNumberSection->setTrackType(m_trackType);
-    
-    currentY += MeterNumberSection::PREFERRED_HEIGHT;
-    
+    // --- SoloMuteSection 在最上方 ---
     YuchenUI::Rect soloMuteBounds(
         BORDER_SIZE,
         currentY,
@@ -150,7 +119,42 @@ void ChannelStrip::createSections()
     });
     
     currentY += SoloMuteSection::PREFERRED_HEIGHT;
+
+    // --- FaderMeterSection ---
+    YuchenUI::Rect faderMeterBounds(
+        BORDER_SIZE,
+        currentY,
+        CONTENT_WIDTH,
+        FaderMeterSection::PREFERRED_HEIGHT
+    );
+    m_faderMeterSection = addChild(new FaderMeterSection(faderMeterBounds));
+    m_faderMeterSection->setMixerTheme(m_mixerTheme);
     
+    m_faderMeterSection->setOnFaderValueChanged([this](float dbValue) {
+        if (m_meterNumberSection)
+        {
+            m_meterNumberSection->setFaderValue(dbValue);
+        }
+        std::cout << "Channel " << m_channelNumber
+                  << " fader changed: " << dbValue << " dB" << std::endl;
+    });
+    
+    currentY += FaderMeterSection::PREFERRED_HEIGHT;
+    
+    // --- MeterNumberSection ---
+    YuchenUI::Rect meterNumberBounds(
+        BORDER_SIZE,
+        currentY,
+        CONTENT_WIDTH,
+        MeterNumberSection::PREFERRED_HEIGHT
+    );
+    m_meterNumberSection = addChild(new MeterNumberSection(meterNumberBounds));
+    m_meterNumberSection->setMixerTheme(m_mixerTheme);
+    m_meterNumberSection->setTrackType(m_trackType);
+    
+    currentY += MeterNumberSection::PREFERRED_HEIGHT;
+    
+    // --- NameSection ---
     std::ostringstream oss;
     oss << "Ch " << m_channelNumber;
     YuchenUI::Rect nameBounds(

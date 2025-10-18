@@ -9,11 +9,6 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Debug)
 endif()
 
-
-# ==============================================================================
-# 自动扫描源文件
-# ==============================================================================
-
 file(GLOB_RECURSE MIXER_SOURCES
     "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/*.h"
@@ -28,10 +23,6 @@ elseif(NOT WIN32)
     message(FATAL_ERROR "Unsupported platform! MixerPanel only supports macOS and Windows")
 endif()
 
-# ==============================================================================
-# 创建可执行文件
-# ==============================================================================
-
 if(APPLE)
     add_executable(${PROJECT_NAME} MACOSX_BUNDLE ${MIXER_SOURCES})
     
@@ -41,7 +32,6 @@ if(APPLE)
         )
     endif()
     
-    # 配置 Info.plist
     set_target_properties(${PROJECT_NAME} PROPERTIES
         MACOSX_BUNDLE TRUE
         MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/Info.plist.in"
@@ -66,36 +56,21 @@ elseif(WIN32)
     endif()
 endif()
 
-# ==============================================================================
-# 包含目录
-# ==============================================================================
-
 target_include_directories(${PROJECT_NAME} PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/src"
 )
-
-# ==============================================================================
-# 链接库
-# ==============================================================================
 
 target_link_libraries(${PROJECT_NAME} PRIVATE 
     YuchenUI 
     YuchenUI-Desktop
 )
 
-# ==============================================================================
-# 添加应用资源
-# ==============================================================================
-
 yuchen_add_app_resources(${PROJECT_NAME}
     RESOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/resources"
     NAMESPACE "MixerPanel::Resources"
     OUTPUT_PREFIX "mixer"
+    AUTO_REGISTER ON
 )
-
-# ==============================================================================
-# 编译选项
-# ==============================================================================
 
 if(APPLE OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     target_compile_options(${PROJECT_NAME} PRIVATE 
@@ -127,10 +102,6 @@ if(MSVC)
         _UNICODE
     )
 endif()
-
-# ==============================================================================
-# 构建定义
-# ==============================================================================
 
 target_compile_definitions(${PROJECT_NAME} PRIVATE
     YUCHEN_ENABLE_AUTO_REGISTRATION

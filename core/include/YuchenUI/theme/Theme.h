@@ -9,6 +9,11 @@ namespace YuchenUI {
 
 class RenderList;
 
+enum class StyleType {
+    ProtoolsDark,
+    ProtoolsClassic
+};
+
 struct ButtonDrawInfo {
     Rect bounds;
     std::string text;
@@ -204,6 +209,7 @@ struct FaderColors {
 class UIStyle {
 public:
     virtual ~UIStyle() = default;
+    virtual StyleType getType() const = 0;
     static constexpr float FOCUS_INDICATOR_BORDER_WIDTH = 1.0f;
     virtual void drawNormalButton(const ButtonDrawInfo& info, RenderList& cmdList) = 0;
     virtual void drawPrimaryButton(const ButtonDrawInfo& info, RenderList& cmdList) = 0;
@@ -244,7 +250,8 @@ class ProtoolsDarkStyle : public UIStyle {
 public:
     ProtoolsDarkStyle();
     ~ProtoolsDarkStyle() override = default;
-    
+    StyleType getType() const override { return StyleType::ProtoolsDark; }
+
     void drawNormalButton(const ButtonDrawInfo& info, RenderList& cmdList) override;
     void drawPrimaryButton(const ButtonDrawInfo& info, RenderList& cmdList) override;
     void drawDestructiveButton(const ButtonDrawInfo& info, RenderList& cmdList) override;
@@ -288,7 +295,7 @@ class ProtoolsClassicStyle : public UIStyle {
 public:
     ProtoolsClassicStyle();
     ~ProtoolsClassicStyle() override = default;
-    
+    StyleType getType() const override { return StyleType::ProtoolsClassic; }
     void drawNormalButton(const ButtonDrawInfo& info, RenderList& cmdList) override;
     void drawPrimaryButton(const ButtonDrawInfo& info, RenderList& cmdList) override;
     void drawDestructiveButton(const ButtonDrawInfo& info, RenderList& cmdList) override;

@@ -13,39 +13,6 @@
 **
 ********************************************************************************************/
 
-//==========================================================================================
-/** @file BaseWindow.cpp
-    
-    Cross-platform base window implementation.
-    
-    This file implements the core window functionality that is shared across all platforms.
-    It manages window lifecycle, rendering, event handling, and UI content integration.
-    
-    Architecture:
-    - BaseWindow is a concrete implementation of the abstract Window interface
-    - Platform-specific behavior delegated to WindowImpl (created by factory)
-    - Rendering abstracted through IGraphicsBackend interface
-    - Event handling abstracted through EventManager
-    - UI content managed through UIContext which owns IUIContent
-    
-    Key responsibilities:
-    - Window creation, destruction, and state management
-    - Renderer initialization and frame rendering
-    - Event routing to UI components and content
-    - Mouse capture for drag operations
-    - Text input and IME coordination
-    - Modal dialog lifecycle management
-    - DPI scaling detection and propagation
-    
-    Threading model:
-    - All methods must be called from the main thread
-    - No internal synchronization (single-threaded by design)
-    
-    State machine:
-    - Uninitialized -> Created -> RendererReady -> Shown
-    - Transitions enforced through assertions in debug builds
-*/
-
 #include "YuchenUI/windows/BaseWindow.h"
 #include "YuchenUI/windows/WindowManager.h"
 #include "YuchenUI/rendering/RenderList.h"
@@ -81,6 +48,7 @@ BaseWindow::BaseWindow(WindowType type)
     , m_isModal(false)
     , m_capturedComponent(nullptr)
     , m_targetFPS(Config::Rendering::DEFAULT_FPS)
+    , m_resourceResolver(nullptr)
 {
     m_impl.reset(WindowImplFactory::create());
     YUCHEN_ASSERT(m_impl);
@@ -133,7 +101,6 @@ void BaseWindow::destroy()
     if (isInState(WindowState::Uninitialized))
         return;
     
-    // Destroy UI content first
     IUIContent* content = m_uiContext.getContent();
     if (content)
     {
@@ -141,7 +108,6 @@ void BaseWindow::destroy()
     }
     m_uiContext.setContent(nullptr);
     
-    // Clean up event manager
     if (m_eventManager)
     {
         m_eventManager->clearEventCallback();
@@ -149,10 +115,8 @@ void BaseWindow::destroy()
         m_eventManager.reset();
     }
 
-    // Release rendering resources
     releaseResources();
     
-    // Destroy platform window
     if (m_impl)
     {
         m_impl->destroy();
@@ -211,19 +175,15 @@ void BaseWindow::showModal()
     
     m_isModal = true;
     
-    // Notify content it's being shown
     IUIContent* content = m_uiContext.getContent();
     if (content)
         content->onShow();
     
-    // Enter platform modal loop (blocks until closeModal called)
     m_impl->showModal();
     
-    // Notify content it's being hidden
     if (content)
         content->onHide();
     
-    // Invoke result callback if registered
     if (m_resultCallback)
     {
         void* userData = content ? content->getUserData() : nullptr;
@@ -231,7 +191,6 @@ void BaseWindow::showModal()
         m_resultCallback = nullptr;
     }
     
-    // Schedule destruction after modal loop exits
     WindowManager::getInstance().scheduleDialogDestruction(this);
 }
 
@@ -239,7 +198,6 @@ void BaseWindow::closeModal()
 {
     if (m_isModal && m_impl)
     {
-        // Exit platform modal loop
         m_impl->closeModal();
     }
     m_isModal = false;
@@ -273,7 +231,6 @@ void BaseWindow::setResultCallback(DialogResultCallback callback)
 
 void BaseWindow::setContent(std::unique_ptr<IUIContent> content)
 {
-    // Set up close callback so content can request window closure
     if (content) {
         content->setCloseCallback([this](WindowContentResult result) {
             if (m_windowType == WindowType::Dialog) {
@@ -284,7 +241,6 @@ void BaseWindow::setContent(std::unique_ptr<IUIContent> content)
         });
     }
     
-    // Transfer ownership to UIContext
     m_uiContext.setContent(std::move(content));
 }
 
@@ -308,12 +264,10 @@ void BaseWindow::onResize(int width, int height)
         m_width = width;
         m_height = height;
         
-        // Update renderer viewport
         if (m_backend) {
             m_backend->resize(width, height);
         }
         
-        // Update UI layout
         m_uiContext.setViewportSize(Vec2(width, height));
     }
 }
@@ -350,19 +304,15 @@ void BaseWindow::renderContent()
     if (!m_backend || !hasReachedState(WindowState::Created))
         return;
     
-    // Begin rendering frame
     m_backend->beginFrame();
     
-    // Build command list
     RenderList commandList;
     commandList.clear(getBackgroundColor());
     
-    // Let UI context render its content
     m_uiContext.beginFrame();
     m_uiContext.render(commandList);
     m_uiContext.endFrame();
     
-    // Execute rendering commands and present
     m_backend->executeRenderCommands(commandList);
     m_backend->endFrame();
 }
@@ -373,28 +323,21 @@ void BaseWindow::renderContent()
 bool BaseWindow::initializeRenderer(IFontProvider* fontProvider)
 {
     YUCHEN_ASSERT_MSG(fontProvider, "Font provider cannot be null");
+    YUCHEN_ASSERT_MSG(m_resourceResolver, "Resource resolver cannot be null");
     YUCHEN_ASSERT_MSG(!m_backend, "Renderer already initialized");
     
-    // Create platform-specific graphics backend
     m_backend.reset(PlatformBackend::createGraphicsBackend());
     YUCHEN_ASSERT_MSG(m_backend, "createGraphicsBackend returned null");
 
-    // Get render surface from platform implementation
     void* surface = m_impl->getRenderSurface();
     YUCHEN_ASSERT_MSG(surface, "Surface is null");
 
-    // Initialize backend with window surface, DPI, and font provider
-    bool success = m_backend->initialize(surface, m_width, m_height, m_dpiScale, fontProvider);
+    bool success = m_backend->initialize(surface, m_width, m_height, m_dpiScale, fontProvider, m_resourceResolver);
     YUCHEN_ASSERT_MSG(success, "Backend initialize failed");
     
-    // Configure UI context
     m_uiContext.setViewportSize(Vec2(m_width, m_height));
     m_uiContext.setDPIScale(m_dpiScale);
-    
-    // Register this window as text input handler
     m_uiContext.setTextInputHandler(this);
-    
-    // Register this window as coordinate mapper
     m_uiContext.setCoordinateMapper(this);
 
     return success;
@@ -421,13 +364,11 @@ void BaseWindow::handleNativeEvent(void* event)
     YUCHEN_ASSERT(m_eventManager);
     YUCHEN_ASSERT(m_eventManager->isInitialized());
 
-    // Forward platform event to event manager for translation
     m_eventManager->handleNativeEvent(event);
 }
 
 void BaseWindow::handleEvent(const Event& event)
 {
-    // If a component has mouse capture, route mouse events to it first
     if (m_capturedComponent)
     {
         bool handled = false;
@@ -461,7 +402,6 @@ void BaseWindow::handleEvent(const Event& event)
             return;
     }
     
-    // Try to handle event through UI context
     bool handled = false;
     
     switch (event.type)
@@ -511,7 +451,6 @@ void BaseWindow::handleEvent(const Event& event)
             break;
     }
     
-    // If UI didn't handle event, process window-level events
     if (handled)
         return;
     
@@ -612,6 +551,17 @@ Rect BaseWindow::getInputMethodCursorRect() const
 }
 
 //==========================================================================================
+// Resource Resolver Injection
+
+void BaseWindow::setResourceResolver(IResourceResolver* resolver)
+{
+    YUCHEN_ASSERT_MSG(resolver, "Resource resolver cannot be null");
+    YUCHEN_ASSERT_MSG(isInState(WindowState::Created), "Window must be in Created state");
+    
+    m_resourceResolver = resolver;
+}
+
+//==========================================================================================
 // Font Provider Injection
 
 void BaseWindow::setFontProvider(IFontProvider* provider)
@@ -620,20 +570,16 @@ void BaseWindow::setFontProvider(IFontProvider* provider)
     YUCHEN_ASSERT_MSG(isInState(WindowState::Created), "Window must be in Created state");
     YUCHEN_ASSERT_MSG(!m_backend, "Renderer already initialized");
     
-    // Initialize renderer with font provider
     if (!initializeRenderer(provider))
     {
         YUCHEN_ASSERT_MSG(false, "Failed to initialize renderer with font provider");
         return;
     }
     
-    // Inject font provider into UI context
     m_uiContext.setFontProvider(provider);
     
-    // Transition to RendererReady state
     transitionToState(WindowState::RendererReady);
     
-    // Show main windows immediately after renderer is ready
     if (m_windowType == WindowType::Main)
     {
         show();
@@ -642,9 +588,10 @@ void BaseWindow::setFontProvider(IFontProvider* provider)
 
 //==========================================================================================
 // FPS Management
+
 void BaseWindow::setTargetFPS(int fps)
 {
-    YUCHEN_ASSERT(fps >= 10 && fps <= 120); // System limit
+    YUCHEN_ASSERT(fps >= 10 && fps <= 120);
     m_targetFPS = fps;
 }
 
@@ -675,7 +622,6 @@ Window* Window::create()
 
 void BaseWindow::setupUserInterface()
 {
-    // UIContext internally manages content, no additional setup needed at window level
 }
 
 //==========================================================================================
@@ -685,6 +631,5 @@ void BaseWindow::setAffectsAppLifetime(bool affects)
 {
     m_affectsAppLifetime = affects;
 }
-
 
 } // namespace YuchenUI

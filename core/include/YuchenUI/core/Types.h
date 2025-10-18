@@ -663,40 +663,34 @@ struct RenderCommand
 {
     RenderCommandType type;
 
-    // Rectangle commands
     Rect rect;
     Vec4 color;
     CornerRadius cornerRadius;
     float borderWidth;
 
-    // Text commands (legacy - two font slots)
     Vec2 textPosition;
     std::string text;
+    std::string resourceNamespace;
 
     float fontSize;
     Vec4 textColor;
     
-    // Text commands (new - fallback chain)
-    FontFallbackChain fontFallbackChain;  ///< Font fallback chain for text rendering
-    float letterSpacing;  ///< Letter spacing in thousandths of em (-1000 to 1000, 0 = normal)
+    FontFallbackChain fontFallbackChain;
+    float letterSpacing;
 
-    // Image commands
     void* textureHandle;
     Rect sourceRect;
     ScaleMode scaleMode;
     NineSliceMargins nineSliceMargins;
 
-    // Line commands
     Vec2 lineStart;
     Vec2 lineEnd;
     float lineWidth;
 
-    // Triangle commands
     Vec2 triangleP1;
     Vec2 triangleP2;
     Vec2 triangleP3;
 
-    // Circle commands
     Vec2 circleCenter;
     float circleRadius;
 
@@ -708,6 +702,7 @@ struct RenderCommand
         , borderWidth(0.0f)
         , textPosition()
         , text()
+        , resourceNamespace()
         , fontSize(11.0f)
         , textColor()
         , fontFallbackChain()
@@ -726,9 +721,6 @@ struct RenderCommand
         , circleRadius(0.0f)
     {
     }
-
-    //==================================================================================
-    // Factory methods for creating render commands
 
     static RenderCommand CreateClear(const Vec4& color)
     {
@@ -760,16 +752,6 @@ struct RenderCommand
         return cmd;
     }
 
-    /** Creates text rendering command with fallback chain and letter spacing.
-        
-        @param text              Text string to render
-        @param position          Position to render at
-        @param fallbackChain     Font fallback chain
-        @param fontSize          Font size in points
-        @param textColor         Text color
-        @param letterSpacing     Letter spacing in thousandths of em (-1000 to 1000, 0 = normal)
-        @returns Render command for text drawing
-    */
     static RenderCommand CreateDrawText(const char* text, const Vec2& position,
         const FontFallbackChain& fallbackChain,
         float fontSize, const Vec4& textColor,
@@ -792,7 +774,6 @@ struct RenderCommand
         
         return cmd;
     }
-
 
     static RenderCommand CreateDrawImage(void* textureHandle, const Rect& destRect,
         const Rect& sourceRect, ScaleMode scaleMode,

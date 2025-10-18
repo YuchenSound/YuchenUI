@@ -25,6 +25,7 @@ namespace YuchenUI {
 class Window;
 class IFontProvider;
 class IThemeProvider;
+class IResourceResolver;
 
 //==========================================================================================
 /**
@@ -41,6 +42,7 @@ class IThemeProvider;
     wm.initialize();
     wm.setFontProvider(fontProvider);
     wm.setThemeProvider(themeProvider);
+    wm.setResourceResolver(resourceResolver);
     
     auto* mainWindow = wm.createMainWindow<MyContent>(800, 600, "My App");
     mainWindow->show();
@@ -97,6 +99,18 @@ public:
     /** Returns the theme provider for this manager. */
     IThemeProvider* getThemeProvider() const { return m_themeProvider; }
     
+    /** Sets the resource resolver for all windows.
+        
+        This resource resolver will be injected into all newly created windows.
+        Must be called after initialize() and before creating any windows.
+        
+        @param resolver  Resource resolver interface (must not be null)
+    */
+    void setResourceResolver(IResourceResolver* resolver);
+    
+    /** Returns the resource resolver for this manager. */
+    IResourceResolver* getResourceResolver() const { return m_resourceResolver; }
+    
     //======================================================================================
     /** Starts the application event loop.
         
@@ -125,9 +139,10 @@ public:
         Initialization order:
         1. Create window
         2. Set target FPS
-        3. Inject font provider (initializes renderer)
-        4. Inject theme provider (into UIContext)
-        5. Set content (calls onCreate with initialized context)
+        3. Inject resource resolver
+        4. Inject font provider (initializes renderer)
+        5. Inject theme provider (into UIContext)
+        6. Set content (calls onCreate with initialized context)
         
         @tparam ContentType  The IUIContent-derived class to create
         @param width         Window width in pixels
@@ -159,6 +174,11 @@ public:
         
         BaseWindow* mainWindowPtr = mainWindow.get();
         
+        if (m_resourceResolver)
+        {
+            mainWindowPtr->setResourceResolver(m_resourceResolver);
+        }
+        
         if (m_fontProvider)
         {
             mainWindowPtr->setFontProvider(m_fontProvider);
@@ -186,9 +206,10 @@ public:
         Initialization order:
         1. Create window
         2. Set target FPS
-        3. Inject font provider (initializes renderer)
-        4. Inject theme provider (into UIContext)
-        5. Set content (calls onCreate with initialized context)
+        3. Inject resource resolver
+        4. Inject font provider (initializes renderer)
+        5. Inject theme provider (into UIContext)
+        6. Set content (calls onCreate with initialized context)
         
         @tparam ContentType  The IUIContent-derived class to create
         @param width         Window width in pixels
@@ -219,6 +240,11 @@ public:
         
         BaseWindow* dialogPtr = dialog.get();
         
+        if (m_resourceResolver)
+        {
+            dialogPtr->setResourceResolver(m_resourceResolver);
+        }
+        
         if (m_fontProvider)
         {
             dialogPtr->setFontProvider(m_fontProvider);
@@ -246,9 +272,10 @@ public:
         Initialization order:
         1. Create window
         2. Set target FPS
-        3. Inject font provider (initializes renderer)
-        4. Inject theme provider (into UIContext)
-        5. Set content (calls onCreate with initialized context)
+        3. Inject resource resolver
+        4. Inject font provider (initializes renderer)
+        5. Inject theme provider (into UIContext)
+        6. Set content (calls onCreate with initialized context)
         
         @tparam ContentType  The IUIContent-derived class to create
         @param width         Window width in pixels
@@ -278,6 +305,11 @@ public:
         }
         
         BaseWindow* toolWindowPtr = toolWindow.get();
+        
+        if (m_resourceResolver)
+        {
+            toolWindowPtr->setResourceResolver(m_resourceResolver);
+        }
         
         if (m_fontProvider)
         {
@@ -387,6 +419,7 @@ private:
     
     IFontProvider* m_fontProvider;
     IThemeProvider* m_themeProvider;
+    IResourceResolver* m_resourceResolver;
     
     std::vector<std::unique_ptr<BaseWindow>> m_mainWindows;
     

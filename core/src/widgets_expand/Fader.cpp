@@ -332,7 +332,7 @@ void Fader::renderBackground(RenderList& cmdList, const Rect& trackBounds) const
     
     // Render with nine-slice scaling
     NineSliceMargins bgMargins(2.0f, 2.0f, 2.0f, 2.0f);
-    cmdList.drawImage(bgResource.c_str(), bgRect, ScaleMode::NineSlice, bgMargins);
+    cmdList.drawImage("YuchenUI", bgResource.c_str(), bgRect, ScaleMode::NineSlice, bgMargins);
 }
 
 void Fader::renderCap(RenderList& cmdList, const Vec2& capCenter) const
@@ -351,7 +351,7 @@ void Fader::renderCap(RenderList& cmdList, const Vec2& capCenter) const
     // Calculate cap rectangle centered at specified position
     Rect capRect(capCenter.x - CAP_WIDTH * 0.5f,capCenter.y - CAP_CENTER_FROM_TOP,CAP_WIDTH,CAP_HEIGHT);
 
-    cmdList.drawImage(capResource.c_str(), capRect, ScaleMode::Original);
+    cmdList.drawImage("YuchenUI",capResource.c_str(), capRect, ScaleMode::Original);
 }
 
 void Fader::renderScale(RenderList& cmdList, const Rect& scaleBounds, const Rect& faderBounds) const

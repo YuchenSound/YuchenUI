@@ -105,7 +105,6 @@ void SoloMuteSection::addDrawCommands(YuchenUI::RenderList& commandList,
     
     drawButton(commandList, m_listenButton, absPos, false);
     
-    bool showRecordActive = m_recordButton.isPressed && m_recordFlashState;
     ButtonState recordButtonToDraw = m_recordButton;
     if (m_recordButton.isPressed && !m_recordFlashState)
     {
@@ -124,6 +123,7 @@ void SoloMuteSection::drawButton(YuchenUI::RenderList& commandList,
                                  const YuchenUI::Vec2& absPos,
                                  bool usePassiveBg) const
 {
+    
     YuchenUI::Rect btnRect(
         absPos.x + button.bounds.x,
         absPos.y + button.bounds.y,
@@ -133,7 +133,7 @@ void SoloMuteSection::drawButton(YuchenUI::RenderList& commandList,
     
     const char* bgPath = button.getCurrentBg(usePassiveBg);
     YuchenUI::NineSliceMargins margins(5.0f, 5.0f, 5.0f, 5.0f);
-    commandList.drawImage(bgPath, btnRect, YuchenUI::ScaleMode::NineSlice, margins);
+    commandList.drawImage("MixerPanel",bgPath, btnRect, YuchenUI::ScaleMode::NineSlice, margins);
     
     YuchenUI::Rect iconRect(
         btnRect.x + (btnRect.width - 20.0f) / 2.0f,
@@ -141,7 +141,7 @@ void SoloMuteSection::drawButton(YuchenUI::RenderList& commandList,
         20.0f,
         20.0f
     );
-    commandList.drawImage(button.icon, iconRect, YuchenUI::ScaleMode::Original);
+    commandList.drawImage("MixerPanel",button.icon, iconRect, YuchenUI::ScaleMode::Original);
 }
 
 bool SoloMuteSection::handleMouseMove(const YuchenUI::Vec2& position, const YuchenUI::Vec2& offset)

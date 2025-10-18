@@ -140,6 +140,7 @@ public:
     //======================================================================================
     // GraphicsContext Interface Implementation
     
+    // TODO: Please add resourceResolver comment!
     /** Initializes the Metal renderer with all required resources.
         
         This method performs complete initialization including:
@@ -156,10 +157,11 @@ public:
         @param height        Viewport height in points (not pixels)
         @param dpiScale      Display scale factor (typically 1.0 or 2.0 on macOS)
         @param fontProvider  Font provider for text rendering (not owned)
-        
+        @param resourceResolver
+     
         @returns True if initialization succeeded, false on failure
     */
-    bool initialize(void* platformSurface, int width, int height, float dpiScale, IFontProvider* fontProvider) override;
+    bool initialize(void* platformSurface, int width, int height, float dpiScale, IFontProvider* fontProvider, IResourceResolver* resourceResolver) override;
 
     /** Begins a new render frame.
         

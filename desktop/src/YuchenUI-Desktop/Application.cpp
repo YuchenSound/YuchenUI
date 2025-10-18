@@ -1,25 +1,11 @@
-/*******************************************************************************************
-**
-** YuchenUI - Modern C++ GUI Framework
-**
-** Copyright (C) 2025 Yuchen Wei
-** Contact: https://github.com/YuchenSound/YuchenUI
-**
-** This file is part of the YuchenUI-Desktop module.
-**
-** $YUCHEN_BEGIN_LICENSE:MIT$
-** Licensed under the MIT License
-** $YUCHEN_END_LICENSE$
-**
-********************************************************************************************/
-
+#include <iostream>
 #include "YuchenUI-Desktop/Application.h"
+#include "YuchenUI/resource/ResourceManager.h"
+#include "YuchenUI/resource/EmbeddedResourceProvider.h"
+#include <embedded_resources.h>
 #include <iostream>
 
 namespace YuchenUI {
-
-//==========================================================================================
-// Lifecycle
 
 Application::Application()
     : m_fontManager()
@@ -39,14 +25,20 @@ Application::~Application()
 
 bool Application::initialize()
 {
-    // Initialize font manager first
-    if (!m_fontManager.initialize())
+    ResourceManager::getInstance().registerProvider(
+        "YuchenUI",
+        new EmbeddedResourceProvider(
+            YuchenUI::Resources::getAllResources(),
+            YuchenUI::Resources::getResourceCount()
+        )
+    );
+    
+    if (!m_fontManager.initialize(&ResourceManager::getInstance()))
     {
         std::cerr << "[Application] Failed to initialize FontManager" << std::endl;
         return false;
     }
     
-    // Get window manager singleton and initialize
     WindowManager& windowManager = WindowManager::getInstance();
     if (!windowManager.initialize())
     {
@@ -54,13 +46,11 @@ bool Application::initialize()
         return false;
     }
     
-    // Always inject font provider into theme manager
     m_themeManager.setFontProvider(&m_fontManager);
     
-    // Inject both providers into window manager
-    // All windows created by WindowManager will receive these providers
     windowManager.setFontProvider(&m_fontManager);
     windowManager.setThemeProvider(&m_themeManager);
+    windowManager.setResourceResolver(&ResourceManager::getInstance());
     
     m_isInitialized = true;
     return true;
@@ -91,4 +81,4 @@ WindowManager& Application::getWindowManager()
     return WindowManager::getInstance();
 }
 
-} // namespace YuchenUI
+}

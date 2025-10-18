@@ -64,12 +64,4 @@ bool ImageDecoder::decodePNGFromMemory(const unsigned char* data, size_t size, I
     return true;
 }
 
-bool ImageDecoder::decodePNG(const Resources::ResourceData& resource, ImageData& outData)
-{
-    YUCHEN_ASSERT_MSG(resource.data != nullptr, "Resource data cannot be null");
-    YUCHEN_ASSERT_MSG(resource.size > 0, "Resource size must be positive");
-    
-    return decodePNGFromMemory(resource.data, resource.size, outData);
-}
-
 } // namespace YuchenUI

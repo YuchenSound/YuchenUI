@@ -17,6 +17,7 @@ namespace YuchenUI {
 class IGraphicsBackend;
 class Widget;
 class IFontProvider;
+class IResourceResolver;
 
 using DialogResultCallback = std::function<void(WindowContentResult result, void* userData)>;
 
@@ -26,8 +27,6 @@ enum class WindowState {
     RendererReady,
     Shown
 };
-
-
 
 class BaseWindow : public Window, public ITextInputHandler, public ICoordinateMapper
 {
@@ -76,6 +75,8 @@ public:
     
     UIContext& getUIContext() { return m_uiContext; }
     const UIContext& getUIContext() const { return m_uiContext; }
+    
+    void setResourceResolver(IResourceResolver* resolver);
     void setFontProvider(IFontProvider* provider);
 
     void setAffectsAppLifetime(bool affects);
@@ -116,6 +117,8 @@ protected:
     Widget* m_capturedComponent;
     
     int m_targetFPS;
+    
+    IResourceResolver* m_resourceResolver;
 
 private:
     bool initializeRenderer(IFontProvider* fontProvider);

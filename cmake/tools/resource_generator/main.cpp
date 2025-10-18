@@ -338,14 +338,11 @@ private:
 
         out << "#pragma once\n\n";
         out << "#include <cstddef>\n";
-        out << "#include <string_view>\n\n";
+        out << "#include <string_view>\n";
+        out << "#include \"YuchenUI/resource/ResourceData.h\"\n\n";
+        
         out << "namespace " << nameSpace_ << " {\n\n";
-        out << "struct ResourceData {\n";
-        out << "    const unsigned char* data;\n";
-        out << "    size_t size;\n";
-        out << "    std::string_view path;\n";
-        out << "    float designScale;\n";
-        out << "};\n\n";
+        out << "using YuchenUI::Resources::ResourceData;\n\n";
 
         for (const auto& res : resources_) {
             out << "extern const ResourceData " << res.identifier << ";\n";

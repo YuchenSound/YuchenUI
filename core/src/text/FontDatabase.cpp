@@ -1,34 +1,19 @@
-/*******************************************************************************************
-**
-** YuchenUI - Modern C++ GUI Framework
-**
-** Copyright (C) 2025 Yuchen Wei
-** Contact: https://github.com/YuchenSound/YuchenUI
-**
-** This file is part of the YuchenUI Text module.
-**
-** $YUCHEN_BEGIN_LICENSE:MIT$
-** Licensed under the MIT License
-** $YUCHEN_END_LICENSE$
-**
-********************************************************************************************/
-
 #include "YuchenUI/text/FontDatabase.h"
 #include "YuchenUI/text/Font.h"
 #include "YuchenUI/text/FontManager.h"
+#include "YuchenUI/resource/IResourceResolver.h"
+#include "YuchenUI/resource/ResourceManager.h"
+#include "YuchenUI/resource/IResourceProvider.h"
 #include "YuchenUI/core/Assert.h"
-#include "../generated/embedded_resources.h"
 #include <algorithm>
 #include <cctype>
 #include <iostream>
 
 namespace YuchenUI {
 
-//==========================================================================================
-// Lifecycle
-
 FontDatabase::FontDatabase()
     : m_library(nullptr)
+    , m_resourceResolver(nullptr)
     , m_isInitialized(false)
     , m_descriptors()
     , m_familyMap()
@@ -41,12 +26,14 @@ FontDatabase::~FontDatabase()
     shutdown();
 }
 
-bool FontDatabase::initialize(FT_Library library)
+bool FontDatabase::initialize(FT_Library library, IResourceResolver* resourceResolver)
 {
     YUCHEN_ASSERT_MSG(!m_isInitialized, "FontDatabase already initialized");
     YUCHEN_ASSERT_MSG(library != nullptr, "FreeType library is null");
+    YUCHEN_ASSERT_MSG(resourceResolver != nullptr, "Resource resolver is null");
     
     m_library = library;
+    m_resourceResolver = resourceResolver;
     m_isInitialized = true;
     return true;
 }
@@ -59,11 +46,9 @@ void FontDatabase::shutdown()
     m_familyMap.clear();
     m_roleAssignments.clear();
     m_library = nullptr;
+    m_resourceResolver = nullptr;
     m_isInitialized = false;
 }
-
-//==========================================================================================
-// Font Registration
 
 FontHandle FontDatabase::registerFont(const char* path, const char* name, FontEntry* entry)
 {
@@ -126,7 +111,6 @@ FontHandle FontDatabase::registerFontFromMemory(const void* data, size_t size,
     
     FontDescriptor descriptor;
     descriptor.handle = static_cast<FontHandle>(m_descriptors.size());
-    
     descriptor.sourcePath = name ? name : "<embedded>";
     
     FT_Face ftFace = entry->face->getFTFace();
@@ -146,62 +130,70 @@ FontHandle FontDatabase::registerFontFromMemory(const void* data, size_t size,
     return handle;
 }
 
-//==========================================================================================
-// Auto-Discovery
-
 int FontDatabase::discoverAndRegisterFonts(std::vector<FontEntry>& fontEntries)
 {
     YUCHEN_ASSERT_MSG(m_isInitialized, "FontDatabase not initialized");
+    YUCHEN_ASSERT_MSG(m_resourceResolver != nullptr, "Resource resolver is null");
     
     int count = 0;
-    const Resources::ResourceData* allResources = Resources::getAllResources();
-    size_t resourceCount = Resources::getResourceCount();
     
-    for (size_t i = 0; i < resourceCount; ++i)
+    IResourceProvider* provider = ResourceManager::getInstance().getProvider("YuchenUI");
+    if (!provider)
     {
-        const auto& res = allResources[i];
-        std::string path(res.path);
+        std::cerr << "[FontDatabase] ERROR: No resource provider for 'YuchenUI' namespace" << std::endl;
+        return 0;
+    }
+    
+    std::vector<const Resources::ResourceData*> fontResources = provider->matchResources("fonts/", ".ttf");
+    
+    std::vector<const Resources::ResourceData*> otfResources = provider->matchResources("fonts/", ".otf");
+    fontResources.insert(fontResources.end(), otfResources.begin(), otfResources.end());
+    
+    std::vector<const Resources::ResourceData*> ttcResources = provider->matchResources("fonts/", ".ttc");
+    fontResources.insert(fontResources.end(), ttcResources.begin(), ttcResources.end());
+    
+    for (const Resources::ResourceData* res : fontResources)
+    {
+        std::string path(res->path.data(), res->path.size());
         
-        // Skip non-font resources
-        if (path.find("fonts/") != 0) continue;
-        
-        // Check file extension
-        if (path.size() < 4) continue;
-        std::string ext = path.substr(path.size() - 4);
-        std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
-        
-        if (ext != ".ttf" && ext != ".otf" && ext != ".ttc") continue;
-        
-        // Extract filename without extension
         size_t lastSlash = path.find_last_of('/');
         size_t lastDot = path.find_last_of('.');
         std::string fileName = path.substr(lastSlash + 1, lastDot - lastSlash - 1);
         
-        // Register font
         size_t fontIndex = fontEntries.size();
         fontEntries.emplace_back();
         
         FontHandle handle = registerFontFromMemory(
-            res.data,
-            res.size,
+            res->data,
+            res->size,
             fileName.c_str(),
             &fontEntries[fontIndex]
         );
         
         if (handle != INVALID_FONT_HANDLE)
-        { count++; }
+        {
+            count++;
+            std::cout << "[FontDatabase] Registered font: " << fileName << std::endl;
+        }
         else
-        { fontEntries.pop_back(); }
+        {
+            fontEntries.pop_back();
+            std::cerr << "[FontDatabase] Failed to register: " << fileName << std::endl;
+        }
     }
     
-    if   (count > 0) { assignFontRoles(); }
-    else { std::cerr << "[FontDatabase] WARNING: No embedded fonts found" << std::endl; }
+    if (count > 0)
+    {
+        assignFontRoles();
+        std::cout << "[FontDatabase] Discovered " << count << " fonts" << std::endl;
+    }
+    else
+    {
+        std::cerr << "[FontDatabase] WARNING: No embedded fonts found in 'fonts/' directory" << std::endl;
+    }
     
     return count;
 }
-
-//==========================================================================================
-// Role Assignment
 
 void FontDatabase::assignFontRoles()
 {
@@ -257,9 +249,6 @@ FontHandle FontDatabase::getFontForRole(FontRole role) const
     if (it != m_roleAssignments.end()) return it->second;
     return INVALID_FONT_HANDLE;
 }
-
-//==========================================================================================
-// Font Queries
 
 FontHandle FontDatabase::findFont(const char* familyName, FontWeight weight,
                                   FontStyle style) const
@@ -358,9 +347,6 @@ const FontDescriptor* FontDatabase::getFontDescriptor(FontHandle handle) const
     
     return &it->second;
 }
-
-//==========================================================================================
-// Smart Matching
 
 FontHandle FontDatabase::selectBestMatch(const FontQuery& query) const
 {
@@ -462,9 +448,6 @@ FontHandle FontDatabase::selectBestMatch(const FontQuery& query) const
     return handles[0];
 }
 
-//==========================================================================================
-// Metadata Access
-
 bool FontDatabase::supportsCharacter(FontHandle handle, uint32_t codepoint) const
 {
     YUCHEN_ASSERT_MSG(m_isInitialized, "FontDatabase not initialized");
@@ -499,9 +482,6 @@ std::vector<std::pair<uint32_t, uint32_t>> FontDatabase::getUnicodeCoverage(
     
     return desc->unicodeRanges;
 }
-
-//==========================================================================================
-// Metadata Extraction
 
 bool FontDatabase::extractFontMetadata(FT_Face face, FontDescriptor& descriptor)
 {
@@ -654,9 +634,6 @@ void FontDatabase::analyzeUnicodeCoverage(FT_Face face, FontDescriptor& descript
     }
 }
 
-//==========================================================================================
-// Role Assignment Helpers
-
 bool FontDatabase::hasLatinCoverage(const FontDescriptor& desc) const
 {
     for (const auto& range : desc.unicodeRanges)
@@ -705,9 +682,6 @@ bool FontDatabase::hasHebrewCoverage(const FontDescriptor& desc) const
     return false;
 }
 
-//==========================================================================================
-// Utilities
-
 int FontDatabase::calculateWeightDistance(FontWeight w1, FontWeight w2) const
 {
     return std::abs(static_cast<int>(w1) - static_cast<int>(w2));
@@ -733,4 +707,4 @@ bool FontDatabase::stringEqualsCaseInsensitive(const std::string& s1,
     return true;
 }
 
-} // namespace YuchenUI
+}

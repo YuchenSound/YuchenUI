@@ -4,20 +4,17 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../cmake")
 
 include(Compiler)
 include(Dependencies)
-# REMOVED: include(Shaders) - No longer needed with embedded shaders
+include(Resources)
 
-# Scan cross-platform sources
 file(GLOB_RECURSE YUCHEN_DESKTOP_SOURCES
     "${CMAKE_CURRENT_SOURCE_DIR}/src/windows/*.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/menu/*.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/YuchenUI-Desktop/*.cpp"
 )
 
-# Exclude platform-specific subdirectories
 list(FILTER YUCHEN_DESKTOP_SOURCES EXCLUDE REGEX ".*/platform/.*")
 list(FILTER YUCHEN_DESKTOP_SOURCES EXCLUDE REGEX ".*/utils/.*")
 
-# Add platform-specific sources
 if(APPLE)
     file(GLOB_RECURSE YUCHEN_PLATFORM_SOURCES
         "${CMAKE_CURRENT_SOURCE_DIR}/src/platform/macos/*.mm"
@@ -40,12 +37,10 @@ elseif(WIN32)
     )
 endif()
 
-# Scan public headers only (in include directory)
 file(GLOB_RECURSE YUCHEN_DESKTOP_HEADERS
     "${CMAKE_CURRENT_SOURCE_DIR}/include/YuchenUI/*.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/YuchenUI-Desktop/*.h"
 )
-
 
 add_library(YuchenUI-Desktop STATIC
     ${YUCHEN_DESKTOP_SOURCES}
@@ -55,24 +50,20 @@ add_library(YuchenUI-Desktop STATIC
 
 yuchen_configure_target(YuchenUI-Desktop)
 yuchen_link_dependencies(YuchenUI-Desktop)
-
+yuchen_generate_resources(YuchenUI-Desktop)
 
 target_link_libraries(YuchenUI-Desktop PUBLIC YuchenUI)
 
-
-# Public headers
 target_include_directories(YuchenUI-Desktop PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/generated>
     $<INSTALL_INTERFACE:include>
 )
 
-# Private headers (for WindowManagerPlatform.h)
 target_include_directories(YuchenUI-Desktop PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src/windows
 )
 
-# IDE Organization
-# Source groups for IDE
 source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}/include"
              PREFIX "Header Files"
              FILES ${YUCHEN_DESKTOP_HEADERS})

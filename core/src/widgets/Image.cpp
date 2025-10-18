@@ -59,10 +59,8 @@ Image::~Image()
 
 void Image::addDrawCommands(RenderList& commandList, const Vec2& offset) const
 {
-    // Skip rendering if invisible or no resource set
     if (!m_isVisible || m_resourceIdentifier.empty()) return;
     
-    // Calculate absolute rectangle in parent coordinate space
     Rect absRect(
         m_bounds.x + offset.x,
         m_bounds.y + offset.y,
@@ -70,19 +68,15 @@ void Image::addDrawCommands(RenderList& commandList, const Vec2& offset) const
         m_bounds.height
     );
     
-    // Calculate source rectangle (empty for single image, specific region for sprite sheet)
     Rect sourceRect = calculateSourceRect();
     
-    // Add appropriate draw command based on whether we have a source rect
     if (sourceRect.width > 0.0f && sourceRect.height > 0.0f)
     {
-        // Multi-frame mode: draw specific region
-        commandList.drawImageRegion(m_resourceIdentifier.c_str(), absRect, sourceRect, m_scaleMode);
+        commandList.drawImageRegion("YuchenUI", m_resourceIdentifier.c_str(), absRect, sourceRect, m_scaleMode);
     }
     else
     {
-        // Single image mode: draw entire image
-        commandList.drawImage(m_resourceIdentifier.c_str(), absRect, m_scaleMode, m_nineSliceMargins);
+        commandList.drawImage("YuchenUI", m_resourceIdentifier.c_str(), absRect, m_scaleMode, m_nineSliceMargins);
     }
 }
 

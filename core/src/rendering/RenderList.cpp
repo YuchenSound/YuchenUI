@@ -122,19 +122,20 @@ void RenderList::drawText(const char* text, const Vec2& position,
 //==========================================================================================
 // Image Drawing
 
-void RenderList::drawImage(const char* resourceIdentifier, const Rect& destRect,
+void RenderList::drawImage(const char* namespaceName, const char* resourcePath, const Rect& destRect,
                            ScaleMode scaleMode, const NineSliceMargins& nineSlice)
 {
-    YUCHEN_ASSERT(resourceIdentifier);
+    YUCHEN_ASSERT(namespaceName);
+    YUCHEN_ASSERT(resourcePath);
     YUCHEN_ASSERT(destRect.isValid());
     
-    // Create image command manually (no factory method for resource-based images)
     RenderCommand cmd;
     cmd.type = RenderCommandType::DrawImage;
     cmd.rect = destRect;
-    cmd.text = resourceIdentifier;
+    cmd.resourceNamespace = namespaceName;
+    cmd.text = resourcePath;
     cmd.scaleMode = scaleMode;
-    cmd.sourceRect = Rect();  // Empty rect indicates full texture
+    cmd.sourceRect = Rect();
     cmd.textureHandle = nullptr;
     cmd.nineSliceMargins = nineSlice;
     
@@ -142,25 +143,26 @@ void RenderList::drawImage(const char* resourceIdentifier, const Rect& destRect,
     addCommand(cmd);
 }
 
-void RenderList::drawImageRegion(const char* resourceIdentifier,
+void RenderList::drawImageRegion(const char* namespaceName, const char* resourcePath,
                                  const Rect& destRect,
                                  const Rect& sourceRect,
                                  ScaleMode scaleMode)
 {
-    YUCHEN_ASSERT(resourceIdentifier);
+    YUCHEN_ASSERT(namespaceName);
+    YUCHEN_ASSERT(resourcePath);
     YUCHEN_ASSERT(destRect.isValid());
     YUCHEN_ASSERT(sourceRect.isValid());
     YUCHEN_ASSERT(sourceRect.width > 0.0f && sourceRect.height > 0.0f);
     
-    // Create image command with explicit source rectangle
     RenderCommand cmd;
     cmd.type = RenderCommandType::DrawImage;
     cmd.rect = destRect;
     cmd.sourceRect = sourceRect;
-    cmd.text = resourceIdentifier;
+    cmd.resourceNamespace = namespaceName;
+    cmd.text = resourcePath;
     cmd.scaleMode = scaleMode;
     cmd.textureHandle = nullptr;
-    cmd.nineSliceMargins = NineSliceMargins();  // Nine-slice not supported with source rect
+    cmd.nineSliceMargins = NineSliceMargins();
     
     validateCommand(cmd);
     addCommand(cmd);

@@ -13,24 +13,6 @@
 **
 ********************************************************************************************/
 
-//==========================================================================================
-/** @file WindowManager.cpp
-    
-    Implementation notes:
-    - Singleton pattern with lazy initialization
-    - All windows share a single rendering device
-    - Main windows keep the application running
-    - Dialogs scheduled for destruction after modal loop exits
-    - Platform-specific event loop delegated to Platform namespace
-    - Menu backend explicitly initialized to avoid static initialization order issues
-    
-    Architecture:
-    - This file contains only cross-platform window management logic
-    - Platform-specific event loop code is in WindowManager_macOS.mm / WindowManager_Windows.cpp
-    - Platform abstraction defined in WindowManagerPlatform.h
-    - Menu backend registration delegated to platform-specific factory functions
-*/
-
 #include "YuchenUI/windows/WindowManager.h"
 #include "YuchenUI/windows/BaseWindow.h"
 #include "YuchenUI/windows/Window.h"
@@ -67,6 +49,7 @@ WindowManager::WindowManager()
     , m_isRunning(false)
     , m_fontProvider(nullptr)
     , m_themeProvider(nullptr)
+    , m_resourceResolver(nullptr)
     , m_mainWindows()
     , m_sharedRenderDevice(nullptr)
 {
@@ -121,6 +104,12 @@ void WindowManager::setThemeProvider(IThemeProvider* provider)
     m_themeProvider = provider;
 }
 
+void WindowManager::setResourceResolver(IResourceResolver* resolver)
+{
+    YUCHEN_ASSERT_MSG(resolver, "Resource resolver cannot be null");
+    m_resourceResolver = resolver;
+}
+
 bool WindowManager::createSharedRenderDevice()
 {
     m_sharedRenderDevice = PlatformBackend::createSharedDevice();
@@ -149,9 +138,6 @@ void WindowManager::cleanupResources()
 
 //==========================================================================================
 // Event Loop
-//
-// The event loop is platform-specific and delegated to the Platform namespace.
-// See WindowManager_macOS.mm or WindowManager_Windows.cpp for implementations.
 
 void WindowManager::run()
 {
@@ -196,7 +182,6 @@ void WindowManager::processScheduledDestructions()
         closeWindow(dialog);
     }
 }
-
 
 //==========================================================================================
 // Window Registry
@@ -303,7 +288,6 @@ void WindowManager::closeAllWindows()
     m_allWindows.clear();
 }
 
-
 size_t WindowManager::getLifetimeAffectingWindowCount() const
 {
     size_t count = 0;
@@ -334,8 +318,6 @@ size_t WindowManager::getLifetimeAffectingWindowCount() const
 
 //==========================================================================================
 // Window Access
-//
-// These methods provide access to window collections for platform event loop implementations.
 
 const std::vector<Window*>& WindowManager::getAllWindows() const
 {

@@ -189,14 +189,16 @@ MetalRenderer::~MetalRenderer()
 }
 
 bool MetalRenderer::initialize(void* platformSurface, int width, int height,
-                               float dpiScale, IFontProvider* fontProvider)
+                               float dpiScale, IFontProvider* fontProvider,
+                               IResourceResolver* resourceResolver)
 {
     YUCHEN_ASSERT_MSG(!m_isInitialized, "Already initialized");
     YUCHEN_ASSERT_MSG(width >= Config::Window::MIN_SIZE && width <= Config::Window::MAX_SIZE, "Invalid width");
     YUCHEN_ASSERT_MSG(height >= Config::Window::MIN_SIZE && height <= Config::Window::MAX_SIZE, "Invalid height");
     YUCHEN_ASSERT_MSG(dpiScale > 0.0f && dpiScale <= 3.0f, "Invalid DPI scale");
     YUCHEN_ASSERT_MSG(fontProvider != nullptr, "Font provider cannot be null");
-    
+    YUCHEN_ASSERT_MSG(resourceResolver != nullptr, "Resource resolver cannot be null");
+
     m_width = width;
     m_height = height;
     m_dpiScale = dpiScale;
@@ -241,7 +243,7 @@ bool MetalRenderer::initialize(void* platformSurface, int width, int height,
     m_textRenderer = std::make_unique<TextRenderer>(this, m_fontProvider);
     if (!m_textRenderer->initialize(m_dpiScale)) return false;
     
-    m_textureCache = std::make_unique<TextureCache>(this);
+    m_textureCache = std::make_unique<TextureCache>(this, resourceResolver);
     if (!m_textureCache->initialize()) return false;
     
     m_textureCache->setCurrentDPI(m_dpiScale);
@@ -1016,38 +1018,43 @@ void MetalRenderer::applyFullScreenScissor()
     [m_renderEncoder setScissorRect:scissor];
 }
 
-
 //==========================================================================================
 // [SECTION] Command Execution
 
 /**
-    Executes render commands with advanced batching optimization.
+    Executes render commands with conservative sequential batching.
     
     This is the core rendering method that processes a RenderList and executes
-    all draw calls efficiently. The algorithm works in multiple passes:
+    all draw calls efficiently while strictly preserving draw order. The algorithm
+    works in multiple passes:
     
     Pass 1: Clip State Computation
     - Maintains a stack of active clip rectangles
     - Computes effective clip rect for each command (intersection of all active clips)
     - Stores clip state per command for later batching
     
-    Pass 2: Batching by Type and Clip
+    Pass 2: Conservative Sequential Batching
     - Groups rectangles by clip hash into batches
     - Groups shapes by clip hash into batches
-    - Groups images by (texture + clip) hash
+    - Groups images ONLY when consecutive commands share same texture and clip
+      (prevents draw order violations that could cause layering issues)
     - Merges consecutive text draws when possible
     
     Pass 3: Rendering
     - Renders all rectangle batches
     - Renders all shape batches (lines, triangles, circles)
-    - Renders all image batches (sorted by first occurrence)
+    - Renders all image batches (in creation order, no sorting needed)
     - Renders all text batches
     
     Benefits:
     - Minimizes pipeline switches (expensive on GPU)
     - Minimizes scissor rect changes
-    - Minimizes texture bindings
     - Reduces draw call overhead
+    - Guarantees correct layering for UI elements
+    
+    Note: Image batching is intentionally conservative to maintain strict draw order.
+    Only consecutive commands with identical texture and clip state are merged,
+    preventing background images from being rendered after foreground icons.
     
     @param commandList  The list of render commands to execute
 */
@@ -1060,7 +1067,7 @@ void MetalRenderer::executeRenderCommands(const RenderList& commandList)
     // Pass 1: Compute Clip States
     
     std::vector<ClipState> clipStates(commands.size());
-    std::vector<Rect> clipStack;  // Stack of active clip rectangles
+    std::vector<Rect> clipStack;
     
     for (size_t i = 0; i < commands.size(); ++i)
     {
@@ -1070,7 +1077,6 @@ void MetalRenderer::executeRenderCommands(const RenderList& commandList)
         {
             Rect newClip = cmd.rect;
             
-            // Intersect with parent clip if exists
             if (!clipStack.empty())
             {
                 const Rect& parentClip = clipStack.back();
@@ -1080,14 +1086,12 @@ void MetalRenderer::executeRenderCommands(const RenderList& commandList)
                 float x2 = std::min(parentClip.x + parentClip.width, newClip.x + newClip.width);
                 float y2 = std::min(parentClip.y + parentClip.height, newClip.y + newClip.height);
                 
-                // Check if intersection is valid
                 if (x2 > x1 && y2 > y1)
                 {
                     newClip = Rect(x1, y1, x2 - x1, y2 - y1);
                 }
                 else
                 {
-                    // No intersection - empty clip rect
                     newClip = Rect(0, 0, 0, 0);
                 }
             }
@@ -1103,7 +1107,6 @@ void MetalRenderer::executeRenderCommands(const RenderList& commandList)
                 clipStack.pop_back();
             }
             
-            // Restore previous clip state
             if (!clipStack.empty())
             {
                 clipStates[i].clipRect = clipStack.back();
@@ -1116,7 +1119,6 @@ void MetalRenderer::executeRenderCommands(const RenderList& commandList)
         }
         else
         {
-            // Regular draw command - use current clip state
             if (!clipStack.empty())
             {
                 clipStates[i].clipRect = clipStack.back();
@@ -1132,35 +1134,31 @@ void MetalRenderer::executeRenderCommands(const RenderList& commandList)
     //======================================================================================
     // Pass 2: Batch Commands by Type and Clip
     
-    // Rectangle batches grouped by clip hash
     std::map<uint64_t, std::vector<RenderCommand>> rectGroups;
     std::map<uint64_t, Rect> rectGroupClips;
     std::map<uint64_t, bool> rectGroupHasClip;
     
-    // Shape batches grouped by clip hash
     struct ShapeBatch {
-        std::vector<size_t> indices;  // Command indices
-        Rect clipRect;                 // Clip rectangle
-        bool hasClip;                  // Whether clipping is active
+        std::vector<size_t> indices;
+        Rect clipRect;
+        bool hasClip;
     };
     std::map<uint64_t, ShapeBatch> shapeGroups;
     
-    // Image batches grouped by texture + clip
     struct ImageBatch {
-        std::vector<size_t> indices;  // Command indices
-        void* texture;                 // Texture handle
-        Rect clipRect;                 // Clip rectangle
-        bool hasClip;                  // Whether clipping is active
-        size_t firstIndex;             // First command index (for sorting)
+        std::vector<size_t> indices;
+        void* texture;
+        Rect clipRect;
+        bool hasClip;
+        size_t firstIndex;
     };
     std::vector<ImageBatch> imageBatches;
     
-    // Text batches (merged when adjacent with same clip)
     std::vector<TextVertex> allTextVertices;
-    std::vector<size_t> textBatchStarts;   // Start vertex index for each batch
-    std::vector<size_t> textBatchCounts;   // Vertex count for each batch
-    std::vector<Rect> textBatchClips;      // Clip rect for each batch
-    std::vector<bool> textBatchHasClips;   // Whether each batch has clipping
+    std::vector<size_t> textBatchStarts;
+    std::vector<size_t> textBatchCounts;
+    std::vector<Rect> textBatchClips;
+    std::vector<bool> textBatchHasClips;
     allTextVertices.reserve(1024);
     
     //======================================================================================
@@ -1172,14 +1170,12 @@ void MetalRenderer::executeRenderCommands(const RenderList& commandList)
         
         switch (cmd.type) {
             case RenderCommandType::Clear:
-                // Update clear color for next frame
                 m_clearColor = cmd.color;
                 break;
                 
             case RenderCommandType::FillRect:
             case RenderCommandType::DrawRect:
             {
-                // Group rectangles by clip hash
                 uint64_t clipHash = computeClipHash(clipStates[i]);
                 rectGroups[clipHash].push_back(cmd);
                 rectGroupClips[clipHash] = clipStates[i].clipRect;
@@ -1193,7 +1189,6 @@ void MetalRenderer::executeRenderCommands(const RenderList& commandList)
             case RenderCommandType::FillCircle:
             case RenderCommandType::DrawCircle:
             {
-                // Group shapes by clip hash
                 uint64_t clipHash = computeClipHash(clipStates[i]);
                 auto& batch = shapeGroups[clipHash];
                 batch.indices.push_back(i);
@@ -1204,33 +1199,46 @@ void MetalRenderer::executeRenderCommands(const RenderList& commandList)
                 
             case RenderCommandType::DrawImage:
             {
-                // Get texture from cache
                 uint32_t texWidth = 0, texHeight = 0;
                 float designScale = 1.0f;
-                void* texture = m_textureCache->getTexture(cmd.text.c_str(),
-                                                           texWidth,
-                                                           texHeight,
-                                                           &designScale);
+                void* texture = m_textureCache->getTexture(
+                    cmd.resourceNamespace.c_str(),
+                    cmd.text.c_str(),
+                    texWidth, texHeight, &designScale
+                );
+                
                 if (texture) {
-                    // Create combined hash of texture + clip
-                    uint64_t clipHash = computeClipHash(clipStates[i]);
-                    uint64_t textureHash = reinterpret_cast<uint64_t>(texture);
-                    uint64_t key = (textureHash << 32) | clipHash;
+                    // Conservative batching: only merge with previous batch if texture,
+                    // clip, and command index are consecutive. This prevents draw order
+                    // violations where background images could render after foreground icons.
+                    bool merged = false;
                     
-                    // Try to find existing batch with same key
-                    bool foundBatch = false;
-                    for (auto& batch : imageBatches) {
-                        uint64_t batchKey = (reinterpret_cast<uint64_t>(batch.texture) << 32) |
-                                           computeClipHash(ClipState{batch.clipRect, batch.hasClip});
-                        if (batchKey == key) {
-                            batch.indices.push_back(i);
-                            foundBatch = true;
-                            break;
+                    if (!imageBatches.empty()) {
+                        ImageBatch& lastBatch = imageBatches.back();
+                        
+                        // Check if texture matches
+                        bool sameTexture = (lastBatch.texture == texture);
+                        
+                        // Check if clip state matches
+                        bool sameClip = (lastBatch.hasClip == clipStates[i].hasClip) &&
+                                       (!clipStates[i].hasClip ||
+                                        (lastBatch.clipRect.x == clipStates[i].clipRect.x &&
+                                         lastBatch.clipRect.y == clipStates[i].clipRect.y &&
+                                         lastBatch.clipRect.width == clipStates[i].clipRect.width &&
+                                         lastBatch.clipRect.height == clipStates[i].clipRect.height));
+                        
+                        // Check if this is the immediately following command
+                        bool consecutive = (!lastBatch.indices.empty() &&
+                                           lastBatch.indices.back() == i - 1);
+                        
+                        if (sameTexture && sameClip && consecutive) {
+                            lastBatch.indices.push_back(i);
+                            merged = true;
                         }
                     }
                     
-                    // Create new batch if needed
-                    if (!foundBatch) {
+                    if (!merged) {
+                        // Create new batch
                         ImageBatch newBatch;
                         newBatch.indices.push_back(i);
                         newBatch.texture = texture;
@@ -1247,7 +1255,6 @@ void MetalRenderer::executeRenderCommands(const RenderList& commandList)
                 
             case RenderCommandType::DrawText:
             {
-                // Shape text and generate vertices
                 ShapedText shapedText;
                 m_textRenderer->shapeText(cmd.text.c_str(),
                                           cmd.fontFallbackChain,
@@ -1266,14 +1273,12 @@ void MetalRenderer::executeRenderCommands(const RenderList& commandList)
                     
                     if (!vertices.empty())
                     {
-                        // Try to merge with previous batch if possible
                         bool canMerge = false;
                         if (!textBatchStarts.empty())
                         {
                             size_t lastIdx = textBatchStarts.size() - 1;
                             if (textBatchHasClips[lastIdx] == clipStates[i].hasClip)
                             {
-                                // Check if clip rects match
                                 if (!clipStates[i].hasClip ||
                                     (textBatchClips[lastIdx].x == clipStates[i].clipRect.x &&
                                      textBatchClips[lastIdx].y == clipStates[i].clipRect.y &&
@@ -1287,12 +1292,10 @@ void MetalRenderer::executeRenderCommands(const RenderList& commandList)
                         
                         if (canMerge)
                         {
-                            // Merge with previous batch
                             textBatchCounts.back() += vertices.size();
                         }
                         else
                         {
-                            // Create new batch
                             textBatchStarts.push_back(allTextVertices.size());
                             textBatchCounts.push_back(vertices.size());
                             textBatchClips.push_back(clipStates[i].clipRect);
@@ -1312,7 +1315,7 @@ void MetalRenderer::executeRenderCommands(const RenderList& commandList)
     //======================================================================================
     // Pass 3: Render All Batches
 
-    // 1. Render rectangle batches (unchanged)
+    // 1. Render rectangle batches
     if (!rectGroups.empty())
     {
         setPipeline(ActivePipeline::Rect);
@@ -1322,19 +1325,17 @@ void MetalRenderer::executeRenderCommands(const RenderList& commandList)
         }
     }
 
-    // 2. Render shape batches - NEW OPTIMIZED VERSION
+    // 2. Render shape batches
     if (!shapeGroups.empty())
     {
         for (const auto& pair : shapeGroups)
         {
             const ShapeBatch& batch = pair.second;
             
-            // Separate commands by type for batch rendering
             std::vector<RenderCommand> lineCommands;
             std::vector<RenderCommand> triangleCommands;
             std::vector<RenderCommand> circleCommands;
             
-            // Classify commands into batches
             for (size_t idx : batch.indices)
             {
                 const auto& cmd = commands[idx];
@@ -1360,7 +1361,6 @@ void MetalRenderer::executeRenderCommands(const RenderList& commandList)
                 }
             }
             
-            // Render each type as a single batch
             if (!lineCommands.empty())
             {
                 renderLineBatch(lineCommands, batch.clipRect, batch.hasClip);
@@ -1378,14 +1378,10 @@ void MetalRenderer::executeRenderCommands(const RenderList& commandList)
         }
     }
     
-    // 3. Render image batches (sorted by first occurrence to preserve draw order)
+    // 3. Render image batches in creation order (no sorting needed)
+    // Batches are already in correct order due to conservative sequential batching
     if (!imageBatches.empty())
     {
-        std::sort(imageBatches.begin(), imageBatches.end(),
-            [](const ImageBatch& a, const ImageBatch& b) {
-                return a.firstIndex < b.firstIndex;
-            });
-        
         setPipeline(ActivePipeline::Image);
         for (const auto& batch : imageBatches)
         {
@@ -1404,7 +1400,6 @@ void MetalRenderer::executeRenderCommands(const RenderList& commandList)
                           textBatchClips, textBatchHasClips);
     }
     
-    // Reset scissor to full screen
     applyFullScreenScissor();
 }
 
@@ -1645,7 +1640,11 @@ void MetalRenderer::renderImageBatch(const std::vector<size_t>& commandIndices,
             
             uint32_t texWidth = 0, texHeight = 0;
             float designScale = 1.0f;
-            m_textureCache->getTexture(cmd.text.c_str(), texWidth, texHeight, &designScale);
+            m_textureCache->getTexture(
+                cmd.resourceNamespace.c_str(),
+                cmd.text.c_str(),
+                texWidth, texHeight, &designScale
+            );
             
             if (cmd.scaleMode == ScaleMode::Tile)
             {

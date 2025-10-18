@@ -1,44 +1,8 @@
-/*******************************************************************************************
-**
-** YuchenUI - Modern C++ GUI Framework
-**
-** Copyright (C) 2025 Yuchen Wei
-** Contact: https://github.com/YuchenSound/YuchenUI
-**
-** This file is part of the YuchenUI Text module.
-**
-** $YUCHEN_BEGIN_LICENSE:MIT$
-** Licensed under the MIT License
-** $YUCHEN_END_LICENSE$
-**
-********************************************************************************************/
-
-//==========================================================================================
-/** @file FontManager.cpp
-    
-    Implementation notes:
-    - Font handles are sequential integers starting from 1
-    - Font metrics and text measurements cached globally to avoid repeated queries
-    - macOS uses CoreText to locate system fonts by name
-    - Windows uses hardcoded paths to system fonts
-    - Falls back to Arial for CJK if system font unavailable
-    - Emoji fonts loaded automatically on initialization
-    - Glyph availability cached for performance (per font-codepoint pair)
-    - measureText() uses HarfBuzz shaping for accurate measurement with kerning
-    
-    Version 2.0 Changes:
-    - Added hasGlyph() implementation with caching
-    - Added selectFontForCodepoint() for fallback chain resolution
-    - Added loadEmojiFont() and loadSymbolFont() for special character support
-    - Enhanced font fallback chain builders
-    - Improved performance with glyph availability cache
-*/
-
 #include "YuchenUI/text/FontManager.h"
 #include "YuchenUI/text/TextUtils.h"
+#include "YuchenUI/resource/IResourceResolver.h"
 #include "YuchenUI/core/Assert.h"
 #include "YuchenUI/core/Config.h"
-#include "../generated/embedded_resources.h"
 #include <unordered_map>
 #include <unordered_set>
 #include <functional>
@@ -50,14 +14,10 @@
 
 namespace YuchenUI {
 
-//==========================================================================================
-// Global Cache Structures
-
-/** Cache key for text measurement results. */
 struct MeasureTextKey
 {
-    std::string text;   ///< Text string
-    float fontSize;     ///< Font size in points
+    std::string text;
+    float fontSize;
     
     MeasureTextKey(const char* t, float fs) : text(t), fontSize(fs)
     {
@@ -71,7 +31,6 @@ struct MeasureTextKey
     }
 };
 
-/** Hash functor for MeasureTextKey. */
 struct MeasureTextKeyHash
 {
     size_t operator()(const MeasureTextKey& key) const
@@ -82,11 +41,10 @@ struct MeasureTextKeyHash
     }
 };
 
-/** Cache key for font metrics. */
 struct FontMetricsKey
 {
-    FontHandle fontHandle;  ///< Font handle
-    float fontSize;         ///< Font size in points
+    FontHandle fontHandle;
+    float fontSize;
     
     FontMetricsKey(FontHandle fh, float fs) : fontHandle(fh), fontSize(fs)
     {
@@ -101,7 +59,6 @@ struct FontMetricsKey
     }
 };
 
-/** Hash functor for FontMetricsKey. */
 struct FontMetricsKeyHash
 {
     size_t operator()(const FontMetricsKey& key) const
@@ -112,16 +69,13 @@ struct FontMetricsKeyHash
     }
 };
 
-// Global caches (cleared on FontManager::destroy())
 static std::unordered_map<MeasureTextKey, Vec2, MeasureTextKeyHash> s_measureTextCache;
 static std::unordered_map<FontMetricsKey, FontMetrics, FontMetricsKeyHash> s_fontMetricsCache;
 static std::unordered_set<uint32_t> s_warnedMissingGlyphs;
 
-//==========================================================================================
-// Lifecycle
-
 FontManager::FontManager()
     : m_isInitialized(false)
+    , m_resourceResolver(nullptr)
     , m_fonts()
     , m_freeTypeLibrary(nullptr)
     , m_defaultRegularFont(INVALID_FONT_HANDLE)
@@ -140,9 +94,12 @@ FontManager::~FontManager()
     destroy();
 }
 
-bool FontManager::initialize()
+bool FontManager::initialize(IResourceResolver* resourceResolver)
 {
     YUCHEN_ASSERT_MSG(!m_isInitialized, "FontManager already initialized");
+    YUCHEN_ASSERT_MSG(resourceResolver != nullptr, "Resource resolver cannot be null");
+
+    m_resourceResolver = resourceResolver;
 
     if (!initializeFreeType())
     {
@@ -150,7 +107,7 @@ bool FontManager::initialize()
         return false;
     }
 
-    if (!m_fontDatabase.initialize(m_freeTypeLibrary))
+    if (!m_fontDatabase.initialize(m_freeTypeLibrary, m_resourceResolver))
     {
         std::cerr << "[FontManager] ERROR: Failed to initialize font database" << std::endl;
         cleanupFreeType();
@@ -159,13 +116,17 @@ bool FontManager::initialize()
 
     int discoveredCount = m_fontDatabase.discoverAndRegisterFonts(m_fonts);
     
+    if (discoveredCount == 0)
+    {
+        std::cerr << "[FontManager] WARNING: No fonts discovered!" << std::endl;
+    }
+    
     initializeFonts();
     loadCJKFont();
     loadSymbolFont();
     
     m_isInitialized = true;
     
-    // Single summary log
     std::cout << "[FontManager] Initialized (" << m_fonts.size() << " fonts)" << std::endl;
     
     return true;
@@ -194,9 +155,6 @@ void FontManager::destroy()
     m_isInitialized = false;
 }
 
-//==========================================================================================
-// FreeType Initialization
-
 bool FontManager::initializeFreeType()
 {
     FT_Error error = FT_Init_FreeType(&m_freeTypeLibrary);
@@ -217,9 +175,6 @@ void FontManager::cleanupFreeType()
     }
 }
 
-//==========================================================================================
-// Default Font Loading
-
 void FontManager::initializeFonts()
 {
     m_defaultRegularFont    = m_fontDatabase.getFontForRole(FontRole::DefaultRegular);
@@ -237,19 +192,13 @@ void FontManager::initializeFonts()
     YUCHEN_ASSERT_MSG(m_defaultRegularFont != INVALID_FONT_HANDLE, "Failed to assign default regular font");
 }
 
-//==========================================================================================
-// CJK Font Loading
-
 void FontManager::loadCJKFont()
 {
-    // Try to get CJK font from embedded resources
     m_defaultCJKFont = m_fontDatabase.getFontForRole(FontRole::CJK);
     
-    // If no CJK font in resources, load from system
     if (m_defaultCJKFont == INVALID_FONT_HANDLE)
     {
 #ifdef __APPLE__
-        // macOS: Load PingFang SC
         std::string cjkPath = getCoreTextFontPath("PingFangSC-Regular");
         
         if (!cjkPath.empty())
@@ -263,7 +212,6 @@ void FontManager::loadCJKFont()
             );
         }
         
-        // Fallback to Heiti SC if PingFang not found
         if (m_defaultCJKFont == INVALID_FONT_HANDLE)
         {
             cjkPath = getCoreTextFontPath("STHeitiSC-Light");
@@ -280,7 +228,6 @@ void FontManager::loadCJKFont()
         }
         
 #elif defined(_WIN32)
-        // Windows: Load Microsoft YaHei
         const char* cjkPath = "C:\\Windows\\Fonts\\msyh.ttc";
         std::ifstream testFile(cjkPath);
         
@@ -296,7 +243,6 @@ void FontManager::loadCJKFont()
             );
         }
         
-        // Fallback to SimSun if YaHei not found
         if (m_defaultCJKFont == INVALID_FONT_HANDLE)
         {
             cjkPath = "C:\\Windows\\Fonts\\simsun.ttc";
@@ -316,16 +262,13 @@ void FontManager::loadCJKFont()
 #endif
     }
     
-    // CRITICAL: No fallback to default font - fail loudly
     if (m_defaultCJKFont == INVALID_FONT_HANDLE)
     {
         std::cerr << "[FontManager] ERROR: Failed to load CJK font!" << std::endl;
         std::cerr << "[FontManager] Chinese text will NOT be displayed." << std::endl;
         
-        // Set to default font to prevent crash, but don't hide the error
         m_defaultCJKFont = m_defaultRegularFont;
         
-        // Optional: throw exception in debug builds
         YUCHEN_ASSERT_MSG(false, "CJK font loading failed - check system fonts");
     }
 
@@ -347,7 +290,6 @@ void FontManager::loadSymbolFont()
                 symbolPath.c_str(), "Apple Symbols", &m_fonts[fontIndex]);
         }
 #elif defined(_WIN32)
-        // NEW: No need to pre-allocate, just append
         size_t fontIndex = m_fonts.size();
         m_fonts.emplace_back();
         m_defaultSymbolFont = m_fontDatabase.registerFont(
@@ -363,7 +305,6 @@ std::string FontManager::getCoreTextFontPath(const char* fontName) const
 {
     YUCHEN_ASSERT(fontName != nullptr);
     
-    // Create CoreText font by name
     CFStringRef fontNameRef = CFStringCreateWithCString(NULL, fontName, kCFStringEncodingUTF8);
     if (!fontNameRef)
     {
@@ -378,7 +319,6 @@ std::string FontManager::getCoreTextFontPath(const char* fontName) const
         return "";
     }
     
-    // Get font descriptor and extract file URL
     CTFontDescriptorRef descriptor = CTFontCopyFontDescriptor(ctFont);
     CFURLRef url = (CFURLRef)CTFontDescriptorCopyAttribute(descriptor, kCTFontURLAttribute);
     
@@ -405,9 +345,6 @@ std::string FontManager::getCoreTextFontPath(const char* fontName) const
 }
 #endif
 
-//==========================================================================================
-// Font Fallback Chain Builders
-
 FontFallbackChain FontManager::createDefaultFallbackChain() const
 {
     YUCHEN_ASSERT_MSG(m_isInitialized, "FontManager not initialized");
@@ -430,7 +367,7 @@ FontFallbackChain FontManager::createBoldFallbackChain() const
     
     FontFallbackChain chain;
     chain.addFont(m_defaultBoldFont);
-    chain.addFont(m_defaultCJKFont);  // PingFang doesn't have separate bold, uses same font
+    chain.addFont(m_defaultCJKFont);
 
     if (m_defaultSymbolFont != INVALID_FONT_HANDLE)
     {
@@ -444,12 +381,8 @@ FontFallbackChain FontManager::createTitleFallbackChain() const
 {
     YUCHEN_ASSERT_MSG(m_isInitialized, "FontManager not initialized");
     
-    // For titles, use bold variants
     return createBoldFallbackChain();
 }
-
-//==========================================================================================
-// Font Fallback Implementation
 
 bool FontManager::hasGlyphImpl(FontHandle handle, uint32_t codepoint) const
 {
@@ -465,8 +398,6 @@ bool FontManager::hasGlyphImpl(FontHandle handle, uint32_t codepoint) const
         return false;
     }
     
-    // Query FreeType for glyph index
-    // A glyph index of 0 means the character is not supported
     uint32_t glyphIndex = FT_Get_Char_Index(face, codepoint);
     return glyphIndex != 0;
 }
@@ -476,17 +407,14 @@ bool FontManager::hasGlyph(FontHandle handle, uint32_t codepoint) const
     YUCHEN_ASSERT_MSG(m_isInitialized, "FontManager not initialized");
     YUCHEN_ASSERT_MSG(handle != INVALID_FONT_HANDLE, "Invalid font handle");
     
-    // Create cache key: (FontHandle << 32) | codepoint
     uint64_t cacheKey = (static_cast<uint64_t>(handle) << 32) | codepoint;
     
-    // Check cache first
     auto it = m_glyphAvailabilityCache.find(cacheKey);
     if (it != m_glyphAvailabilityCache.end())
     {
         return it->second;
     }
     
-    // Query FreeType and cache result
     bool hasGlyph = hasGlyphImpl(handle, codepoint);
     m_glyphAvailabilityCache[cacheKey] = hasGlyph;
     
@@ -500,7 +428,6 @@ FontHandle FontManager::selectFontForCodepoint(
     YUCHEN_ASSERT_MSG(m_isInitialized, "FontManager not initialized");
     YUCHEN_ASSERT_MSG(!fallbackChain.isEmpty(), "Fallback chain is empty");
     
-    // Try each font in the fallback chain
     for (size_t i = 0; i < fallbackChain.fonts.size(); ++i)
     {
         FontHandle font = fallbackChain.fonts[i];
@@ -510,12 +437,10 @@ FontHandle FontManager::selectFontForCodepoint(
         }
     }
     
-    // No font supports this character - log warning (deduplicated)
     if (s_warnedMissingGlyphs.find(codepoint) == s_warnedMissingGlyphs.end())
     {
         s_warnedMissingGlyphs.insert(codepoint);
         
-        // Skip control characters AND invalid codepoints
         bool isValidVisible = (codepoint >= 0x20 && codepoint != 0x7F) && !(codepoint >= 0xD800 && codepoint <= 0xDFFF) && (codepoint <= 0x10FFFF);
         if (isValidVisible)
         {
@@ -528,18 +453,13 @@ FontHandle FontManager::selectFontForCodepoint(
             { charType = "CJK"; }
             else if (TextUtils::isWesternCharacter(codepoint))
             { charType = "Western"; }
-            // Safe encoding - encodeUTF8 now handles invalid codepoints
             std::string charStr = TextUtils::encodeUTF8(codepoint);
             std::cerr << "[FontManager] WARNING: No font supports " << charType << " character U+" << std::hex << std::uppercase << codepoint << std::dec << " ('" << charStr << "')" << std::endl;
         }
     }
     
-    // Return primary font (will render as .notdef glyph)
     return fallbackChain.getPrimary();
 }
-
-//==========================================================================================
-// Font Loading
 
 FontHandle FontManager::loadFontFromFile(const char* path, const char* name)
 {
@@ -598,9 +518,6 @@ FontHandle FontManager::loadFontFromMemory(const void* data, size_t size, const 
     return handle;
 }
 
-//==========================================================================================
-// Font Queries
-
 bool FontManager::isValidFont(FontHandle handle) const
 {
     const FontEntry* entry = getFontEntry(handle);
@@ -613,7 +530,6 @@ FontMetrics FontManager::getFontMetrics(FontHandle handle, float fontSize) const
     YUCHEN_ASSERT_MSG(handle != INVALID_FONT_HANDLE, "Invalid font handle");
     YUCHEN_ASSERT_MSG(fontSize >= Config::Font::MIN_SIZE && fontSize <= Config::Font::MAX_SIZE, "Font size out of range");
     
-    // Check cache
     FontMetricsKey key(handle, fontSize);
     auto it = s_fontMetricsCache.find(key);
     if (it != s_fontMetricsCache.end())
@@ -621,14 +537,12 @@ FontMetrics FontManager::getFontMetrics(FontHandle handle, float fontSize) const
         return it->second;
     }
     
-    // Query FreeType
     const FontEntry* entry = getFontEntry(handle);
     YUCHEN_ASSERT_MSG(entry && entry->isValid, "Invalid font entry");
     
     FontMetrics metrics = entry->face->getMetrics(fontSize);
     YUCHEN_ASSERT_MSG(metrics.isValid(), "Invalid font metrics");
     
-    // Cache result
     s_fontMetricsCache[key] = metrics;
     return metrics;
 }
@@ -653,25 +567,20 @@ Vec2 FontManager::measureText(const char* text, float fontSize) const
     
     if (*text == '\0') return Vec2();
     
-    // Check cache
     MeasureTextKey key(text, fontSize);
     auto it = s_measureTextCache.find(key);
     if (it != s_measureTextCache.end()) return it->second;
     
-    // Use default fallback chain for measurement
     FontFallbackChain fallbackChain = createDefaultFallbackChain();
     
-    // Segment text by font requirements using fallback
     std::vector<TextSegment> segments = TextUtils::segmentTextWithFallback(text, fallbackChain, const_cast<FontManager*>(this));
     YUCHEN_ASSERT(!segments.empty());
     
     float totalWidth = 0.0f;
     float maxHeight = 0.0f;
     
-    // Create reusable HarfBuzz buffer
     hb_buffer_t* buffer = hb_buffer_create();
     
-    // Measure each segment with HarfBuzz shaping
     for (const auto& segment : segments)
     {
         YUCHEN_ASSERT_MSG(isValidFont(segment.fontHandle), "Invalid font handle in text segment");
@@ -679,11 +588,9 @@ Vec2 FontManager::measureText(const char* text, float fontSize) const
         const FontEntry* entry = getFontEntry(segment.fontHandle);
         if (!entry || !entry->isValid) continue;
         
-        // Get HarfBuzz font for shaping
         hb_font_t* hbFont = entry->cache->getHarfBuzzFont(*entry->face, fontSize);
         if (!hbFont) continue;
         
-        // Prepare HarfBuzz buffer
         hb_buffer_clear_contents(buffer);
         hb_buffer_set_direction(buffer, HB_DIRECTION_LTR);
         
@@ -695,17 +602,14 @@ Vec2 FontManager::measureText(const char* text, float fontSize) const
         
         hb_buffer_add_utf8(buffer, segment.text.c_str(), -1, 0, -1);
         
-        // Disable kerning for measurement consistency
         hb_feature_t features[1];
         features[0].tag = HB_TAG('k','e','r','n');
         features[0].value = 0;
         features[0].start = 0;
         features[0].end = (unsigned int)-1;
         
-        // Shape text
         hb_shape(hbFont, buffer, features, 1);
         
-        // Sum glyph advances
         unsigned int glyphCount = 0;
         hb_glyph_position_t* glyphPositions = hb_buffer_get_glyph_positions(buffer, &glyphCount);
         
@@ -717,7 +621,6 @@ Vec2 FontManager::measureText(const char* text, float fontSize) const
         
         totalWidth += segmentWidth;
         
-        // Track maximum height
         float segmentHeight = getTextHeight(segment.fontHandle, fontSize);
         maxHeight = std::max(maxHeight, segmentHeight);
     }
@@ -727,7 +630,6 @@ Vec2 FontManager::measureText(const char* text, float fontSize) const
     Vec2 result(totalWidth, maxHeight);
     YUCHEN_ASSERT_MSG(result.isValid(), "Invalid text measurement result");
     
-    // Cache result
     s_measureTextCache[key] = result;
     return result;
 }
@@ -740,9 +642,6 @@ float FontManager::getTextHeight(FontHandle handle, float fontSize) const
     
     return getFontMetrics(handle, fontSize).lineHeight;
 }
-
-//==========================================================================================
-// Internal Access
 
 void* FontManager::getFontFace(FontHandle handle) const
 {
@@ -831,4 +730,4 @@ void FontManager::printAvailableFonts() const
     std::cout << "\n=====================================" << std::endl;
 }
 
-} // namespace YuchenUI
+}

@@ -213,12 +213,10 @@ void ProtoolsDarkStyle::drawDestructiveButton(const ButtonDrawInfo &info, Render
 void ProtoolsDarkStyle::drawKnob(const KnobDrawInfo& info, RenderList& cmdList)
 {
     std::string resourcePath = "components/knob/dark/knob_";
-    if   (info.type == KnobType::Centered) {resourcePath += "centered_";}
-    else {resourcePath += "no_centered_";}
-    if   (info.isActive) {resourcePath += "active_29frames.png";}
-    else {resourcePath += "inactive_29frames.png";}
-    Rect sourceRect(0.0f,info.frameSize.y * info.currentFrame,info.frameSize.x,info.frameSize.y);
-    cmdList.drawImageRegion(resourcePath.c_str(), info.bounds, sourceRect, ScaleMode::Stretch);
+    resourcePath += (info.type == KnobType::Centered) ? "centered_" : "no_centered_";
+    resourcePath += info.isActive ? "active_29frames.png" : "inactive_29frames.png";
+    Rect sourceRect(0.0f, info.frameSize.y * info.currentFrame, info.frameSize.x, info.frameSize.y);
+    cmdList.drawImageRegion("YuchenUI", resourcePath.c_str(), info.bounds, sourceRect, ScaleMode::Stretch);
 }
 
 //==========================================================================================
@@ -227,27 +225,20 @@ void ProtoolsDarkStyle::drawCheckBox(const CheckBoxDrawInfo& info, RenderList& c
 {
     std::string resourcePath = "components/checkbox/dark/checkbox_";
     if (!info.isEnabled)
-    {
-        resourcePath += (info.state == CheckBoxState::Checked)      ?  "checked_disabled.png" :
-                        (info.state == CheckBoxState::Indeterminate) ? "indeterminate_disabled.png" :
-                                                                       "unchecked_disabled.png";
-    }
+        resourcePath += (info.state == CheckBoxState::Checked) ? "checked_disabled.png" : (info.state == CheckBoxState::Indeterminate) ? "indeterminate_disabled.png" : "unchecked_disabled.png";
     else
-    {
-        resourcePath += (info.state == CheckBoxState::Checked)      ?  "checked.png" :
-                        (info.state == CheckBoxState::Indeterminate) ? "indeterminate.png" :
-                                                                       "unchecked.png";
-    }
-    cmdList.drawImage(resourcePath.c_str(), info.bounds, ScaleMode::Original);
+        resourcePath += (info.state == CheckBoxState::Checked) ? "checked.png" : (info.state == CheckBoxState::Indeterminate) ? "indeterminate.png" : "unchecked.png";
+    cmdList.drawImage("YuchenUI", resourcePath.c_str(), info.bounds, ScaleMode::Original);
 }
 
 //==========================================================================================
 // [SECTION] - Radio Button
-void ProtoolsDarkStyle::drawRadioButton(const RadioButtonDrawInfo& info, RenderList& cmdList) {
+void ProtoolsDarkStyle::drawRadioButton(const RadioButtonDrawInfo& info, RenderList& cmdList)
+{
     std::string resourcePath = "components/radio/dark/radio_";
-    if (!info.isEnabled){ resourcePath += (info.isChecked) ? "checked_disabled.png" : "unchecked_disabled.png"; }
-    else { resourcePath += (info.isChecked) ? "checked.png" : "unchecked.png"; }
-    cmdList.drawImage(resourcePath.c_str(), info.bounds, ScaleMode::Original);
+    if (!info.isEnabled) resourcePath += info.isChecked ? "checked_disabled.png" : "unchecked_disabled.png";
+    else resourcePath += info.isChecked ? "checked.png" : "unchecked.png";
+    cmdList.drawImage("YuchenUI", resourcePath.c_str(), info.bounds, ScaleMode::Original);
 }
 
 //==========================================================================================
@@ -306,17 +297,14 @@ SpinBoxColors ProtoolsDarkStyle::getSpinBoxColors() const
 // [SECTION] - Combo Box
 void ProtoolsDarkStyle::drawComboBox(const ComboBoxDrawInfo& info, RenderList& cmdList)
 {
-    static constexpr float TEXT_PADDING_LEFT  = 4.0f;
-    static constexpr float NINE_SLICE_MARGIN  = 2.0f;
-    static constexpr float ARROW_BASE_SIZE    = 7.0f;
-    static constexpr float ARROW_HIGHT_SIZE   = 4.0f;
-    static constexpr float ARROW_MARGIN_RIGHT = 3.0f;
-    static constexpr float ARROW_MARGIN_TOP   = 4.0f;
-    Vec4 textColor;
-    const char* backgroundResource = "components/combobox/combobox_background_black.png";
-    textColor = Vec4::FromRGBA(255, 255, 255, 255);
+    static constexpr float TEXT_PADDING_LEFT = 4.0f, NINE_SLICE_MARGIN = 2.0f;
+    static constexpr float ARROW_BASE_SIZE = 7.0f, ARROW_HIGHT_SIZE = 4.0f;
+    static constexpr float ARROW_MARGIN_RIGHT = 3.0f, ARROW_MARGIN_TOP = 4.0f;
+    
+    Vec4 textColor = Vec4::FromRGBA(255, 255, 255, 255);
     NineSliceMargins margins(NINE_SLICE_MARGIN, NINE_SLICE_MARGIN, NINE_SLICE_MARGIN, NINE_SLICE_MARGIN);
-    cmdList.drawImage(backgroundResource, info.bounds, ScaleMode::NineSlice, margins);
+    cmdList.drawImage("YuchenUI", "components/combobox/combobox_background_black.png", info.bounds, ScaleMode::NineSlice, margins);
+    
     std::string displayText = info.isEmpty ? info.placeholder : info.text;
     if (!displayText.empty())
     {
@@ -325,13 +313,12 @@ void ProtoolsDarkStyle::drawComboBox(const ComboBoxDrawInfo& info, RenderList& c
         FontMetrics metrics = fontProvider->getFontMetrics(primaryFont, info.fontSize);
         float textX = info.bounds.x + TEXT_PADDING_LEFT;
         float textY = info.bounds.y + (info.bounds.height - metrics.lineHeight) * 0.5f + metrics.ascender;
-        Vec2 textPosition(textX, textY);
-        cmdList.drawText(displayText.c_str(), textPosition,info.fallbackChain, info.fontSize, textColor);
+        cmdList.drawText(displayText.c_str(), Vec2(textX, textY), info.fallbackChain, info.fontSize, textColor);
     }
+    
     float arrowX = info.bounds.x + info.bounds.width - ARROW_MARGIN_RIGHT - ARROW_BASE_SIZE;
     float arrowY = info.bounds.y + ARROW_MARGIN_TOP;
-    Rect arrowRect(arrowX, arrowY, ARROW_BASE_SIZE, ARROW_HIGHT_SIZE);
-    cmdList.drawImage("components/combobox/combobox_triangle.png", arrowRect, ScaleMode::Original);
+    cmdList.drawImage("YuchenUI", "components/combobox/combobox_triangle.png", Rect(arrowX, arrowY, ARROW_BASE_SIZE, ARROW_HIGHT_SIZE), ScaleMode::Original);
 }
 
 //==========================================================================================
@@ -449,21 +436,9 @@ FaderColors ProtoolsDarkStyle::getFaderColors() const
 void ProtoolsDarkStyle::drawNumberBackground(const NumberBackgroundDrawInfo& info, RenderList& cmdList)
 {
     NineSliceMargins backgroundMargins(5.0f, 5.0f, 5.0f, 5.0f);
-    cmdList.drawImage("components/number_display/dark/number_display_background@2x.png",
-                     info.bounds,
-                     ScaleMode::NineSlice,
-                     backgroundMargins);
-    
-    Rect textureRect(
-        info.bounds.x + 3.0f,
-        info.bounds.y + 2.0f,
-        info.bounds.width - 6.0f,
-        info.bounds.height - 5.0f
-    );
-    
-    cmdList.drawImage("components/number_display/number_display_stipple@2x.png",
-                     textureRect,
-                     ScaleMode::Tile);
+    cmdList.drawImage("YuchenUI", "components/number_display/dark/number_display_background@2x.png", info.bounds, ScaleMode::NineSlice, backgroundMargins);
+    Rect textureRect(info.bounds.x + 3.0f, info.bounds.y + 2.0f, info.bounds.width - 6.0f, info.bounds.height - 5.0f);
+    cmdList.drawImage("YuchenUI", "components/number_display/number_display_stipple@2x.png", textureRect, ScaleMode::Tile);
 }
 
 }

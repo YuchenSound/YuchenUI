@@ -145,16 +145,15 @@ float ProtoolsClassicStyle::getGroupBoxTitleBarHeight() const    { return 20.0f;
 void ProtoolsClassicStyle::drawNormalButton(const ButtonDrawInfo& info, RenderList& cmdList)
 {
     NineSliceMargins margins(2.0f, 2.0f, 2.0f, 2.0f);
-    cmdList.drawImage("components/buttons/btn_grey.png",info.bounds,ScaleMode::NineSlice,margins);
+    cmdList.drawImage("YuchenUI", "components/buttons/btn_grey.png", info.bounds, ScaleMode::NineSlice, margins);
+    
     if (!info.text.empty())
     {
         IFontProvider* fontProvider = getFontProvider();
         Vec2 textSize = fontProvider->measureText(info.text.c_str(), info.fontSize);
         FontHandle primaryFont = info.fallbackChain.getPrimary();
         FontMetrics metrics = fontProvider->getFontMetrics(primaryFont, info.fontSize);
-        Vec2 textPos(info.bounds.x + (info.bounds.width - textSize.x) * 0.5f,
-                     info.bounds.y + (info.bounds.height - metrics.lineHeight) * 0.5f + metrics.ascender
-        );
+        Vec2 textPos(info.bounds.x + (info.bounds.width - textSize.x) * 0.5f, info.bounds.y + (info.bounds.height - metrics.lineHeight) * 0.5f + metrics.ascender);
         Vec4 textColor = info.isEnabled ? Vec4::FromRGBA(255, 255, 255, 255) : m_uiTextDisabledColor;
         cmdList.drawText(info.text.c_str(), textPos, info.fallbackChain, info.fontSize, textColor);
     }
@@ -162,33 +161,33 @@ void ProtoolsClassicStyle::drawNormalButton(const ButtonDrawInfo& info, RenderLi
 void ProtoolsClassicStyle::drawPrimaryButton(const ButtonDrawInfo& info, RenderList& cmdList)
 {
     NineSliceMargins margins(2.0f, 2.0f, 2.0f, 2.0f);
-    cmdList.drawImage("components/buttons/btn_blue.png",info.bounds,ScaleMode::NineSlice,margins);
+    cmdList.drawImage("YuchenUI", "components/buttons/btn_blue.png", info.bounds, ScaleMode::NineSlice, margins);
+    
     if (!info.text.empty())
     {
         IFontProvider* fontProvider = getFontProvider();
         Vec2 textSize = fontProvider->measureText(info.text.c_str(), info.fontSize);
         FontHandle primaryFont = info.fallbackChain.getPrimary();
         FontMetrics metrics = fontProvider->getFontMetrics(primaryFont, info.fontSize);
-        Vec2 textPos(info.bounds.x + (info.bounds.width - textSize.x) * 0.5f,info.bounds.y +
-                     (info.bounds.height - metrics.lineHeight) * 0.5f + metrics.ascender);
+        Vec2 textPos(info.bounds.x + (info.bounds.width - textSize.x) * 0.5f, info.bounds.y + (info.bounds.height - metrics.lineHeight) * 0.5f + metrics.ascender);
         Vec4 textColor = info.isEnabled ? Vec4::FromRGBA(255, 255, 255, 255) : m_uiTextDisabledColor;
-        cmdList.drawText(info.text.c_str(), textPos, info.fallbackChain,info.fontSize, textColor);
+        cmdList.drawText(info.text.c_str(), textPos, info.fallbackChain, info.fontSize, textColor);
     }
 }
-void ProtoolsClassicStyle::drawDestructiveButton(const ButtonDrawInfo& info, RenderList &cmdList)
+void ProtoolsClassicStyle::drawDestructiveButton(const ButtonDrawInfo& info, RenderList& cmdList)
 {
     NineSliceMargins margins(2.0f, 2.0f, 2.0f, 2.0f);
-    cmdList.drawImage("components/buttons/btn_red.png",info.bounds,ScaleMode::NineSlice,margins);
+    cmdList.drawImage("YuchenUI", "components/buttons/btn_red.png", info.bounds, ScaleMode::NineSlice, margins);
+    
     if (!info.text.empty())
     {
         IFontProvider* fontProvider = getFontProvider();
         Vec2 textSize = fontProvider->measureText(info.text.c_str(), info.fontSize);
         FontHandle primaryFont = info.fallbackChain.getPrimary();
         FontMetrics metrics = fontProvider->getFontMetrics(primaryFont, info.fontSize);
-        Vec2 textPos(info.bounds.x + (info.bounds.width - textSize.x) * 0.5f,
-                     info.bounds.y + (info.bounds.height - metrics.lineHeight) * 0.5f + metrics.ascender);
+        Vec2 textPos(info.bounds.x + (info.bounds.width - textSize.x) * 0.5f, info.bounds.y + (info.bounds.height - metrics.lineHeight) * 0.5f + metrics.ascender);
         Vec4 textColor = info.isEnabled ? Vec4::FromRGBA(255, 255, 255, 255) : m_uiTextDisabledColor;
-        cmdList.drawText(info.text.c_str(), textPos, info.fallbackChain,info.fontSize, textColor);
+        cmdList.drawText(info.text.c_str(), textPos, info.fallbackChain, info.fontSize, textColor);
     }
 }
 
@@ -197,12 +196,10 @@ void ProtoolsClassicStyle::drawDestructiveButton(const ButtonDrawInfo& info, Ren
 void ProtoolsClassicStyle::drawKnob(const KnobDrawInfo& info, RenderList& cmdList)
 {
     std::string resourcePath = "components/knob/classical/knob_";
-    if   (info.type == KnobType::Centered) {resourcePath += "centered_";}
-    else {resourcePath += "no_centered_";}
-    if   (info.isActive) {resourcePath += "active_29frames.png";}
-    else {resourcePath += "inactive_29frames.png";}
-    Rect sourceRect(0.0f,info.frameSize.y * info.currentFrame,info.frameSize.x,info.frameSize.y);
-    cmdList.drawImageRegion(resourcePath.c_str(), info.bounds, sourceRect, ScaleMode::Stretch);
+    resourcePath += (info.type == KnobType::Centered) ? "centered_" : "no_centered_";
+    resourcePath += info.isActive ? "active_29frames.png" : "inactive_29frames.png";
+    Rect sourceRect(0.0f, info.frameSize.y * info.currentFrame, info.frameSize.x, info.frameSize.y);
+    cmdList.drawImageRegion("YuchenUI", resourcePath.c_str(), info.bounds, sourceRect, ScaleMode::Stretch);
 }
 
 //==========================================================================================
@@ -211,27 +208,21 @@ void ProtoolsClassicStyle::drawCheckBox(const CheckBoxDrawInfo& info, RenderList
 {
     std::string resourcePath = "components/checkbox/classical/checkbox_";
     if (!info.isEnabled)
-    {
-        resourcePath += (info.state == CheckBoxState::Checked)      ?  "checked_disabled.png" :
-                        (info.state == CheckBoxState::Indeterminate) ? "indeterminate_disabled.png" :
-                                                                       "unchecked_disabled.png";
-    }
+        resourcePath += (info.state == CheckBoxState::Checked) ? "checked_disabled.png" : (info.state == CheckBoxState::Indeterminate) ? "indeterminate_disabled.png" : "unchecked_disabled.png";
     else
-    {
-        resourcePath += (info.state == CheckBoxState::Checked)      ?  "checked.png" :
-                        (info.state == CheckBoxState::Indeterminate) ? "indeterminate.png" :
-                                                                       "unchecked.png";
-    }
-    cmdList.drawImage(resourcePath.c_str(), info.bounds, ScaleMode::Original);
+        resourcePath += (info.state == CheckBoxState::Checked) ? "checked.png" : (info.state == CheckBoxState::Indeterminate) ? "indeterminate.png" : "unchecked.png";
+    cmdList.drawImage("YuchenUI", resourcePath.c_str(), info.bounds, ScaleMode::Original);
 }
+
 
 //==========================================================================================
 // [SECTION] - Radio Button
-void ProtoolsClassicStyle::drawRadioButton(const RadioButtonDrawInfo& info, RenderList& cmdList) {
+void ProtoolsClassicStyle::drawRadioButton(const RadioButtonDrawInfo& info, RenderList& cmdList)
+{
     std::string resourcePath = "components/radio/classical/radio_";
-    if (!info.isEnabled){ resourcePath += (info.isChecked) ? "checked_disabled.png" : "unchecked_disabled.png"; }
-    else { resourcePath += (info.isChecked) ? "checked.png" : "unchecked.png"; }
-    cmdList.drawImage(resourcePath.c_str(), info.bounds, ScaleMode::Original);
+    if (!info.isEnabled) resourcePath += info.isChecked ? "checked_disabled.png" : "unchecked_disabled.png";
+    else resourcePath += info.isChecked ? "checked.png" : "unchecked.png";
+    cmdList.drawImage("YuchenUI", resourcePath.c_str(), info.bounds, ScaleMode::Original);
 }
 
 //==========================================================================================
@@ -289,17 +280,14 @@ SpinBoxColors ProtoolsClassicStyle::getSpinBoxColors() const
 // [SECTION] - Combo Box
 void ProtoolsClassicStyle::drawComboBox(const ComboBoxDrawInfo& info, RenderList& cmdList)
 {
-    static constexpr float TEXT_PADDING_LEFT  = 4.0f;
-    static constexpr float NINE_SLICE_MARGIN  = 2.0f;
-    static constexpr float ARROW_BASE_SIZE    = 7.0f;
-    static constexpr float ARROW_HIGHT_SIZE   = 4.0f;
-    static constexpr float ARROW_MARGIN_RIGHT = 3.0f;
-    static constexpr float ARROW_MARGIN_TOP   = 4.0f;
-    Vec4 textColor;
-    const char* backgroundResource = "components/combobox/combobox_background_grey.png";
-    textColor = Vec4::FromRGBA(0, 0, 0, 255);
+    static constexpr float TEXT_PADDING_LEFT = 4.0f, NINE_SLICE_MARGIN = 2.0f;
+    static constexpr float ARROW_BASE_SIZE = 7.0f, ARROW_HIGHT_SIZE = 4.0f;
+    static constexpr float ARROW_MARGIN_RIGHT = 3.0f, ARROW_MARGIN_TOP = 4.0f;
+    
+    Vec4 textColor = Vec4::FromRGBA(0, 0, 0, 255);
     NineSliceMargins margins(NINE_SLICE_MARGIN, NINE_SLICE_MARGIN, NINE_SLICE_MARGIN, NINE_SLICE_MARGIN);
-    cmdList.drawImage(backgroundResource, info.bounds, ScaleMode::NineSlice, margins);
+    cmdList.drawImage("YuchenUI", "components/combobox/combobox_background_grey.png", info.bounds, ScaleMode::NineSlice, margins);
+    
     std::string displayText = info.isEmpty ? info.placeholder : info.text;
     if (!displayText.empty())
     {
@@ -308,13 +296,12 @@ void ProtoolsClassicStyle::drawComboBox(const ComboBoxDrawInfo& info, RenderList
         FontMetrics metrics = fontProvider->getFontMetrics(primaryFont, info.fontSize);
         float textX = info.bounds.x + TEXT_PADDING_LEFT;
         float textY = info.bounds.y + (info.bounds.height - metrics.lineHeight) * 0.5f + metrics.ascender;
-        Vec2 textPosition(textX, textY);
-        cmdList.drawText(displayText.c_str(), textPosition,info.fallbackChain, info.fontSize, textColor);
+        cmdList.drawText(displayText.c_str(), Vec2(textX, textY), info.fallbackChain, info.fontSize, textColor);
     }
+    
     float arrowX = info.bounds.x + info.bounds.width - ARROW_MARGIN_RIGHT - ARROW_BASE_SIZE;
     float arrowY = info.bounds.y + ARROW_MARGIN_TOP;
-    Rect arrowRect(arrowX, arrowY, ARROW_BASE_SIZE, ARROW_HIGHT_SIZE);
-    cmdList.drawImage("components/combobox/combobox_triangle.png", arrowRect, ScaleMode::Original);
+    cmdList.drawImage("YuchenUI", "components/combobox/combobox_triangle.png", Rect(arrowX, arrowY, ARROW_BASE_SIZE, ARROW_HIGHT_SIZE), ScaleMode::Original);
 }
 
 //==========================================================================================
@@ -322,24 +309,26 @@ void ProtoolsClassicStyle::drawComboBox(const ComboBoxDrawInfo& info, RenderList
 void ProtoolsClassicStyle::drawScrollbarTrack(const ScrollbarTrackDrawInfo& info, RenderList& cmdList)
 {
     NineSliceMargins margins(2.0f, 2.0f, 2.0f, 2.0f);
-    cmdList.drawImage("components/scrollbar/scrollbar_track.png",info.bounds,ScaleMode::NineSlice,margins);
+    cmdList.drawImage("YuchenUI", "components/scrollbar/scrollbar_track.png", info.bounds, ScaleMode::NineSlice, margins);
 }
+
 void ProtoolsClassicStyle::drawScrollbarThumb(const ScrollbarThumbDrawInfo& info, RenderList& cmdList)
 {
-    const char* thumbImage = (info.isDragging || info.isHovered) ?
-    "components/scrollbar/scrollbar_thumb_pressed.png" : "components/scrollbar/scrollbar_thumb_normal.png";
+    const char* thumbImage = (info.isDragging || info.isHovered) ? "components/scrollbar/scrollbar_thumb_pressed.png" : "components/scrollbar/scrollbar_thumb_normal.png";
     NineSliceMargins margins(2.0f, 2.0f, 2.0f, 2.0f);
-    cmdList.drawImage(thumbImage, info.bounds, ScaleMode::NineSlice, margins);
+    cmdList.drawImage("YuchenUI", thumbImage, info.bounds, ScaleMode::NineSlice, margins);
 }
+
 void ProtoolsClassicStyle::drawScrollbarButton(const ScrollbarButtonDrawInfo& info, RenderList& cmdList)
 {
-    const char* buttonImage = (info.buttonState == ScrollbarButtonState::Pressed || info.buttonState == ScrollbarButtonState::Hovered)
-                            ? "components/scrollbar/scrollbar_thumb_pressed.png" : "components/scrollbar/scrollbar_thumb_normal.png";
+    const char* buttonImage = (info.buttonState == ScrollbarButtonState::Pressed || info.buttonState == ScrollbarButtonState::Hovered) ? "components/scrollbar/scrollbar_thumb_pressed.png" : "components/scrollbar/scrollbar_thumb_normal.png";
     NineSliceMargins buttonMargins(2.0f, 2.0f, 2.0f, 2.0f);
-    cmdList.drawImage(buttonImage, info.bounds, ScaleMode::NineSlice, buttonMargins);
+    cmdList.drawImage("YuchenUI", buttonImage, info.bounds, ScaleMode::NineSlice, buttonMargins);
+    
     float centerX = std::round(info.bounds.x + ScrollArea::BUTTON_SIZE / 2.0f);
     float centerY = std::round(info.bounds.y + ScrollArea::BUTTON_SIZE / 2.0f);
     Vec2 p1, p2, p3;
+    
     if (info.orientation == ScrollbarOrientation::Vertical)
     {
         if (info.buttonType == ScrollbarButtonType::UpLeft)
@@ -370,13 +359,8 @@ void ProtoolsClassicStyle::drawScrollbarButton(const ScrollbarButtonDrawInfo& in
             p3 = Vec2(centerX - ScrollArea::TRIANGLE_HEIGHT / 2.0f, centerY + ScrollArea::TRIANGLE_HEIGHT / 2.0f);
         }
     }
-    Vec4 triangleColor;
-    switch (info.buttonState)
-    {
-        case ScrollbarButtonState::Pressed: triangleColor = Vec4::FromRGBA(30,  30,  30,  255); break;
-        case ScrollbarButtonState::Hovered: triangleColor = Vec4::FromRGBA(60,  60,  60,  255); break;
-        default:                            triangleColor = Vec4::FromRGBA(100, 100, 100, 255); break;
-    }
+    
+    Vec4 triangleColor = (info.buttonState == ScrollbarButtonState::Pressed) ? Vec4::FromRGBA(30, 30, 30, 255) : (info.buttonState == ScrollbarButtonState::Hovered) ? Vec4::FromRGBA(60, 60, 60, 255) : Vec4::FromRGBA(100, 100, 100, 255);
     cmdList.fillTriangle(p1, p2, p3, triangleColor);
 }
 Vec4 ProtoolsClassicStyle::getDefaultScrollAreaBackground() const { return Vec4::FromRGBA(255, 255, 255, 219); }
@@ -421,23 +405,10 @@ FaderColors ProtoolsClassicStyle::getFaderColors() const
 void ProtoolsClassicStyle::drawNumberBackground(const NumberBackgroundDrawInfo& info, RenderList& cmdList)
 {
     NineSliceMargins backgroundMargins(5.0f, 5.0f, 5.0f, 5.0f);
-    cmdList.drawImage("components/number_display/classical/number_display_background@2x.png",
-                     info.bounds,
-                     ScaleMode::NineSlice,
-                     backgroundMargins);
-    
-    Rect textureRect(
-        info.bounds.x + 3.0f,
-        info.bounds.y + 2.0f,
-        info.bounds.width - 6.0f,
-        info.bounds.height - 5.0f
-    );
-    
-    cmdList.drawImage("components/number_display/number_display_stipple@2x.png",
-                     textureRect,
-                     ScaleMode::Tile);
+    cmdList.drawImage("YuchenUI", "components/number_display/classical/number_display_background@2x.png", info.bounds, ScaleMode::NineSlice, backgroundMargins);
+    Rect textureRect(info.bounds.x + 3.0f, info.bounds.y + 2.0f, info.bounds.width - 6.0f, info.bounds.height - 5.0f);
+    cmdList.drawImage("YuchenUI", "components/number_display/number_display_stipple@2x.png", textureRect, ScaleMode::Tile);
 }
-
 } // namespace YuchenUI
 
 

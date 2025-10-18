@@ -6,12 +6,13 @@ namespace YuchenUI {
 
 class RenderList;
 class IFontProvider;
+class IResourceResolver;
 
 class IGraphicsBackend {
 public:
     virtual ~IGraphicsBackend() = default;
     
-    virtual bool initialize(void* platformSurface, int width, int height, float dpiScale, IFontProvider* fontProvider) = 0;
+    virtual bool initialize(void* platformSurface, int width, int height, float dpiScale, IFontProvider* fontProvider, IResourceResolver* resourceResolver) = 0;
     virtual void resize(int width, int height) = 0;
 
     virtual void beginFrame() = 0;
