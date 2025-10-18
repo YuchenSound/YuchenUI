@@ -42,6 +42,7 @@
 
 #include <ft2build.h>
 #include FT_FREETYPE_H
+#include FT_OUTLINE_H
 #include <stdexcept>
 #include <functional>
 
@@ -165,17 +166,12 @@ void TextRenderer::beginFrame()
 //==========================================================================================
 // Text Shaping (New API with Font Fallback)
 
-void TextRenderer::shapeText(const char* text,
-                             const FontFallbackChain& fallbackChain,
-                             float fontSize,
-                             float letterSpacing,
-                             ShapedText& outShapedText)
+void TextRenderer::shapeText(const char* text, const FontFallbackChain& fallbackChain, float fontSize, float letterSpacing, ShapedText& outShapedText)
 {
     YUCHEN_ASSERT_MSG(m_isInitialized, "Not initialized");
     YUCHEN_ASSERT_MSG(text != nullptr, "Text cannot be null");
     YUCHEN_ASSERT_MSG(!fallbackChain.isEmpty(), "Fallback chain is empty");
-    YUCHEN_ASSERT_MSG(fontSize >= Config::Font::MIN_SIZE && fontSize <= Config::Font::MAX_SIZE,
-                      "Font size out of range");
+    YUCHEN_ASSERT_MSG(fontSize >= Config::Font::MIN_SIZE && fontSize <= Config::Font::MAX_SIZE,"Font size out of range");
     
     outShapedText.clear();
     
@@ -196,11 +192,7 @@ void TextRenderer::shapeText(const char* text,
     }
     
     // Segment text by font fallback chain (per-character font selection)
-    std::vector<TextSegment> segments = TextUtils::segmentTextWithFallback(
-        text,
-        fallbackChain,
-        m_fontProvider
-    );
+    std::vector<TextSegment> segments = TextUtils::segmentTextWithFallback(text,fallbackChain,m_fontProvider);
     
     if (segments.empty()) return;
     
@@ -211,8 +203,7 @@ void TextRenderer::shapeText(const char* text,
     for (const auto& segment : segments)
     {
         ShapedText segmentShaped;
-        if (shapeTextWithHarfBuzz(segment.text.c_str(), segment.fontHandle,
-                                  fontSize, letterSpacing, segmentShaped))
+        if (shapeTextWithHarfBuzz(segment.text.c_str(), segment.fontHandle, fontSize, letterSpacing, segmentShaped))
         {
             // Offset segment glyphs by accumulated advance
             for (auto& glyph : segmentShaped.glyphs)
@@ -236,21 +227,14 @@ void TextRenderer::shapeText(const char* text,
 //==========================================================================================
 // HarfBuzz Shaping
 
-bool TextRenderer::shapeTextWithHarfBuzz(const char* text,
-                                         FontHandle fontHandle,
-                                         float fontSize,
-                                         float letterSpacing,
-                                         ShapedText& outShapedText)
+bool TextRenderer::shapeTextWithHarfBuzz(const char* text,FontHandle fontHandle,float fontSize,float letterSpacing,ShapedText& outShapedText)
 {
     YUCHEN_ASSERT_MSG(text != nullptr, "Text cannot be null");
-    YUCHEN_ASSERT_MSG(fontSize >= Config::Font::MIN_SIZE && fontSize <= Config::Font::MAX_SIZE,
-                      "Font size out of range");
+    YUCHEN_ASSERT_MSG(fontSize >= Config::Font::MIN_SIZE && fontSize <= Config::Font::MAX_SIZE, "Font size out of range");
     
     // Get HarfBuzz font scaled for DPI
     float scaledFontSize = fontSize * m_dpiScale;
-    hb_font_t* hbFont = static_cast<hb_font_t*>(
-        m_fontProvider->getHarfBuzzFont(fontHandle, scaledFontSize, 1.0f)
-    );
+    hb_font_t* hbFont = static_cast<hb_font_t*>(m_fontProvider->getHarfBuzzFont(fontHandle, scaledFontSize, 1.0f));
     
     YUCHEN_ASSERT_MSG(hbFont != nullptr, "Failed to get HarfBuzz font");
     
@@ -283,10 +267,8 @@ bool TextRenderer::shapeTextWithHarfBuzz(const char* text,
     hb_glyph_info_t* glyphInfos = hb_buffer_get_glyph_infos(m_harfBuzzBuffer, &glyphCount);
     hb_glyph_position_t* glyphPositions = hb_buffer_get_glyph_positions(m_harfBuzzBuffer, &glyphCount);
     
-    YUCHEN_ASSERT_MSG(glyphInfos != nullptr && glyphPositions != nullptr,
-                      "Failed to get glyph info/positions");
-    YUCHEN_ASSERT_MSG(glyphCount > 0 && glyphCount <= Config::Text::MAX_GLYPHS_PER_TEXT,
-                      "Invalid glyph count");
+    YUCHEN_ASSERT_MSG(glyphInfos != nullptr && glyphPositions != nullptr,"Failed to get glyph info/positions");
+    YUCHEN_ASSERT_MSG(glyphCount > 0 && glyphCount <= Config::Text::MAX_GLYPHS_PER_TEXT,"Invalid glyph count");
     
     outShapedText.glyphs.reserve(glyphCount);
     
@@ -331,24 +313,23 @@ bool TextRenderer::shapeTextWithHarfBuzz(const char* text,
 
 //==========================================================================================
 // Vertex Generation
-
-void TextRenderer::generateTextVertices(const ShapedText& shaped,
-                                       const Vec2& position,
-                                       const Vec4& color,
-                                       const FontFallbackChain& fontChain,
-                                       float fontSize,
-                                       std::vector<TextVertex>& vertices)
+void TextRenderer::generateTextVertices(const ShapedText& shaped,const Vec2& position,const Vec4& color,const FontFallbackChain& fontChain,float fontSize,std::vector<TextVertex>& vertices)
 {
     vertices.clear();
     vertices.reserve(shaped.glyphs.size() * 4);
     Vec2 atlasSize = m_glyphCache->getCurrentAtlasSize();
+    
+    // Use boldness from config (0 = disabled)
+    uint32_t currentBoldness = static_cast<uint32_t>(Config::Font::EMBOLDEN_STRENGTH);
     
     for (const auto& glyph : shaped.glyphs)
     {
         if (glyph.glyphIndex == 0) continue;
         FontHandle actualFontHandle = glyph.fontHandle;
         float scaledFontSize = fontSize * m_dpiScale;
-        GlyphKey key(actualFontHandle, glyph.glyphIndex, scaledFontSize);
+        
+        // Create cache key WITH boldness information
+        GlyphKey key(actualFontHandle, glyph.glyphIndex, scaledFontSize, currentBoldness);
         const GlyphCacheEntry* entry = m_glyphCache->getGlyph(key);
         
         if (!entry)
@@ -356,50 +337,20 @@ void TextRenderer::generateTextVertices(const ShapedText& shaped,
             const void* bitmapData = nullptr;
             Vec2 glyphSize, bearing;
             float advance;
-            
-            renderGlyph(actualFontHandle, glyph.glyphIndex, scaledFontSize,
-                       bitmapData, glyphSize, bearing, advance);
-            
+            renderGlyph(actualFontHandle, glyph.glyphIndex, scaledFontSize,bitmapData, glyphSize, bearing, advance);
             m_glyphCache->cacheGlyph(key, bitmapData, glyphSize, bearing, advance);
             entry = m_glyphCache->getGlyph(key);
         }
         if (!entry || entry->textureRect.width <= 0.0f || entry->textureRect.height <= 0.0f) continue;
-        Vec2 glyphPos = Vec2(
-            position.x + glyph.position.x + (entry->bearing.x / m_dpiScale),
-            position.y + glyph.position.y - (entry->bearing.y / m_dpiScale)
-        );
+        Vec2 glyphPos = Vec2(position.x + glyph.position.x + (entry->bearing.x / m_dpiScale),position.y + glyph.position.y - (entry->bearing.y / m_dpiScale));
         float glyphWidth = entry->textureRect.width / m_dpiScale;
         float glyphHeight = entry->textureRect.height / m_dpiScale;
-        
-        Vec2 texCoordMin = Vec2(
-            entry->textureRect.x / atlasSize.x,
-            entry->textureRect.y / atlasSize.y
-        );
-        Vec2 texCoordMax = Vec2(
-            (entry->textureRect.x + entry->textureRect.width) / atlasSize.x,
-            (entry->textureRect.y + entry->textureRect.height) / atlasSize.y
-        );
-        
-        TextVertex topLeft(
-            Vec2(glyphPos.x, glyphPos.y),
-            Vec2(texCoordMin.x, texCoordMin.y),
-            color
-        );
-        TextVertex topRight(
-            Vec2(glyphPos.x + glyphWidth, glyphPos.y),
-            Vec2(texCoordMax.x, texCoordMin.y),
-            color
-        );
-        TextVertex bottomLeft(
-            Vec2(glyphPos.x, glyphPos.y + glyphHeight),
-            Vec2(texCoordMin.x, texCoordMax.y),
-            color
-        );
-        TextVertex bottomRight(
-            Vec2(glyphPos.x + glyphWidth, glyphPos.y + glyphHeight),
-            Vec2(texCoordMax.x, texCoordMax.y),
-            color
-        );
+        Vec2 texCoordMin = Vec2(entry->textureRect.x / atlasSize.x,entry->textureRect.y / atlasSize.y);
+        Vec2 texCoordMax = Vec2((entry->textureRect.x + entry->textureRect.width) / atlasSize.x,(entry->textureRect.y + entry->textureRect.height) / atlasSize.y);
+        TextVertex topLeft(Vec2(glyphPos.x, glyphPos.y),Vec2(texCoordMin.x, texCoordMin.y),color);
+        TextVertex topRight(Vec2(glyphPos.x + glyphWidth, glyphPos.y),Vec2(texCoordMax.x, texCoordMin.y),color);
+        TextVertex bottomLeft(Vec2(glyphPos.x, glyphPos.y + glyphHeight),Vec2(texCoordMin.x, texCoordMax.y),color);
+        TextVertex bottomRight(Vec2(glyphPos.x + glyphWidth, glyphPos.y + glyphHeight),Vec2(texCoordMax.x, texCoordMax.y),color);
         
         vertices.push_back(topLeft);
         vertices.push_back(topRight);
@@ -411,57 +362,61 @@ void TextRenderer::generateTextVertices(const ShapedText& shaped,
 //==========================================================================================
 // Glyph Rasterization
 
-void TextRenderer::renderGlyph(FontHandle fontHandle,
-                               uint32_t glyphIndex,
-                               float scaledFontSize,
-                               const void*& outBitmapData,
-                               Vec2& outSize,
-                               Vec2& outBearing,
-                               float& outAdvance)
+void TextRenderer::renderGlyph(FontHandle fontHandle, uint32_t glyphIndex, float scaledFontSize, const void*& outBitmapData, Vec2& outSize, Vec2& outBearing, float& outAdvance)
 {
     // Get FreeType face from font provider
     void* face = m_fontProvider->getFontFace(fontHandle);
-    rasterizeGlyphWithFreeType(face, glyphIndex, scaledFontSize,
-                                outBitmapData, outSize, outBearing, outAdvance);
+    rasterizeGlyphWithFreeType(face, glyphIndex, scaledFontSize, outBitmapData, outSize, outBearing, outAdvance);
 }
 
-void TextRenderer::rasterizeGlyphWithFreeType(void* face,
-                                               uint32_t glyphIndex,
-                                               float scaledFontSize,
-                                               const void*& outBitmapData,
-                                               Vec2& outSize,
-                                               Vec2& outBearing,
-                                               float& outAdvance)
+void TextRenderer::rasterizeGlyphWithFreeType(void* face, uint32_t glyphIndex, float scaledFontSize, const void*& outBitmapData, Vec2& outSize, Vec2& outBearing, float& outAdvance)
 {
     YUCHEN_ASSERT_MSG(face != nullptr, "Face cannot be null");
     
     FT_Face ftFace = static_cast<FT_Face>(face);
     
     // Set character size
-    FT_Error error = FT_Set_Char_Size(
-        ftFace,
-        0,
-        (FT_F26Dot6)(scaledFontSize * 64),
-        Config::Font::FREETYPE_DPI,
-        Config::Font::FREETYPE_DPI
-    );
-    if (error != FT_Err_Ok)
+    FT_Error error = FT_Set_Char_Size(ftFace,0,(FT_F26Dot6)(scaledFontSize * 64),Config::Font::FREETYPE_DPI,Config::Font::FREETYPE_DPI);
+    if (error != FT_Err_Ok) throw std::runtime_error("Failed to set char size");
+    
+    // Load glyph WITHOUT rendering first
+    error = FT_Load_Glyph(ftFace, glyphIndex, FT_LOAD_DEFAULT);
+    if (error != FT_Err_Ok) throw std::runtime_error("Failed to load glyph");
+
+    // Get boldness from config (cast to FT_Pos)
+    FT_Pos emboldenStrength = static_cast<FT_Pos>(Config::Font::EMBOLDEN_STRENGTH);
+    
+    if (emboldenStrength > 0)
     {
-        throw std::runtime_error("Failed to set char size");
+        // Check if this glyph has outline data (vector fonts only)
+        if (ftFace->glyph->format == FT_GLYPH_FORMAT_OUTLINE)
+        {
+            // Apply emboldening to the glyph outline
+            error = FT_Outline_Embolden(&ftFace->glyph->outline, emboldenStrength);
+            
+            if (error != FT_Err_Ok)
+            {
+                // Emboldening failed - not critical, continue without it
+                static bool warningShown = false;
+                if (!warningShown)
+                {
+                    std::cerr << "[TextRenderer] Warning: FT_Outline_Embolden failed (error: "  << error << "). Continuing without boldness." << std::endl;
+                    warningShown = true;
+                }
+            }
+        }
+        // Note: Bitmap fonts (like Emoji) cannot be emboldened, silently skip
     }
     
-    // Load and render glyph
-    error = FT_Load_Glyph(ftFace, glyphIndex, Config::Font::LOAD_FLAGS_RENDER);
-    if (error != FT_Err_Ok)
-    {
-        throw std::runtime_error("Failed to load glyph");
-    }
+    // === Emboldening Complete ===
+    //======================================================================================
+    
+    // Now render the (possibly emboldened) glyph to bitmap
+    error = FT_Render_Glyph(ftFace->glyph, FT_RENDER_MODE_NORMAL);
+    if (error != FT_Err_Ok) throw std::runtime_error("Failed to render glyph");
     
     FT_GlyphSlot slot = ftFace->glyph;
-    if (slot->format != FT_GLYPH_FORMAT_BITMAP)
-    {
-        throw std::runtime_error("Glyph not in bitmap format");
-    }
+    if (slot->format != FT_GLYPH_FORMAT_BITMAP) throw std::runtime_error("Glyph not in bitmap format");
     
     // Extract bitmap data and metrics
     outBitmapData = slot->bitmap.buffer;

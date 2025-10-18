@@ -543,33 +543,54 @@ struct TextSegment {
 };
 
 //==========================================================================================
-// Glyph cache types
-
-/** Key for glyph cache lookup */
+/**
+    Cache key for glyph lookup.
+    
+    Identifies a unique glyph by font, glyph index, size, and boldness strength.
+    Each combination of these parameters produces a different cached glyph bitmap.
+*/
 struct GlyphKey
 {
-    FontHandle fontHandle;
-    uint32_t glyphIndex;
-    uint32_t fontSize;      ///< Fixed-point size (size * 64)
-
-    GlyphKey(FontHandle font, uint32_t glyph, float size)
-        : fontHandle(font), glyphIndex(glyph), fontSize(static_cast<uint32_t>(size * 64.0f)) {
+    FontHandle fontHandle;    ///< Font handle
+    uint32_t glyphIndex;      ///< Glyph index in font
+    uint32_t quantizedSize;   ///< Font size * 64 (26.6 fixed-point)
+    uint32_t boldness;        ///< Embolden strength (FT_Pos value)
+    
+    /**
+        Constructs cache key with optional boldness.
+        
+        @param fh        Font handle
+        @param gi        Glyph index
+        @param fontSize  Font size in points (will be quantized)
+        @param bold      Embolden strength (default: 0 = no boldness)
+    */
+    GlyphKey(FontHandle fh, uint32_t gi, float fontSize, uint32_t bold = 0)
+        : fontHandle(fh)
+        , glyphIndex(gi)
+        , quantizedSize(static_cast<uint32_t>(fontSize * 64.0f))
+        , boldness(bold)
+    {
     }
-
+    
     bool operator==(const GlyphKey& other) const
     {
         return fontHandle == other.fontHandle &&
-            glyphIndex == other.glyphIndex &&
-            fontSize == other.fontSize;
+               glyphIndex == other.glyphIndex &&
+               quantizedSize == other.quantizedSize &&
+               boldness == other.boldness;
     }
 };
 
-/** Hash function for GlyphKey */
+/** Hash functor for GlyphKey. */
 struct GlyphKeyHash
 {
     size_t operator()(const GlyphKey& key) const
     {
-        return ((size_t)key.fontHandle << 32) | ((size_t)key.glyphIndex << 16) | key.fontSize;
+        size_t hash = std::hash<FontHandle>()(key.fontHandle);
+        hash ^= std::hash<uint32_t>()(key.glyphIndex) << 1;
+        hash ^= std::hash<uint32_t>()(key.quantizedSize) << 2;
+        hash ^= std::hash<uint32_t>()(key.boldness) << 3;
+        return hash;
     }
 };
 

@@ -44,6 +44,7 @@ namespace Font {
     static constexpr int FREETYPE_DPI = 72;                 ///< DPI for FreeType rendering
     static constexpr int LOAD_FLAGS_METRICS = 0x0;          ///< Load glyph for metrics only (FT_LOAD_DEFAULT)
     static constexpr int LOAD_FLAGS_RENDER = 0x4;           ///< Load and render glyph bitmap (FT_LOAD_RENDER)
+    constexpr int32_t EMBOLDEN_STRENGTH = 16;               ///< 0.5 pixel boldness
 }
 
 //==========================================================================================

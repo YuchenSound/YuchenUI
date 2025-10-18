@@ -163,18 +163,15 @@ vertex TextVertexOutput vertex_text(TextVertexInput input [[stage_in]],
     return out;
 }
 
-fragment float4 fragment_text(TextVertexOutput input [[stage_in]],
-                             texture2d<float> glyphTexture [[texture(0)]],
-                             sampler glyphSampler [[sampler(0)]]) {
+fragment float4 fragment_text(TextVertexOutput input [[stage_in]],texture2d<float> glyphTexture [[texture(0)]],sampler glyphSampler [[sampler(0)]]) {
     float alpha = glyphTexture.sample(glyphSampler, input.texCoord).r;
-    
+
+    // To optimize text rendering by increasing the gamma value
+    alpha = pow(alpha, 0.8);
+
     float4 color = input.color;
     color.a *= alpha;
-    
-    if (color.a < 0.01) {
-        discard_fragment();
-    }
-    
+    if (color.a < 0.01){ discard_fragment(); }
     return color;
 }
 
