@@ -1,4 +1,5 @@
 #include "ChannelStrip.h"
+#include "PanSection.h"
 #include "FaderMeterSection.h"
 #include "MeterNumberSection.h"
 #include "SoloMuteSection.h"
@@ -12,6 +13,7 @@ ChannelStrip::ChannelStrip(const YuchenUI::Rect& bounds, int channelNumber, Trac
     : Widget()
     , m_channelNumber(channelNumber)
     , m_trackType(trackType)
+    , m_panSection(nullptr)
     , m_faderMeterSection(nullptr)
     , m_meterNumberSection(nullptr)
     , m_soloMuteSection(nullptr)
@@ -27,9 +29,10 @@ ChannelStrip::~ChannelStrip()
 
 float ChannelStrip::getStripHeight()
 {
-    return FaderMeterSection::PREFERRED_HEIGHT +
-           MeterNumberSection::PREFERRED_HEIGHT +
+    return PanSection::PREFERRED_HEIGHT +
            SoloMuteSection::PREFERRED_HEIGHT +
+           FaderMeterSection::PREFERRED_HEIGHT +
+           MeterNumberSection::PREFERRED_HEIGHT +
            NameSection::PREFERRED_HEIGHT;
 }
 
@@ -37,7 +40,7 @@ void ChannelStrip::setOwnerContext(YuchenUI::UIContext* context)
 {
     Widget::setOwnerContext(context);
     
-    if (context && !m_faderMeterSection && !m_meterNumberSection && !m_soloMuteSection && !m_nameSection)
+    if (context && !m_panSection && !m_faderMeterSection && !m_meterNumberSection && !m_soloMuteSection && !m_nameSection)
     {
         createSections();
     }
@@ -47,6 +50,10 @@ void ChannelStrip::setMixerTheme(MixerTheme* theme)
 {
     m_mixerTheme = theme;
     
+    if (m_panSection)
+    {
+        m_panSection->setMixerTheme(theme);
+    }
     if (m_faderMeterSection)
     {
         m_faderMeterSection->setMixerTheme(theme);
@@ -73,7 +80,27 @@ void ChannelStrip::createSections()
     
     float currentY = 0.0f;
     
-    // --- SoloMuteSection 在最上方 ---
+    YuchenUI::Rect panBounds(
+        BORDER_SIZE,
+        currentY,
+        CONTENT_WIDTH,
+        PanSection::PREFERRED_HEIGHT
+    );
+    m_panSection = addChild(new PanSection(panBounds));
+    m_panSection->setMixerTheme(m_mixerTheme);
+    
+    m_panSection->setOnLeftPanChanged([this](int value) {
+        std::cout << "Channel " << m_channelNumber
+                  << " left pan changed: " << value << std::endl;
+    });
+    
+    m_panSection->setOnRightPanChanged([this](int value) {
+        std::cout << "Channel " << m_channelNumber
+                  << " right pan changed: " << value << std::endl;
+    });
+    
+    currentY += PanSection::PREFERRED_HEIGHT;
+    
     YuchenUI::Rect soloMuteBounds(
         BORDER_SIZE,
         currentY,
@@ -120,7 +147,6 @@ void ChannelStrip::createSections()
     
     currentY += SoloMuteSection::PREFERRED_HEIGHT;
 
-    // --- FaderMeterSection ---
     YuchenUI::Rect faderMeterBounds(
         BORDER_SIZE,
         currentY,
@@ -141,7 +167,6 @@ void ChannelStrip::createSections()
     
     currentY += FaderMeterSection::PREFERRED_HEIGHT;
     
-    // --- MeterNumberSection ---
     YuchenUI::Rect meterNumberBounds(
         BORDER_SIZE,
         currentY,
@@ -154,7 +179,6 @@ void ChannelStrip::createSections()
     
     currentY += MeterNumberSection::PREFERRED_HEIGHT;
     
-    // --- NameSection ---
     std::ostringstream oss;
     oss << "Ch " << m_channelNumber;
     YuchenUI::Rect nameBounds(

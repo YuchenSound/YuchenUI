@@ -215,6 +215,76 @@ fragment float4 fragment_image(
 {
     return colorTexture.sample(textureSampler, in.texCoord);
 }
+
+struct NineSliceVertex {
+    float2 position [[attribute(0)]];
+    float2 texCoord [[attribute(1)]];
+    float4 margins [[attribute(2)]];
+    float2 texSize [[attribute(3)]];
+    float2 destSize [[attribute(4)]];
+};
+
+struct NineSliceFragmentInput {
+    float4 position [[position]];
+    float2 texCoord;
+    float4 margins;
+    float2 texSize;
+    float2 destSize;
+};
+
+vertex NineSliceFragmentInput vertex_image_nineslice(
+    NineSliceVertex in [[stage_in]],
+    constant ViewportUniforms& uniforms [[buffer(1)]])
+{
+    NineSliceFragmentInput out;
+    out.position = float4(in.position, 0.0, 1.0);
+    out.texCoord = in.texCoord;
+    out.margins = in.margins;
+    out.texSize = in.texSize;
+    out.destSize = in.destSize;
+    return out;
+}
+
+fragment float4 fragment_image_nineslice(
+    NineSliceFragmentInput in [[stage_in]],
+    texture2d<float> colorTexture [[texture(0)]],
+    sampler textureSampler [[sampler(0)]])
+{
+    float2 uv = in.texCoord;
+    float left = in.margins.x / in.texSize.x;
+    float top = in.margins.y / in.texSize.y;
+    float right = in.margins.z / in.texSize.x;
+    float bottom = in.margins.w / in.texSize.y;
+    
+    float leftPx = in.margins.x;
+    float topPx = in.margins.y;
+    float rightPx = in.margins.z;
+    float bottomPx = in.margins.w;
+    
+    float2 actualUV;
+    
+    if (uv.x < leftPx / in.destSize.x) {
+        actualUV.x = uv.x * in.destSize.x / in.texSize.x;
+    } else if (uv.x > 1.0 - rightPx / in.destSize.x) {
+        float normalizedX = (uv.x - (1.0 - rightPx / in.destSize.x)) / (rightPx / in.destSize.x);
+        actualUV.x = (1.0 - right) + normalizedX * right;
+    } else {
+        float normalizedX = (uv.x - leftPx / in.destSize.x) / (1.0 - (leftPx + rightPx) / in.destSize.x);
+        actualUV.x = left + normalizedX * (1.0 - left - right);
+    }
+    
+    if (uv.y < topPx / in.destSize.y) {
+        actualUV.y = uv.y * in.destSize.y / in.texSize.y;
+    } else if (uv.y > 1.0 - bottomPx / in.destSize.y) {
+        float normalizedY = (uv.y - (1.0 - bottomPx / in.destSize.y)) / (bottomPx / in.destSize.y);
+        actualUV.y = (1.0 - bottom) + normalizedY * bottom;
+    } else {
+        float normalizedY = (uv.y - topPx / in.destSize.y) / (1.0 - (topPx + bottomPx) / in.destSize.y);
+        actualUV.y = top + normalizedY * (1.0 - top - bottom);
+    }
+    
+    return colorTexture.sample(textureSampler, actualUV);
+}
 )";
 
 //==========================================================================================

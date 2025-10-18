@@ -9,6 +9,7 @@
 class FaderMeterSection;
 class MeterNumberSection;
 class SoloMuteSection;
+class PanSection;
 class NameSection;
 class MixerTheme;
 
@@ -55,6 +56,7 @@ private:
     
     int m_channelNumber;
     TrackType m_trackType;
+    PanSection* m_panSection;
     FaderMeterSection* m_faderMeterSection;
     MeterNumberSection* m_meterNumberSection;
     SoloMuteSection* m_soloMuteSection;

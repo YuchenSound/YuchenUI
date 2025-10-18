@@ -281,8 +281,32 @@ void ScrollArea::addDrawCommands(RenderList& commandList, const Vec2& offset) co
     Rect clipRect(absPos.x, absPos.y, contentArea.width, contentArea.height);
     commandList.pushClipRect(clipRect);
     
+    // ========== 优化：只渲染可见的子组件 ==========
+    // 计算可见区域在内容坐标系中的范围
+    Rect visibleContentRect(m_scrollX, m_scrollY, contentArea.width, contentArea.height);
+    
     Vec2 contentOffset(absPos.x - m_scrollX, absPos.y - m_scrollY);
-    renderChildren(commandList, contentOffset);
+    
+    // 遍历所有子组件，只渲染与可见区域相交的组件
+    for (const auto& child : m_ownedChildren)
+    {
+        if (!child || !child->isVisible()) continue;
+        
+        const Rect& childBounds = child->getBounds();
+        
+        // 快速相交测试：检查子组件边界是否与可见区域相交
+        // 只要有任何部分可见（哪怕只有1像素），就渲染
+        bool isVisible = !(childBounds.x + childBounds.width <= visibleContentRect.x ||  // 子组件完全在左边
+                          childBounds.x >= visibleContentRect.x + visibleContentRect.width ||  // 子组件完全在右边
+                          childBounds.y + childBounds.height <= visibleContentRect.y ||  // 子组件完全在上边
+                          childBounds.y >= visibleContentRect.y + visibleContentRect.height);  // 子组件完全在下边
+        
+        if (isVisible)
+        {
+            child->addDrawCommands(commandList, contentOffset);
+        }
+    }
+    // ========== 优化结束 ==========
     
     commandList.popClipRect();
     

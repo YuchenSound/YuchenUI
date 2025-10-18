@@ -36,7 +36,7 @@ private:
     std::unique_ptr<MixerTheme> m_mixerTheme;
     YuchenUI::StyleType m_lastStyleType;
     
-    static constexpr int CHANNEL_COUNT = 36;
+    static constexpr int CHANNEL_COUNT = 1136;
     
     float m_time;
     float m_globalRecordTime;
